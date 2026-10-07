@@ -10,7 +10,7 @@ import {
 } from '../../../../test-utils/snapping/image-scale-routing'
 import { seedVisibleSnappingState } from '../../../../test-utils/snapping/snapping-lifecycle'
 
-/** События окна, которые прерывают скейлинг изображения. */
+/** Window events that interrupt image scaling. */
 const INTERRUPTED_SCALE_EVENTS = [
   {
     event: 'pointercancel',

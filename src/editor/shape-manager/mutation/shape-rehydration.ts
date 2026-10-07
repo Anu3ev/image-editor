@@ -11,7 +11,7 @@ import type {
 } from '../types'
 
 /**
- * Размеры и режим повторного применения layout после подготовки shape-группы.
+ * Dimensions and layout-reapplication mode after preparing the shape group.
  */
 type PreparedRehydratedShapeLayout = {
   currentDimensions: ShapeDimensions
@@ -20,7 +20,7 @@ type PreparedRehydratedShapeLayout = {
 }
 
 /**
- * Пересчитывает base/manual/replace-box размеры после восстановления группы из внешнего path.
+ * Recalculates base/manual/replacement-box dimensions after restoring a group through an external path.
  */
 export function resolveRehydratedShapeDimensions({ group }: { group: ShapeGroup }): {
   currentDimensions: ShapeDimensions
@@ -49,7 +49,7 @@ export function resolveRehydratedShapeDimensions({ group }: { group: ShapeGroup 
 }
 
 /**
- * Запекает scene text scale обратно в визуальное состояние текста и пользовательский padding.
+ * Bakes scene text scale back into the text's visual state and user-defined padding.
  */
 export function applyRehydratedShapeTextScale({
   group,
@@ -81,7 +81,7 @@ export function applyRehydratedShapeTextScale({
 }
 
 /**
- * Запекает transient-состояние и определяет, можно ли сохранить serialized visual bounds.
+ * Bakes transient state and determines whether serialized visual bounds can be preserved.
  */
 export function prepareRehydratedShapeLayout({
   group,

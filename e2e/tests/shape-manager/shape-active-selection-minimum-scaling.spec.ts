@@ -11,13 +11,13 @@ import {
   SHAPE_MULTI_SCALING_TOLERANCE
 } from '../../fixtures/data/shape-multi-scaling.data'
 
-/** Минимальный размер, до которого тянется ручка общего выделения. */
+/** Minimum size to which the active-selection handle is dragged. */
 const MINIMUM_TARGET_SIZE = 1
 
-/** Смещение указателя дальше минимального размера. */
+/** Pointer offset beyond the minimum size. */
 const BEYOND_MINIMUM_DELTA = -120
 
-/** Смещение верхней ручки дальше минимального размера. */
+/** Top-handle offset beyond the minimum size. */
 const BEYOND_TOP_MINIMUM_DELTA = 120
 
 test('если продолжать тянуть угол после упора в минимальную ширину, выделение не расширяется по ширине рывком', async({

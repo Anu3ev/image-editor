@@ -3,21 +3,21 @@ import type {
   ObjectTargetParams
 } from './editor.types'
 
-/** Взаимоисключающий выбор canvas-объекта по идентификатору или текущего активного объекта. */
+/** Mutually exclusive choice of a canvas object by ID or index, or the current active object. */
 export type SnappingTargetParams =
   | (ObjectTargetParams & { activeObject?: never })
   | { activeObject: true; id?: never; objectIndex?: never }
 
-/** Направление обычной направляющей прилипания. */
+/** Direction of a regular snapping guide. */
 export type SnappingGuideAxis = 'vertical' | 'horizontal'
 
-/** Сериализованная обычная направляющая прилипания. */
+/** Serialized regular snapping guide. */
 export interface SnappingGuideInfo {
   type: SnappingGuideAxis
   position: number
 }
 
-/** Сериализованная направляющая равноудалённости. */
+/** Serialized equal-spacing guide. */
 export interface SnappingSpacingGuideInfo {
   type: SnappingGuideAxis
   axis: number
@@ -28,13 +28,13 @@ export interface SnappingSpacingGuideInfo {
   distance: number
 }
 
-/** Текущее состояние направляющих менеджера прилипания. */
+/** Current guide state of the snapping manager. */
 export interface SnappingGuideState {
   guides: SnappingGuideInfo[]
   spacingGuides: SnappingSpacingGuideInfo[]
 }
 
-/** Снимок объекта с текущими границами для проверки прилипания. */
+/** Object snapshot with current bounds for testing snapping. */
 export interface SnappingObjectSnapshot extends EditorObjectInfo {
   boundsLeft: number
   boundsTop: number
@@ -46,48 +46,48 @@ export interface SnappingObjectSnapshot extends EditorObjectInfo {
   centerY: number
 }
 
-/** Параметры начала интерактивного перетаскивания объекта. */
+/** Options for starting an interactive object drag. */
 export type SnappingDragStartParams = SnappingTargetParams
 
-/** Параметры одного шага перетаскивания по внутренним координатам объекта. */
+/** Options for one drag step using the object's internal coordinates. */
 export type SnappingDragMoveParams = SnappingTargetParams & {
   left: number
   top: number
   ctrlKey?: boolean
 }
 
-/** Параметры одного шага перетаскивания по границам объекта. */
+/** Options for one drag step using object bounds. */
 export type SnappingDragBoundsParams = SnappingTargetParams & {
   left: number
   top: number
   ctrlKey?: boolean
 }
 
-/** Положение границ объекта во время удержания прилипания. */
+/** Object-bounds position during a snap hold. */
 export type SnappingDragBoundsPosition = Readonly<{
   left: number
   top: number
 }>
 
-/** Параметры полного перетаскивания с несколькими шагами внутри удержания. */
+/** Options for a complete drag with several steps within the hold. */
 export type SnappingDragBoundsWithHoldParams = SnappingDragBoundsParams & {
   heldPositions: readonly SnappingDragBoundsPosition[]
 }
 
-/** Состояние объекта и направляющих на одном шаге перетаскивания. */
+/** Object and guide state at one drag step. */
 export type SnappingObservedDragStep = Readonly<{
   snapshot: SnappingObjectSnapshot
   guides: SnappingGuideState
 }>
 
-/** Наблюдаемые состояния полного перетаскивания с удержанием. */
+/** Observable states of a complete drag with a hold. */
 export type SnappingDragHoldTrace = Readonly<{
   acquired: SnappingObservedDragStep
   held: readonly SnappingObservedDragStep[]
   committed: SnappingObjectSnapshot
 }>
 
-/** Параметры одного шага перетаскивания по центру границ объекта. */
+/** Options for one drag step using the center of the object's bounds. */
 export type SnappingDragCenterParams = SnappingTargetParams & {
   centerX: number
   centerY: number

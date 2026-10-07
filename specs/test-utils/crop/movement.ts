@@ -4,7 +4,7 @@ import { CropFrameInteraction } from '../../../src/editor/crop-manager/interacti
 import { createCropInteractionFrame } from './frame'
 import { createCropGestureHarness } from './interaction'
 
-/** Наблюдаемая граница редактора и настоящий расчёт целей перемещения. */
+/** Observable editor boundary and real movement-target calculation. */
 function createSnapping() {
   const snapping: SnappingManager = Object.create(SnappingManager.prototype)
   const capture = jest.fn(() => createMovementSnapEnvironment({
@@ -24,14 +24,14 @@ function createSnapping() {
   return { snapping, capture, publish, markHandled }
 }
 
-/** Собирает crop drag с настоящим resolver и наблюдаемыми мутациями рамки. */
+/** Builds a crop drag with a real resolver and observable frame mutations. */
 export function createCropMovementHarness({ allowFrameOverflow = false } = {}) {
   const frame = createCropInteractionFrame({ allowFrameOverflow, width: 200, height: 150 })
   const gesture = createCropGestureHarness({ frame, action: 'drag' })
   const environment = createSnapping()
   const controller = new CropFrameInteraction({ canvas: gesture.canvas, frame, snapping: environment.snapping })
 
-  /** Выполняет действие активного drag с новым или повторным native-событием. */
+  /** Performs the active drag action with a new or repeated native event. */
   const step = ({ x, y, event = new MouseEvent('mousemove') }: { x: number; y: number; event?: MouseEvent }) => {
     const action = gesture.transform.actionHandler
     if (!action) throw new Error('Не подключено действие перемещения crop')

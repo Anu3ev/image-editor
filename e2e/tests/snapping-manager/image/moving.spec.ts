@@ -2,7 +2,7 @@ import { test, expect } from '../../../fixtures/editor.fixture'
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Данные для сценариев перемещения изображения. */
+/** Data for image-movement scenarios. */
 type ImageMovementSetup = {
   imageId: string
   reference: SnappingObjectSnapshot

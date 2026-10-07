@@ -138,7 +138,7 @@ const createMockCanvasElement = (dataUrl: string) => {
 }
 
 /**
- * Создаёт FabricImage на основе реального image/canvas элемента для совместимости с контрактом Fabric.
+ * Creates a FabricImage from a real image/canvas element for compatibility with the Fabric contract.
  */
 export const createMockFabricImage = ({
   width = 100,

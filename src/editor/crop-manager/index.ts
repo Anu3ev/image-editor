@@ -68,7 +68,7 @@ import type {
 } from './types'
 
 /**
- * Поведение crop mode по умолчанию.
+ * Default crop mode behavior.
  */
 const DEFAULT_CROP_SESSION_OPTIONS = {
   allowFrameOverflow: true,
@@ -79,13 +79,13 @@ const DEFAULT_CROP_SESSION_OPTIONS = {
 } satisfies CropSessionOptions
 
 /**
- * Допуск для live-проверки выхода frame за source.
- * Fabric может давать доли пикселя у frame, который визуально стоит на границе source.
+ * Tolerance for live checks of whether the frame extends beyond the source.
+ * Fabric can produce fractional pixels for a frame that visually sits on the source boundary.
  */
 const SOURCE_BOUNDS_OVERFLOW_EPSILON = 0.5
 
 /**
- * Часть internal Fabric canvas state, нужная только чтобы погасить текущий pointer event.
+ * Part of the internal Fabric canvas state needed only to suppress the current pointer event.
  */
 type CanvasWithTargetCache = Canvas & {
   _targetInfo?: {
@@ -97,7 +97,7 @@ type CanvasWithTargetCache = Canvas & {
 }
 
 /**
- * Минимальная часть live-event, которая влияет на effective resize mode.
+ * Minimal part of a live event that affects the effective resize mode.
  */
 type CropResizeModeEvent = {
   e?: Pick<TPointerEvent, 'shiftKey'>
@@ -108,30 +108,30 @@ type CropResizeModeEvent = {
 }
 
 /**
- * Управляет transient crop mode для монтажной области и выбранного изображения.
+ * Manages transient crop mode for the artboard and the selected image.
  */
 export default class CropManager {
   /**
-   * Инстанс редактора.
+   * Editor instance.
    */
   public editor: ImageEditor
 
   /**
-   * Активная crop session. Не сериализуется и не попадает в history.
+   * Active crop session. Not serialized or included in history.
    */
   private _session: CropSession | null
 
   /**
-   * Фактический resize-режим текущего active resize interaction.
+   * Effective resize mode of the current active resize interaction.
    */
   private _activeResizePreserveAspectRatio: boolean | null
 
-  /** Владелец изменения размера и перемещения активной crop-области. */
+  /** Owner of resizing and movement for the active crop area. */
   private _frameInteraction: CropFrameInteraction | null = null
 
   /**
    * @param options
-   * @param options.editor - экземпляр редактора
+   * @param options.editor - Editor instance
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -140,13 +140,13 @@ export default class CropManager {
   }
 
   /**
-   * Возвращает true, если crop mode активен.
+   * Returns true if crop mode is active.
    */
   public get isActive(): boolean {
     return Boolean(this._session)
   }
 
-  /** Передаёт прежнему snapping точные границы источника только для активной crop-рамки. */
+  /** Passes exact source bounds to legacy snapping only for the active crop frame. */
   public getFrameSnappingBoundary(target?: FabricObject | null): SnapDomainBoundary | undefined {
     const session = this._session
     if (!session || target !== session.frame) return undefined
@@ -157,7 +157,7 @@ export default class CropManager {
     return { object: session.source, bounds }
   }
 
-  /** Обрабатывает прежний resize crop-рамки, не поддерживаемый общей scale-сессией. */
+  /** Handles legacy crop frame resizing that the shared scale session does not support. */
   public applyFrameScalingSnap({
     target, transform, event, anchors, threshold
   }: {
@@ -175,7 +175,7 @@ export default class CropManager {
   }
 
   /**
-   * Возвращает публичное состояние активного crop mode.
+   * Returns the public state of the active crop mode.
    */
   public getState(): CropState | null {
     const { _session: session } = this
@@ -199,17 +199,17 @@ export default class CropManager {
   }
 
   /**
-   * Возвращает фактическое состояние сохранения пропорций с учётом зажатого Shift.
-   * Если crop mode не активен, возвращает true.
+   * Returns the effective aspect ratio preservation state, accounting for Shift being held.
+   * Returns true if crop mode is inactive.
    */
   public get effectivePreserveAspectRatio(): boolean {
     return this._session?.effectivePreserveAspectRatio ?? true
   }
 
   /**
-   * Возвращает фактическое состояние сохранения пропорций по переданному событию.
-   * Учитывает зажатый Shift и source-bound clamp.
-   * Если crop mode не активен, возвращает true.
+   * Returns the effective aspect ratio preservation state for the given event.
+   * Accounts for Shift being held and the source-bound clamp.
+   * Returns true if crop mode is inactive.
    */
   private _getEffectivePreserveAspectRatio(
     event?: CropResizeModeEvent
@@ -229,7 +229,7 @@ export default class CropManager {
     })
   }
 
-  /** Возвращает true, если live-step вынес crop frame за source по выбранной оси и будет зажат clamp-ом. */
+  /** Returns true if the live step moved the crop frame beyond the source along the selected axis and will be clamped. */
   public isFrameOverflowingSource({
     target,
     axis
@@ -252,7 +252,7 @@ export default class CropManager {
   }
 
   /**
-   * Входит в режим кропа монтажной области.
+   * Enters artboard crop mode.
    */
   public startCanvasCrop(options: StartCanvasCropOptions = {}): CropState | null {
     this.cancel()
@@ -268,7 +268,7 @@ export default class CropManager {
   }
 
   /**
-   * Входит в режим кропа выбранного изображения.
+   * Enters crop mode for the selected image.
    */
   public startImageCrop(options: StartImageCropOptions = {}): CropState | null {
     this.cancel()
@@ -294,7 +294,7 @@ export default class CropManager {
   }
 
   /**
-   * Обновляет crop-область по заданной видимой пропорции.
+   * Updates the crop area to the specified visible aspect ratio.
    */
   public setAspectRatio({ aspectRatio }: { aspectRatio: CropAspectRatio | null }): CropState | null {
     const { _session: session } = this
@@ -319,7 +319,7 @@ export default class CropManager {
   }
 
   /**
-   * Обновляет crop frame по explicit размеру.
+   * Updates the crop frame to an explicit size.
    */
   public setSize({ size }: { size: CropSize }): CropState | null {
     const { _session: session } = this
@@ -341,7 +341,7 @@ export default class CropManager {
   }
 
   /**
-   * Переключает сохранение пропорций при resize активной crop-области.
+   * Toggles aspect ratio preservation when resizing the active crop area.
    */
   public setPreserveAspectRatio({
     preserveAspectRatio,
@@ -377,8 +377,8 @@ export default class CropManager {
   }
 
   /**
-   * Разворачивает active crop frame до source, сохраняя текущие пропорции при включённом keep ratio.
-   * Для image crop разрешён прямой вызов без Fabric event target.
+   * Expands the active crop frame to the source, preserving the current aspect ratio when keep ratio is enabled.
+   * For image crops, a direct call without a Fabric event target is allowed.
    */
   public resetFrameToSource(
     { target }: { target?: FabricObject | null } = {}
@@ -413,8 +413,8 @@ export default class CropManager {
   }
 
   /**
-   * Масштабирует active crop frame к монтажной области, когда разрешён выход за source.
-   * В strict crop contain и cover разворачивают frame до source с одной и той же геометрией reset.
+   * Scales the active crop frame to the artboard when extending beyond the source is allowed.
+   * In strict crop mode, contain and cover expand the frame to the source using the same reset geometry.
    */
   public fitFrame({ type }: { type: CropFrameFitType }): CropState | null {
     const { _session: session } = this
@@ -450,7 +450,7 @@ export default class CropManager {
   }
 
   /**
-   * Применяет активный crop mode.
+   * Applies the active crop mode.
    */
   public apply(): CropApplyResult | null {
     const { _session: session } = this
@@ -471,7 +471,7 @@ export default class CropManager {
   }
 
   /**
-   * Выходит из crop mode без применения.
+   * Exits crop mode without applying it.
    */
   public cancel(): boolean {
     const { _session: session } = this
@@ -489,14 +489,14 @@ export default class CropManager {
   }
 
   /**
-   * Очищает crop mode при уничтожении редактора.
+   * Cleans up crop mode when the editor is destroyed.
    */
   public destroy(): void {
     this.cancel()
   }
 
   /**
-   * Создаёт runtime crop session.
+   * Creates a runtime crop session.
    */
   private _createCanvasSession({
     source,
@@ -526,7 +526,7 @@ export default class CropManager {
   }
 
   /**
-   * Создаёт runtime crop session для изображения.
+   * Creates a runtime crop session for an image.
    */
   private _createImageSession({
     target,
@@ -556,7 +556,7 @@ export default class CropManager {
   }
 
   /**
-   * Возвращает полные runtime-настройки crop session.
+   * Returns the complete runtime settings for the crop session.
    */
   private _resolveSessionOptions({
     options
@@ -574,7 +574,7 @@ export default class CropManager {
   }
 
   /**
-   * Создаёт crop frame по размеру источника и переданным ограничениям.
+   * Creates a crop frame based on the source size and the supplied constraints.
    */
   private _createCropFrameForSource({
     source,
@@ -606,7 +606,7 @@ export default class CropManager {
   }
 
   /**
-   * Синхронизирует runtime crop frame с активным режимом сохранения пропорций.
+   * Synchronizes the runtime crop frame with the active aspect ratio preservation mode.
    */
   private _setFramePreserveAspectRatio({
     frame,
@@ -623,7 +623,7 @@ export default class CropManager {
   }
 
   /**
-   * Активирует crop session на canvas.
+   * Activates the crop session on the canvas.
    */
   private _activateSession({ session }: { session: CropSession }): void {
     const { canvas, historyManager } = this.editor
@@ -654,7 +654,7 @@ export default class CropManager {
   }
 
   /**
-   * Подписывает crop frame на live-ограничения.
+   * Subscribes the crop frame to live constraints.
    */
   private _bindCropFrameEvents({ frame }: { frame: Rect }): void {
     frame.on('moving', this._handleCropFrameChanged)
@@ -663,7 +663,7 @@ export default class CropManager {
   }
 
   /**
-   * Отписывает crop frame от live-ограничений.
+   * Unsubscribes the crop frame from live constraints.
    */
   private _unbindCropFrameEvents({ frame }: { frame: Rect }): void {
     frame.off('moving', this._handleCropFrameChanged)
@@ -672,7 +672,7 @@ export default class CropManager {
   }
 
   /**
-   * Подписывает canvas на потерю active crop frame, если это включено в session.
+   * Subscribes the canvas to loss of the active crop frame, if enabled in the session.
    */
   private _bindCanvasSelectionEvents({ session }: { session: CropSession }): void {
     if (!session.options.cancelOnSelectionClear) return
@@ -683,7 +683,7 @@ export default class CropManager {
   }
 
   /**
-   * Отписывает canvas от lifecycle-событий crop session.
+   * Unsubscribes the canvas from crop session lifecycle events.
    */
   private _unbindCanvasSelectionEvents(): void {
     this.editor.canvas.off('mouse:down:before', this._handleCanvasMouseDownBefore)
@@ -692,7 +692,7 @@ export default class CropManager {
   }
 
   /**
-   * Обрабатывает live-изменение crop frame.
+   * Handles live changes to the crop frame.
    */
   private readonly _handleCropFrameChanged = (event?: CropFrameChangeEvent): void => {
     const { _session: session } = this
@@ -719,7 +719,7 @@ export default class CropManager {
   }
 
   /**
-   * Обрабатывает завершение изменения crop frame и очищает live resize override.
+   * Handles completion of a crop frame change and clears the live resize override.
    */
   private readonly _handleCropFrameModified = (event?: CropFrameChangeEvent): void => {
     this._handleCropFrameChanged(event)
@@ -736,7 +736,7 @@ export default class CropManager {
   }
 
   /**
-   * Отменяет crop mode, если crop frame перестал быть active object.
+   * Cancels crop mode if the crop frame is no longer the active object.
    */
   private readonly _handleCanvasSelectionChanged = (): void => {
     const { _session: session } = this
@@ -749,14 +749,14 @@ export default class CropManager {
   }
 
   /**
-   * Возвращает true, если текущая потеря focus связана с временным Space-pan.
+   * Returns true if the current loss of focus is caused by temporary Space-pan.
    */
   private _isSpacePanActive(): boolean {
     return Boolean(this.editor.listeners?.isSpacePressed)
   }
 
   /**
-   * Выходит из crop mode по клику вне frame и не даёт этому же клику выбрать другой объект.
+   * Exits crop mode on a click outside the frame and prevents that click from selecting another object.
    */
   private readonly _handleCanvasMouseDownBefore = ({
     target
@@ -779,7 +779,7 @@ export default class CropManager {
   }
 
   /**
-   * Завершает crop mode так, чтобы текущий pointer event не выбрал объект под курсором.
+   * Ends crop mode so the current pointer event cannot select the object under the cursor.
    */
   private _cancelFromPointerDown({
     nextActiveObject
@@ -813,7 +813,7 @@ export default class CropManager {
   }
 
   /**
-   * Восстанавливает selection после того, как Fabric завершит текущий mouse:down.
+   * Restores selection after Fabric finishes the current mouse:down.
    */
   private _deferPointerDownSelectionRestore({
     nextActiveObject,
@@ -838,7 +838,7 @@ export default class CropManager {
   }
 
   /**
-   * Применяет новый локальный размер frame.
+   * Applies a new local frame size.
    */
   private _applyFrameSize({
     session,
@@ -859,7 +859,7 @@ export default class CropManager {
   }
 
   /**
-   * Ограничивает crop frame source-границами только для strict mode.
+   * Constrains the crop frame to the source bounds only in strict mode.
    */
   private _clampFrameIfNeeded({
     session,
@@ -885,7 +885,7 @@ export default class CropManager {
   }
 
   /**
-   * Применяет активную crop session через mode-specific mutation path.
+   * Applies the active crop session through the mode-specific mutation path.
    */
   private _applySessionCrop({ session }: { session: CropSession }): CropApplyResult | null {
     const sourceSize = session.options.allowFrameOverflow
@@ -913,7 +913,7 @@ export default class CropManager {
   }
 
   /**
-   * Завершает crop session и возвращает обычное редактирование даже при ошибке завершения жеста.
+   * Ends the crop session and restores normal editing even if gesture completion fails.
    */
   private _finishSession({
     nextActiveObject
@@ -942,7 +942,7 @@ export default class CropManager {
   }
 
   /**
-   * Отключает интерактивность обычных объектов на время crop mode.
+   * Disables interaction with regular objects while crop mode is active.
    */
   private _disableSceneObjects(): CropObjectInteractivity[] {
     const objects = this.editor.canvasManager.getObjects()
@@ -964,7 +964,7 @@ export default class CropManager {
   }
 
   /**
-   * Восстанавливает интерактивность объектов после crop mode.
+   * Restores object interactivity after crop mode.
    */
   private _restoreSceneObjects({ interactivity }: { interactivity: CropObjectInteractivity[] }): void {
     interactivity.forEach((item) => {
@@ -977,7 +977,7 @@ export default class CropManager {
   }
 
   /**
-   * Восстанавливает active object, если он ещё находится на canvas.
+   * Restores the active object if it is still on the canvas.
    */
   private _restoreActiveObject({ object }: { object: FabricObject | null }): void {
     const { canvas } = this.editor
@@ -995,7 +995,7 @@ export default class CropManager {
   }
 
   /**
-   * Эмитит ошибку старта image crop для неподдержанного target.
+   * Emits an image crop startup error for an unsupported target.
    */
   private _emitInvalidImageTargetError({ target }: { target: FabricObject | undefined }): void {
     this.editor.errorManager.emitError({
@@ -1011,7 +1011,7 @@ export default class CropManager {
   }
 
   /**
-   * Эмитит ошибку старта image crop для заблокированного target.
+   * Emits an image crop startup error for a locked target.
    */
   private _emitLockedImageTargetError({ target }: { target: FabricImage }): void {
     this.editor.errorManager.emitError({

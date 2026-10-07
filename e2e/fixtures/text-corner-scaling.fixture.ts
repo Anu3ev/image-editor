@@ -17,7 +17,7 @@ import type {
   TextResizeSnapshot
 } from '../types'
 
-/** Данные отдельного текста и фигуры у двух границ выбранной угловой ручки. */
+/** Standalone-text and shape data at the two boundaries of the selected corner handle. */
 export type TextCornerScaleSetup = Readonly<{
   initial: TextCornerScaleSnapshot
   reference: SnappingObjectSnapshot
@@ -26,7 +26,7 @@ export type TextCornerScaleSetup = Readonly<{
   textId: string
 }>
 
-/** Масштабированный текст и готовый шаблон для проверки восстановления геометрии. */
+/** Scaled text and a prepared template for testing geometry restoration. */
 export type ScaledTextCornerTemplateSetup = Readonly<{
   committed: TextCornerScaleSnapshot
   live: TextCornerScaleSnapshot
@@ -34,28 +34,28 @@ export type ScaledTextCornerTemplateSetup = Readonly<{
   setup: TextCornerScaleSetup
 }>
 
-/** Данные известного сбоя при скейлинге повёрнутого текста за угловую ручку. */
+/** Data for a known failure when scaling rotated text with a corner handle. */
 export type RotatedTextCornerScaleSetup = Readonly<{
   initial: TextResizeSnapshot
   reference: SnappingObjectSnapshot
   textId: string
 }>
 
-/** Данные уменьшения текста до минимально допустимого размера рядом с недостижимой направляющей. */
+/** Data for shrinking text to its minimum allowed size near an unreachable guide. */
 export type MinimumTextCornerScaleSetup = Readonly<{
   initial: TextResizeSnapshot
   snapPoint: Readonly<{ x: number; y: number }>
   textId: string
 }>
 
-/** Зависимости проверки уменьшения текста до минимально допустимого размера. */
+/** Dependencies for testing text shrinking to its minimum allowed size. */
 type MinimumTextCornerScaleSetupParams = Readonly<{
   shapes: ShapeModel
   snapping: SnappingModel
   text: TextModel
 }>
 
-/** Зависимости для подготовки повёрнутого текста у направляющей. */
+/** Dependencies for preparing rotated text near a guide. */
 type RotatedTextCornerScaleSetupParams = Readonly<{
   editorModel: EditorModel
   shapes: ShapeModel
@@ -63,18 +63,18 @@ type RotatedTextCornerScaleSetupParams = Readonly<{
   text: TextModel
 }>
 
-/** Параметры проверки одной угловой ручки отдельного текста. */
+/** Options for testing one standalone-text corner handle. */
 type TextCornerScaleSetupParams = RotatedTextCornerScaleSetupParams & Readonly<{
   centered?: boolean
   corner: TextCornerScaleHandle
 }>
 
-/** Зависимости подготовки масштабированного текста и его шаблона. */
+/** Dependencies for preparing scaled text and its template. */
 type ScaledTextCornerTemplateSetupParams = TextCornerScaleSetupParams & Readonly<{
   template: TemplateModel
 }>
 
-/** Параметры опорной фигуры для уже существующего текста. */
+/** Reference-shape options for existing text. */
 type TextCornerScaleReferenceSetupParams = Readonly<{
   centered?: boolean
   corner: TextCornerScaleHandle
@@ -84,7 +84,7 @@ type TextCornerScaleReferenceSetupParams = Readonly<{
   textId: string
 }>
 
-/** Канонические свойства текста в сценариях углового скейлинга. */
+/** Canonical text properties in corner-scaling scenarios. */
 const TEXT_CORNER_SCALE_OPTIONS = Object.freeze({
   text: 'A',
   width: 180,
@@ -100,7 +100,7 @@ const TEXT_CORNER_SCALE_OPTIONS = Object.freeze({
   radiusBottomLeft: 9
 }) satisfies TextAddParams
 
-/** Возвращает положение фигуры за двумя перемещаемыми границами выбранного угла. */
+/** Returns the shape's position beyond the two moving boundaries of the selected corner. */
 function resolveReferencePlacement({
   centered,
   corner,
@@ -141,7 +141,7 @@ function resolveReferencePlacement({
   return Object.freeze({ left, top })
 }
 
-/** Рассчитывает ожидаемые границы пропорционального скейлинга из точного исходного снимка. */
+/** Calculates expected proportional-scaling bounds from the exact initial snapshot. */
 function resolveScaledTextCornerBounds({
   initial,
   scale
@@ -155,7 +155,7 @@ function resolveScaledTextCornerBounds({
   })
 }
 
-/** Возвращает точку сцены, в которой обе перемещаемые границы совпадут с фигурой. */
+/** Returns the scene point where both moving boundaries align with the shape. */
 function resolveSnapPoint({
   corner,
   reference
@@ -173,7 +173,7 @@ function resolveSnapPoint({
   return Object.freeze({ x, y })
 }
 
-/** Добавляет опорную фигуру у целевых границ уже существующего текста. */
+/** Adds a reference shape at the target boundaries of existing text. */
 export async function createTextCornerScaleReferenceSetup({
   centered = false,
   corner,
@@ -220,7 +220,7 @@ export async function createTextCornerScaleReferenceSetup({
   })
 }
 
-/** Создаёт текст и ставит опорную фигуру вплотную к границам выбранной ручки. */
+/** Creates text and places a reference shape right against the selected handle's boundaries. */
 export async function createTextCornerScaleSetup({
   centered = false,
   corner,
@@ -249,7 +249,7 @@ export async function createTextCornerScaleSetup({
   })
 }
 
-/** Создаёт текст, увеличивает его за угол и сохраняет выделение в шаблон. */
+/** Creates text, enlarges it with a corner handle, and saves the selection to a template. */
 export async function createScaledTextCornerTemplateSetup({
   centered = false,
   corner,
@@ -279,7 +279,7 @@ export async function createScaledTextCornerTemplateSetup({
   return Object.freeze({ committed, live, serializedTemplate, setup })
 }
 
-/** Создаёт текст и направляющие в точке, лежащей ниже его минимального размера. */
+/** Creates text and guides at a point below its minimum size. */
 export async function createMinimumTextCornerScaleSetup({
   shapes,
   snapping,
@@ -312,7 +312,7 @@ export async function createMinimumTextCornerScaleSetup({
   })
 }
 
-/** Создаёт повёрнутый текст и ставит опорную фигуру у его правой границы. */
+/** Creates rotated text and places a reference shape at its right boundary. */
 export async function createRotatedTextCornerScaleSetup({
   editorModel,
   shapes,

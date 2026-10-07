@@ -17,7 +17,7 @@ export default defineConfig({
     emptyOutDir: true,
     rollupOptions: {
       output: {
-        dir: 'docs/js/image-editor', // Специально для библиотеки
+        dir: 'docs/js/image-editor', // Dedicated to the library
         entryFileNames: 'main.js'
       }
     }
@@ -25,7 +25,7 @@ export default defineConfig({
   plugins: [
     viteStaticCopy({
       targets: [
-        // Копируем из src/demo в выходную папку
+        // Copy from src/demo to the output folder
         { src: 'src/demo/index.html', dest: '.' },
         { src: 'src/demo/style.css', dest: '.' },
         { src: 'src/demo/vendor/*.css', dest: './vendor' },

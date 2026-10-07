@@ -11,7 +11,7 @@ import {
   createTextCornerScaleSetup
 } from '../../../fixtures/text-corner-scaling.fixture'
 
-/** Каноническая геометрия текста, которая должна восстанавливаться через history. */
+/** Canonical text geometry that should be restored through history. */
 const TEXT_CORNER_SCALE_HISTORY_FIELDS = [
   'left',
   'top',

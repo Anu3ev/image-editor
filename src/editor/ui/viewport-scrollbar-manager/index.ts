@@ -2,12 +2,12 @@ import type { Canvas } from 'fabric'
 import type { ImageEditor } from '../..'
 
 /**
- * Ось viewport-скроллбара.
+ * Viewport scrollbar axis.
  */
 type ViewportScrollbarAxis = 'horizontal' | 'vertical'
 
 /**
- * Состояние одного DOM-скроллбара.
+ * State of a single DOM scrollbar.
  */
 export interface ViewportScrollbarAxisState {
   ratio: number
@@ -18,7 +18,7 @@ export interface ViewportScrollbarAxisState {
 }
 
 /**
- * Полное состояние DOM-скроллбаров viewport.
+ * Complete state of the viewport DOM scrollbars.
  */
 export interface ViewportScrollbarState {
   horizontal: ViewportScrollbarAxisState
@@ -26,7 +26,7 @@ export interface ViewportScrollbarState {
 }
 
 /**
- * Активный drag thumb-элемента.
+ * State of an active scrollbar-thumb drag.
  */
 type ViewportScrollbarDragState = {
   axis: ViewportScrollbarAxis
@@ -41,57 +41,57 @@ const VIEWPORT_SCROLLBAR_THUMB_THICKNESS = 5
 const VIEWPORT_SCROLLBAR_Z_INDEX = 40
 
 /**
- * Менеджер DOM-скроллбаров viewport.
- * Сами скроллбары являются transient UI-state и пишут camera-state только через PanConstraintManager.
+ * Viewport DOM scrollbar manager.
+ * The scrollbars themselves are transient UI state and write camera state only through PanConstraintManager.
  */
 export default class ViewportScrollbarManager {
   /**
-   * Ссылка на редактор.
+   * Reference to the editor.
    */
   public editor: ImageEditor
 
   /**
-   * Canvas редактора.
+   * Editor canvas.
    */
   public canvas: Canvas
 
   /**
-   * Корневой DOM-элемент скроллбаров.
+   * Root DOM element for the scrollbars.
    */
   public readonly el: HTMLDivElement
 
   /**
-   * DOM-элемент горизонтального track.
+   * Horizontal track DOM element.
    */
   private readonly horizontalTrack: HTMLDivElement
 
   /**
-   * DOM-элемент вертикального track.
+   * Vertical track DOM element.
    */
   private readonly verticalTrack: HTMLDivElement
 
   /**
-   * DOM-элемент горизонтального thumb.
+   * Horizontal thumb DOM element.
    */
   private readonly horizontalThumb: HTMLDivElement
 
   /**
-   * DOM-элемент вертикального thumb.
+   * Vertical thumb DOM element.
    */
   private readonly verticalThumb: HTMLDivElement
 
   /**
-   * Текущее рассчитанное состояние скроллбаров.
+   * Current calculated scrollbar state.
    */
   private state: ViewportScrollbarState = ViewportScrollbarManager._createEmptyState()
 
   /**
-   * Текущий drag thumb-элемента.
+   * Current scrollbar-thumb drag state.
    */
   private dragState: ViewportScrollbarDragState | null = null
 
   /**
-   * Создаёт DOM-скроллбары и подписывает их на camera-state события.
+   * Creates DOM scrollbars and subscribes them to camera-state events.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -113,14 +113,14 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Возвращает текущее рассчитанное состояние скроллбаров.
+   * Returns the current calculated scrollbar state.
    */
   public getState(): ViewportScrollbarState {
     return this.state
   }
 
   /**
-   * Пересчитывает размеры, видимость и позицию thumb-элементов.
+   * Recalculates the dimensions, visibility, and position of the thumb elements.
    */
   public update(): void {
     this.editor.panConstraintManager.updateBounds()
@@ -130,7 +130,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Удаляет DOM и все подписки.
+   * Removes the DOM elements and all subscriptions.
    */
   public destroy(): void {
     this._unbindEvents()
@@ -141,7 +141,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Создаёт корневой DOM-элемент.
+   * Creates the root DOM element.
    */
   private _createRootElement(): HTMLDivElement {
     const element = document.createElement('div')
@@ -162,7 +162,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Создаёт track для одной оси.
+   * Creates a track for one axis.
    */
   private _createTrack({ axis }: { axis: ViewportScrollbarAxis }): HTMLDivElement {
     const element = document.createElement('div')
@@ -178,7 +178,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Создаёт thumb для одной оси.
+   * Creates a thumb for one axis.
    */
   private _createThumb({ axis }: { axis: ViewportScrollbarAxis }): HTMLDivElement {
     const element = document.createElement('div')
@@ -194,7 +194,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Возвращает базовые стили track.
+   * Returns the base track styles.
    */
   private _getTrackStyles({ axis }: { axis: ViewportScrollbarAxis }): Record<string, string> {
     const baseStyles = {
@@ -222,7 +222,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Возвращает базовые стили thumb.
+   * Returns the base thumb styles.
    */
   private _getThumbStyles({ axis }: { axis: ViewportScrollbarAxis }): Record<string, string> {
     const baseStyles = {
@@ -251,7 +251,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Привязывает DOM и canvas события.
+   * Binds DOM and canvas events.
    */
   private _bindEvents(): void {
     this.canvas.on('editor:zoom-changed', this._handleCameraStateChanged)
@@ -262,7 +262,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Снимает DOM и canvas события.
+   * Unbinds DOM and canvas events.
    */
   private _unbindEvents(): void {
     this.canvas.off('editor:zoom-changed', this._handleCameraStateChanged)
@@ -274,28 +274,28 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Обновляет UI после изменения camera-state.
+   * Updates the UI after a camera-state change.
    */
   private _handleCameraStateChanged = (): void => {
     this.update()
   }
 
   /**
-   * Начинает drag горизонтального thumb.
+   * Starts dragging the horizontal thumb.
    */
   private _handleHorizontalPointerDown = (event: PointerEvent): void => {
     this._startDrag({ axis: 'horizontal', event })
   }
 
   /**
-   * Начинает drag вертикального thumb.
+   * Starts dragging the vertical thumb.
    */
   private _handleVerticalPointerDown = (event: PointerEvent): void => {
     this._startDrag({ axis: 'vertical', event })
   }
 
   /**
-   * Начинает drag thumb-элемента.
+   * Starts dragging a thumb element.
    */
   private _startDrag({ axis, event }: { axis: ViewportScrollbarAxis; event: PointerEvent }): void {
     const axisState = this.state[axis]
@@ -312,7 +312,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Привязывает document-события активного drag.
+   * Binds document events for the active drag.
    */
   private _bindDocumentDragEvents(): void {
     document.addEventListener('pointermove', this._handleDocumentPointerMove)
@@ -320,7 +320,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Снимает document-события активного drag.
+   * Unbinds document events for the active drag.
    */
   private _unbindDocumentDragEvents(): void {
     document.removeEventListener('pointermove', this._handleDocumentPointerMove)
@@ -328,7 +328,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Обрабатывает live-drag thumb-элемента.
+   * Handles live dragging of the thumb element.
    */
   private _handleDocumentPointerMove = (event: PointerEvent): void => {
     const { dragState } = this
@@ -348,7 +348,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Завершает drag thumb-элемента.
+   * Ends dragging of the thumb element.
    */
   private _handleDocumentPointerUp = (): void => {
     this.dragState = null
@@ -356,7 +356,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Рассчитывает scroll-ratio из текущей позиции указателя.
+   * Calculates the scroll ratio from the current pointer position.
    */
   private _resolveDragRatio({
     event,
@@ -377,7 +377,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Рассчитывает состояние обеих осей.
+   * Calculates the state of both axes.
    */
   private _calculateState(): ViewportScrollbarState {
     return {
@@ -387,7 +387,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Рассчитывает состояние одной оси.
+   * Calculates the state of one axis.
    */
   private _calculateAxisState({ axis }: { axis: ViewportScrollbarAxis }): ViewportScrollbarAxisState {
     const panState = this.editor.panConstraintManager.getViewportPanState()
@@ -415,7 +415,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Рассчитывает длину track по текущим размерам canvas.
+   * Calculates the track length from the current canvas dimensions.
    */
   private _getTrackSize({ axis }: { axis: ViewportScrollbarAxis }): number {
     const canvasSize = axis === 'horizontal'
@@ -426,7 +426,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Рассчитывает длину thumb по доле viewport внутри полного pan-диапазона.
+   * Calculates the thumb length from the viewport's share of the full pan range.
    */
   private _calculateThumbSize({
     scrollDistance,
@@ -443,7 +443,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Применяет рассчитанное состояние к DOM-элементам одной оси.
+   * Applies the calculated state to the DOM elements for one axis.
    */
   private _applyAxisState({ axis }: { axis: ViewportScrollbarAxis }): void {
     const track = this._getTrackElement({ axis })
@@ -467,21 +467,21 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Возвращает track-элемент выбранной оси.
+   * Returns the track element for the selected axis.
    */
   private _getTrackElement({ axis }: { axis: ViewportScrollbarAxis }): HTMLDivElement {
     return axis === 'horizontal' ? this.horizontalTrack : this.verticalTrack
   }
 
   /**
-   * Возвращает thumb-элемент выбранной оси.
+   * Returns the thumb element for the selected axis.
    */
   private _getThumbElement({ axis }: { axis: ViewportScrollbarAxis }): HTMLDivElement {
     return axis === 'horizontal' ? this.horizontalThumb : this.verticalThumb
   }
 
   /**
-   * Делает canvas wrapper positioning context для absolute scrollbars.
+   * Makes the canvas wrapper the positioning context for absolutely positioned scrollbars.
    */
   private _ensureWrapperPosition(): void {
     const wrapper = this.canvas.wrapperEl
@@ -493,7 +493,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Возвращает координату указателя для выбранной оси.
+   * Returns the pointer coordinate for the selected axis.
    */
   private static _getPointerPosition({
     axis,
@@ -506,7 +506,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Создаёт пустое состояние скроллбаров.
+   * Creates an empty scrollbar state.
    */
   private static _createEmptyState(): ViewportScrollbarState {
     return {
@@ -516,7 +516,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Создаёт скрытое состояние одной оси.
+   * Creates a hidden state for one axis.
    */
   private static _createHiddenAxisState({ trackSize }: { trackSize: number }): ViewportScrollbarAxisState {
     return {
@@ -529,7 +529,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Применяет набор CSS-свойств к DOM-элементу.
+   * Applies a set of CSS properties to a DOM element.
    */
   private static _applyStyles({
     element,
@@ -542,7 +542,7 @@ export default class ViewportScrollbarManager {
   }
 
   /**
-   * Ограничивает значение диапазоном.
+   * Clamps a value to a range.
    */
   private static _clamp(value: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, value))

@@ -3,10 +3,10 @@ import { ImageEditor } from './editor'
 import { defaults } from './editor/defaults'
 
 /**
- * Инициализирует редактор, создавая канвас внутри контейнера.
+ * Initializes the editor by creating a canvas inside the container.
  *
- * @param containerId — ID контейнера, в котором будут созданы оба канваса.
- * @param options — опции и настройки.
+ * @param containerId — ID of the container in which both canvases will be created.
+ * @param options — Options and settings.
  */
 export default async function initEditor(
   containerId: string,
@@ -14,7 +14,7 @@ export default async function initEditor(
 ): Promise<ImageEditor> {
   const adjustedOptions:EditorOptions = { ...defaults, ...options } as EditorOptions
 
-  // Находим контейнер по ID.
+  // Find the container by ID.
   const container = document.getElementById(containerId)
   if (!container) {
     return Promise.reject(new Error(`Контейнер с ID "${containerId}" не найден.`))
@@ -25,16 +25,16 @@ export default async function initEditor(
     throw new Error(`Canvas "${canvasId}" already exists. Destroy the previous editor before initializing again.`)
   }
 
-  // Создаём канвас
+  // Create the canvas
   const editorCanvas = document.createElement('canvas')
   editorCanvas.id = canvasId
   container.appendChild(editorCanvas)
 
-  // Сохраняем контейнер в опциях
+  // Store the container in the options
   adjustedOptions.editorContainer = container
 
   let editorInstance: ImageEditor | undefined
-  // Владение canvas и ключом регистрации не зависит от последующих изменений host/window.
+  // Ownership of the canvas and registration key does not depend on subsequent host/window changes.
   const cleanupHostResources = (): void => {
     editorCanvas.remove()
     if (editorInstance && window[containerId] === editorInstance) {

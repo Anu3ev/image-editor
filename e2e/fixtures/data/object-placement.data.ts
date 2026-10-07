@@ -1,4 +1,4 @@
-/** Базовые параметры фигуры для e2e-сценариев с изменением монтажной области. */
+/** Base shape options for e2e scenarios that change the artboard. */
 export const CANVAS_RESOLUTION_SHAPE_OPTIONS = {
   id: 'canvas-resolution-shape',
   left: 40,
@@ -10,7 +10,7 @@ export const CANVAS_RESOLUTION_SHAPE_OPTIONS = {
   fill: '#c8d0e0'
 } as const
 
-/** Базовые параметры текста для e2e-сценариев с изменением монтажной области. */
+/** Base text options for e2e scenarios that change the artboard. */
 export const CANVAS_RESOLUTION_TEXT_OPTIONS = {
   id: 'canvas-resolution-text',
   text: 'Текст для проверки позиции',
@@ -21,19 +21,19 @@ export const CANVAS_RESOLUTION_TEXT_OPTIONS = {
   fontSize: 48
 } as const
 
-/** Новая ширина монтажной области для проверки reposition-safe resize по ширине. */
+/** New artboard width for testing reposition-safe width resize. */
 export const CANVAS_RESOLUTION_UPDATED_WIDTH = 640
 
-/** Новая высота монтажной области для проверки reposition-safe resize по высоте. */
+/** New artboard height for testing reposition-safe height resize. */
 export const CANVAS_RESOLUTION_UPDATED_HEIGHT = 384
 
-/** Увеличенное разрешение монтажной области для проверки пересчёта zoom. */
+/** Increased artboard resolution for testing zoom recalculation. */
 export const CANVAS_RESOLUTION_LARGE_SIZE = {
   width: 700,
   height: 680
 } as const
 
-/** Параметры фигуры, у которой left/top трактуются как левая верхняя точка. */
+/** Shape options where left/top represent the top-left point. */
 export const SHAPE_LEFT_TOP_ADD_OPTIONS = {
   id: 'shape-placement-left-top',
   left: 96,
@@ -45,7 +45,7 @@ export const SHAPE_LEFT_TOP_ADD_OPTIONS = {
   fill: '#d8d2c0'
 } as const
 
-/** Параметры фигуры с привязкой по правому нижнему углу. */
+/** Shape options anchored at the bottom-right corner. */
 export const SHAPE_RIGHT_BOTTOM_ADD_OPTIONS = {
   id: 'shape-placement-right-bottom',
   left: 360,
@@ -57,7 +57,7 @@ export const SHAPE_RIGHT_BOTTOM_ADD_OPTIONS = {
   fill: '#f0c090'
 } as const
 
-/** Параметры текста с привязкой по правому нижнему углу. */
+/** Text options anchored at the bottom-right corner. */
 export const TEXT_RIGHT_BOTTOM_ADD_OPTIONS = {
   id: 'text-placement-right-bottom',
   text: 'Исходный текст',
@@ -68,7 +68,7 @@ export const TEXT_RIGHT_BOTTOM_ADD_OPTIONS = {
   fontSize: 48
 } as const
 
-/** Параметры текста для проверки позиции после скейлинга по диагонали. */
+/** Text options for testing position after diagonal scaling. */
 export const TEXT_AFTER_DIAGONAL_SCALE_ADD_OPTIONS = {
   id: 'text-position-after-diagonal-scale',
   text: 'Новый текст',
@@ -81,22 +81,22 @@ export const TEXT_AFTER_DIAGONAL_SCALE_ADD_OPTIONS = {
   fontSize: 48
 } as const
 
-/** Фон для проверки позиционирования текста после скейлинга по диагонали. */
+/** Background for testing text positioning after diagonal scaling. */
 export const TEXT_AFTER_DIAGONAL_SCALE_BACKGROUND_STYLE = {
   backgroundColor: '#f3efe0'
 } as const
 
-/** Верхний отступ для проверки позиции после скейлинга по диагонали. */
+/** Top padding for testing position after diagonal scaling. */
 export const TEXT_AFTER_DIAGONAL_SCALE_PADDING_TOP = 50
 
-/** Правый отступ для проверки позиции после скейлинга по диагонали. */
+/** Right padding for testing position after diagonal scaling. */
 export const TEXT_AFTER_DIAGONAL_SCALE_PADDING_RIGHT = 50
 
-/** Стиль для проверки update текста без сдвига правого нижнего угла. */
+/** Style for testing text updates without shifting the bottom-right corner. */
 export const TEXT_RIGHT_BOTTOM_UPDATED_STYLE = {
   fontSize: 84,
   bold: true
 } as const
 
-/** Более длинный текст для проверки ввода без сдвига правого нижнего угла. */
+/** Longer text for testing input without shifting the bottom-right corner. */
 export const TEXT_RIGHT_BOTTOM_EDITED_TEXT = 'Более длинный текст для проверки позиции'

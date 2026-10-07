@@ -49,7 +49,7 @@ import type {
 import { isCurrentTransformAffectedByRemoval } from '../../utils/current-transform'
 
 /**
- * Конкретные зависимости команд, которые изменяют shape-группу.
+ * Concrete dependencies of commands that modify a shape group.
  */
 type ShapeMutationDependencies = {
   canvas: Canvas
@@ -62,7 +62,7 @@ type ShapeMutationDependencies = {
 }
 
 /**
- * Одна programmatic mutation с общим shape lifecycle и history boundary.
+ * A single programmatic mutation with a shared shape lifecycle and history boundary.
  */
 type ShapeLifecycleMutation = {
   lifecycle: ShapeUpdateLifecycleContext
@@ -71,7 +71,7 @@ type ShapeLifecycleMutation = {
 }
 
 /**
- * Разрешённая группа и её обязательный visual node для mutation-команд.
+ * Resolved group and its required visual node for mutation commands.
  */
 type ShapeMutationTarget = {
   group: ShapeGroup
@@ -80,21 +80,21 @@ type ShapeMutationTarget = {
 }
 
 /**
- * Владеет командами изменения shape-группы и порядком подготовки/применения update.
+ * Owns shape-group mutation commands and the order of update preparation/application.
  */
 export default class ShapeMutationController {
   /**
-   * Явные зависимости mutation и history lifecycle.
+   * Explicit dependencies of the mutation and history lifecycle.
    */
   private readonly dependencies: ShapeMutationDependencies
 
   /**
-   * Pipeline update вынесен отдельно, чтобы controller не смешивал расчёты и применение мутаций.
+   * The update pipeline is separate so the controller does not mix calculations with mutation application.
    */
   private readonly updatePipeline: ShapeUpdatePipeline
 
   /**
-   * Инициализирует mutation controller конкретными domain dependencies.
+   * Initializes the mutation controller with concrete domain dependencies.
    */
   constructor({ dependencies }: { dependencies: ShapeMutationDependencies }) {
     this.dependencies = dependencies
@@ -110,7 +110,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Обновляет shape-группу через единый порядок подготовки и применения изменений.
+   * Updates a shape group using a unified sequence for preparing and applying changes.
    */
   public async update({
     target,
@@ -161,7 +161,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Удаляет shape-группу с canvas, если группа существует и не заблокирована.
+   * Removes the shape group from the canvas if the group exists and is not locked.
    */
   public remove({
     target,
@@ -179,7 +179,7 @@ export default class ShapeMutationController {
     try {
       const { canvas } = this.dependencies
 
-      // Фиксируем преобразование до удаления шейпа, пока исходное выделение ещё существует.
+      // Commit the transform before removing the shape, while the original selection still exists.
       if (isCurrentTransformAffectedByRemoval({ canvas, objects: [group] })) {
         canvas.endCurrentTransform()
       }
@@ -199,7 +199,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Обновляет заливку shape-узла и эмитит shape lifecycle события.
+   * Updates the shape-node fill and emits shape lifecycle events.
    */
   public setFill({
     target,
@@ -240,7 +240,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Обновляет параметры обводки и пересчитывает layout текста, если он есть в группе.
+   * Updates stroke parameters and recalculates text layout if the group contains text.
    */
   public setStroke({
     target,
@@ -284,7 +284,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Обновляет opacity фигуры и, по умолчанию, текста внутри группы.
+   * Updates opacity for the shape and, by default, the text inside the group.
    */
   public setOpacity({
     target,
@@ -333,7 +333,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Обновляет стиль текста внутри фигуры, не переключая shape-level режим auto-expand.
+   * Updates text style inside the shape without switching the shape-level auto-expansion mode.
    */
   public updateTextStyle({
     target,
@@ -386,7 +386,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Обновляет горизонтальное и вертикальное выравнивание текста внутри фигуры.
+   * Updates horizontal and vertical text alignment within the shape.
    */
   public setTextAlign({
     target,
@@ -436,7 +436,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Нормализует rounding и делегирует изменение в общий update.
+   * Normalizes rounding and delegates the change to the shared update.
    */
   public async setRounding({
     target,
@@ -466,7 +466,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Материализует rehydrated shape-группу и пересчитывает auto-expand только для изменённых входов.
+   * Materializes a rehydrated shape group and recalculates auto-expansion only for changed inputs.
    */
   public commitRehydratedShapeLayout({
     target,
@@ -522,7 +522,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Пропускает дальше только существующую и незаблокированную shape-группу.
+   * Allows only an existing, unlocked shape group to proceed.
    */
   private _resolveUnlockedGroup({ target }: { target?: ShapeReference }): ShapeGroup | null {
     const group = resolveShapeGroup({
@@ -536,7 +536,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Разрешает незаблокированную группу вместе с обязательным visual node.
+   * Resolves an unlocked group together with its required visual node.
    */
   private _resolveUnlockedShapeTarget({
     target
@@ -557,7 +557,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Применяет stroke-свойства к shape-узлу и пересчитывает layout текста при наличии text node.
+   * Applies stroke properties to the shape node and recalculates text layout if a text node exists.
    */
   private _applyStrokeAndTextLayout({
     group,
@@ -606,7 +606,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Применяет стиль текста и пересчитывает layout без изменения shape-level auto-expand режима.
+   * Applies text style and recalculates layout without changing the shape-level auto-expansion mode.
    */
   private _applyTextStyleAndLayout({
     group,
@@ -642,7 +642,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Применяет выравнивание текста и обновляет layout в текущих размерах группы.
+   * Applies text alignment and updates layout within the group's current dimensions.
    */
   private _applyTextAlignAndLayout({
     group,
@@ -678,7 +678,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Применяет подготовленное обновление к текущей группе в каноническом порядке мутации.
+   * Applies the prepared update to the current group in canonical mutation order.
    */
   private _applyPreparedUpdate({ preparedUpdate }: { preparedUpdate: PreparedShapeUpdate }): void {
     this._applyPreparedTextState({ preparedUpdate })
@@ -689,7 +689,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Переводит текущий text node в подготовленное состояние до замены shape-узла.
+   * Puts the current text node into its prepared state before replacing the shape node.
    */
   private _applyPreparedTextState({ preparedUpdate }: { preparedUpdate: PreparedShapeUpdate }): void {
     const {
@@ -709,7 +709,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Подменяет shape-узел внутри текущей группы на уже материализованный next shape.
+   * Replaces the shape node inside the current group with the already materialized next shape.
    */
   private _replacePreparedShapeNode({ preparedUpdate }: { preparedUpdate: PreparedShapeUpdate }): void {
     const {
@@ -727,7 +727,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Применяет persisted metadata группы после замены shape-узла.
+   * Applies persisted group metadata after replacing the shape node.
    */
   private _applyPreparedMetadata({ preparedUpdate }: { preparedUpdate: PreparedShapeUpdate }): void {
     const {
@@ -759,7 +759,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Применяет финальный layout уже к обновлённой группе с новым shape-узлом.
+   * Applies the final layout to the updated group with its new shape node.
    */
   private _applyPreparedLayout({ preparedUpdate }: { preparedUpdate: PreparedShapeUpdate }): void {
     const {
@@ -788,7 +788,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Синхронизирует post-layout состояние manual base и editing placement.
+   * Synchronizes the post-layout manual base and editing placement state.
    */
   private _syncPreparedPostLayoutState({ preparedUpdate }: { preparedUpdate: PreparedShapeUpdate }): void {
     const {
@@ -809,7 +809,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Выполняет mutation внутри одной history-транзакции и эмитит общий shape lifecycle.
+   * Performs a mutation in a single history transaction and emits the shared shape lifecycle.
    */
   private _commitLifecycleMutation({
     lifecycle,
@@ -830,14 +830,14 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Начинает programmatic shape mutation с временно отключённой историей.
+   * Begins a programmatic shape mutation with history temporarily disabled.
    */
   private _beginMutation(): void {
     this.dependencies.historyManager.suspendHistory()
   }
 
   /**
-   * Завершает shape mutation и сохраняет только итоговое canvas state.
+   * Ends the shape mutation and saves only the final canvas state.
    */
   private _endMutation({ withoutSave }: { withoutSave?: boolean }): void {
     this.dependencies.historyManager.resumeHistory()
@@ -848,7 +848,7 @@ export default class ShapeMutationController {
   }
 
   /**
-   * Проверяет, находится ли shape-группа непосредственно на canvas.
+   * Checks whether the shape group is directly on the canvas.
    */
   private _isOnCanvas({ group }: { group: ShapeGroup }): boolean {
     const objects = this.dependencies.canvas.getObjects()

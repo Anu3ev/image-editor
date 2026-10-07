@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные контракты расположены перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- Public contracts appear before internal calculations. */
 import {
   MOVE_SNAP_STEP,
   SNAP_THRESHOLD,
@@ -40,43 +40,43 @@ import {
   resolveApplicableMovementSpacingSelections
 } from './movement-spacing-verification'
 
-/** Положение Fabric origin перемещаемого объекта. */
+/** Fabric origin position of the moving object. */
 export type MovementTargetPosition = Readonly<{
   left: number
   top: number
 }>
 
-/** Состояние одной оси без удерживаемой направляющей. */
+/** State of one axis with no held guide. */
 export type FreeMovementAxisHold = Readonly<{
   kind: 'free'
 }>
 
-/** Удержание конкретной линии и опорной точки перемещаемого объекта. */
+/** A specific held line and anchor of the moving object. */
 export type HeldMovementLineAxisHold = Readonly<{
   kind: 'line'
   candidate: MovementSnapCandidate
   activeAnchor: MovementBoundsAnchor
 }>
 
-/** Удержание конкретного интервала равноудалённости. */
+/** A specific held equal-spacing interval. */
 export type HeldMovementSpacingAxisHold = Readonly<{
   kind: 'spacing'
   candidateId: string
   context: Readonly<SpacingSelectionContext>
 }>
 
-/** Свободное или удерживаемое состояние одной оси. */
+/** Free or held state of one axis. */
 export type MovementAxisHold = FreeMovementAxisHold
   | HeldMovementLineAxisHold
   | HeldMovementSpacingAxisHold
 
-/** Независимое временное состояние line или spacing-ограничений по двум осям. */
+/** Independent temporary state of line or spacing constraints on both axes. */
 export type MovementHoldState = Readonly<{
   x: MovementAxisHold
   y: MovementAxisHold
 }>
 
-/** Пороговые значения одного movement-жеста в координатах сцены. */
+/** Thresholds for one movement gesture in scene coordinates. */
 export type MovementSnapThresholds = Readonly<{
   acquire: number
   release: number
@@ -84,7 +84,7 @@ export type MovementSnapThresholds = Readonly<{
   verification: number
 }>
 
-/** Неизменяемый снимок начальной геометрии и целей перемещения. */
+/** Immutable snapshot of initial movement geometry and targets. */
 export type MovementGestureBaseline = Readonly<{
   bounds: Bounds
   position: MovementTargetPosition
@@ -98,13 +98,13 @@ export type MovementGestureBaseline = Readonly<{
   thresholds: MovementSnapThresholds
 }>
 
-/** Доступные оси прилипания текущего movement-step. */
+/** Available snapping axes for the current movement step. */
 export type MovementSnapAxes = Readonly<{
   x: boolean
   y: boolean
 }>
 
-/** Raw-состояние объекта после Fabric drag и до применения прилипания. */
+/** Raw object state after Fabric dragging and before snapping is applied. */
 export type MovementRawIntent = Readonly<{
   bounds: Bounds
   position: MovementTargetPosition
@@ -114,10 +114,10 @@ export type MovementRawIntent = Readonly<{
   }>
 }>
 
-/** Способ выбора ограничения на текущем шаге. */
+/** How the constraint was selected in the current step. */
 export type MovementSnapTransition = 'acquired' | 'held'
 
-/** Выбранная линия и опорная точка по одной оси. */
+/** Selected line and anchor on one axis. */
 export type PlannedMovementLineConstraint = Readonly<{
   kind: 'line'
   axis: MovementSceneAxis
@@ -126,7 +126,7 @@ export type PlannedMovementLineConstraint = Readonly<{
   transition: MovementSnapTransition
 }>
 
-/** Выбранный интервал равноудалённости по одной оси. */
+/** Selected equal-spacing interval on one axis. */
 export type PlannedMovementSpacingConstraint = Readonly<{
   kind: 'spacing'
   axis: MovementSceneAxis
@@ -138,11 +138,11 @@ export type PlannedMovementSpacingConstraint = Readonly<{
   transition: MovementSnapTransition
 }>
 
-/** Единственное линейное или spacing-ограничение одной оси. */
+/** The single line or spacing constraint for one axis. */
 export type PlannedMovementConstraint = PlannedMovementLineConstraint
   | PlannedMovementSpacingConstraint
 
-/** Результат расчёта одной итоговой translation для текущего raw-состояния. */
+/** Result of calculating one final translation for the current raw state. */
 export type MovementSnapPlan = Readonly<{
   rawIntent: MovementRawIntent
   nextPosition: MovementTargetPosition
@@ -154,13 +154,13 @@ export type MovementSnapPlan = Readonly<{
   verificationEpsilon: number
 }>
 
-/** Фактическое состояние после единственного применения movement-плана. */
+/** Actual state after applying the movement plan exactly once. */
 export type FinalMovementGeometry = Readonly<{
   bounds: Bounds
   position: MovementTargetPosition
 }>
 
-/** Линейная направляющая, подтверждённая по фактической геометрии. */
+/** Line guide verified against actual geometry. */
 export type VerifiedMovementGuide = Readonly<{
   axis: MovementSceneAxis
   activeAnchor: MovementBoundsAnchor
@@ -170,7 +170,7 @@ export type VerifiedMovementGuide = Readonly<{
   snapshotIndex: number
 }>
 
-/** Подтверждённые направляющие и новое временное состояние удержания. */
+/** Verified guides and new temporary hold state. */
 export type MovementSnapVerification = Readonly<{
   guides: readonly VerifiedMovementGuide[]
   spacingGuides: readonly SpacingGuide[]
@@ -178,19 +178,19 @@ export type MovementSnapVerification = Readonly<{
   holdState: MovementHoldState
 }>
 
-/** Результат выбора ограничения по одной оси до materialization guide. */
+/** Constraint selection result for one axis before guide materialization. */
 type MovementAxisProposal = Readonly<
   | PlannedMovementLineConstraint
   | PlannedMovementSpacingConstraint
 >
 
-/** Ограничения обеих осей до materialization итогового movement-плана. */
+/** Constraints for both axes before materializing the final movement plan. */
 type MovementAxisProposals = Readonly<{
   x: MovementAxisProposal | null
   y: MovementAxisProposal | null
 }>
 
-/** Результат существующего spacing-calculator по одной оси. */
+/** Result from the existing spacing calculator for one axis. */
 type MovementSpacingCalculation = {
   delta: number
   guides: SpacingGuide[]
@@ -198,39 +198,39 @@ type MovementSpacingCalculation = {
   selections: ResolvedSpacingSelection[]
 }
 
-/** Общий допуск проверки фактически применённого movement-плана. */
+/** Shared tolerance for verifying the movement plan actually applied. */
 export const MOVEMENT_SNAP_VERIFICATION_EPSILON = 0.1
 
-/** Допуск проверки центров в точных границах. */
+/** Tolerance for verifying centers within exact bounds. */
 const EXACT_BOUNDS_CENTER_EPSILON = 0.000000001
 
-/** Число проходов для стабилизации cross-axis spacing после замены constraints. */
+/** Number of passes to stabilize cross-axis spacing after replacing constraints. */
 const MOVEMENT_SPACING_COMPATIBILITY_PASSES = 3
 
-/** Порядок категорий при одинаковом расстоянии до нескольких линий. */
+/** Category order when several lines are at the same distance. */
 const MOVEMENT_CANDIDATE_CATEGORY_PRIORITY: Readonly<Record<MovementSnapCandidateCategory, number>> = Object.freeze({
   'domain-boundary': 0,
   edge: 1,
   center: 2
 })
 
-/** Опорные точки по X в стабильном порядке. */
+/** X anchors in a stable order. */
 const X_ANCHORS: readonly MovementBoundsAnchor[] = Object.freeze(['left', 'centerX', 'right'])
 
-/** Опорные точки по Y в стабильном порядке. */
+/** Y anchors in a stable order. */
 const Y_ANCHORS: readonly MovementBoundsAnchor[] = Object.freeze(['top', 'centerY', 'bottom'])
 
-/** Общее неизменяемое состояние свободной оси. */
+/** Shared immutable state of a free axis. */
 const FREE_MOVEMENT_AXIS_HOLD: FreeMovementAxisHold = Object.freeze({ kind: 'free' })
 
-/** Начальное состояние без удерживаемых линейных направляющих. */
+/** Initial state with no held line guides. */
 export const FREE_MOVEMENT_HOLD_STATE: MovementHoldState = Object.freeze({
   x: FREE_MOVEMENT_AXIS_HOLD,
   y: FREE_MOVEMENT_AXIS_HOLD
 })
 
 /**
- * Проверяет и сохраняет начальную геометрию, цели и пороги movement-жеста.
+ * Validates and captures initial geometry, targets, and thresholds for a movement gesture.
  */
 export function createMovementGestureBaseline({
   bounds,
@@ -271,7 +271,7 @@ export function createMovementGestureBaseline({
 }
 
 /**
- * Рассчитывает одну итоговую translation от raw intent и текущего hold-state.
+ * Calculates one final translation from raw intent and the current hold state.
  */
 export function resolveMovementSnapPlan({
   baseline,
@@ -323,7 +323,7 @@ export function resolveMovementSnapPlan({
 }
 
 /**
- * Проверяет фактическую геометрию и только после этого обновляет hold-state и guide.
+ * Verifies actual geometry before updating hold state and guides.
  */
 export function verifyMovementSnapPlan({
   baseline,
@@ -367,7 +367,7 @@ export function verifyMovementSnapPlan({
   })
 }
 
-/** Создаёт план без прилипания и pixel rounding при нажатом Ctrl. */
+/** Creates a plan without snapping or pixel rounding while Ctrl is pressed. */
 function createDisabledMovementPlan({
   rawIntent
 }: {
@@ -382,7 +382,7 @@ function createDisabledMovementPlan({
   })
 }
 
-/** Выбирает ровно одно удерживаемое или новое ограничение по одной оси. */
+/** Selects exactly one held or new constraint on one axis. */
 function resolveAxisProposal({
   axis,
   baseline,
@@ -425,7 +425,7 @@ function resolveAxisProposal({
   })
 }
 
-/** Сохраняет прежнее line или spacing-ограничение внутри его release-zone. */
+/** Preserves the previous line or spacing constraint within its release zone. */
 function resolveHeldAxisProposal({
   axis,
   baseline,
@@ -457,7 +457,7 @@ function resolveHeldAxisProposal({
   return null
 }
 
-/** Сохраняет выбранную line, пока её raw anchor остаётся в release-zone. */
+/** Preserves the selected line while its raw anchor remains within the release zone. */
 function resolveHeldLineConstraint({
   axis,
   bounds,
@@ -482,7 +482,7 @@ function resolveHeldLineConstraint({
   })
 }
 
-/** Сохраняет конкретный spacing-кандидат, не переключаясь внутри release-zone. */
+/** Preserves a specific spacing candidate without switching within the release zone. */
 function resolveHeldSpacingConstraint({
   axis,
   baseline,
@@ -507,7 +507,7 @@ function resolveHeldSpacingConstraint({
   return constraint
 }
 
-/** Выбирает меньшую новую correction; при равенстве line имеет приоритет над spacing. */
+/** Selects the smaller new correction; lines take priority over spacing on ties. */
 function selectAcquiredAxisProposal({
   bounds,
   line,
@@ -530,7 +530,7 @@ function selectAcquiredAxisProposal({
     : spacing
 }
 
-/** Стабилизирует spacing-ограничения после совместной коррекции обеих осей. */
+/** Stabilizes spacing constraints after jointly correcting both axes. */
 function resolveCompatibleMovementProposals({
   baseline,
   intent,
@@ -572,7 +572,7 @@ function resolveCompatibleMovementProposals({
   return compatible
 }
 
-/** Фильтрует secondary spacing guides или возвращает line при потере primary interval. */
+/** Filters secondary spacing guides or falls back to a line if the primary interval is lost. */
 function resolveCompatibleSpacingProposal({
   proposal,
   baseline,
@@ -607,7 +607,7 @@ function resolveCompatibleSpacingProposal({
   })
 }
 
-/** Ищет ближайшую новую пару active anchor → candidate. */
+/** Finds the nearest new active anchor → candidate pair. */
 function resolveAcquiredLineConstraint({
   axis,
   bounds,
@@ -646,7 +646,7 @@ function resolveAcquiredLineConstraint({
   return best
 }
 
-/** Сравнивает кандидатов по расстоянию, категории и стабильному snapshot index. */
+/** Compares candidates by distance, category, and stable snapshot index. */
 function isBetterMovementCandidate({
   candidate,
   distance,
@@ -671,7 +671,7 @@ function isBetterMovementCandidate({
   return candidate.snapshotIndex < current.candidate.snapshotIndex
 }
 
-/** Возвращает сдвиг, необходимый для выбранной обычной направляющей. */
+/** Returns the offset required for the selected regular guide. */
 function resolveLineConstraintDelta({
   constraint,
   bounds
@@ -682,7 +682,7 @@ function resolveLineConstraintDelta({
   return constraint.candidate.position - bounds[constraint.activeAnchor]
 }
 
-/** Возвращает сдвиг для выбранной обычной направляющей или равноудалённости. */
+/** Returns the offset for the selected regular guide or equal-spacing constraint. */
 function resolveProposalDelta({
   proposal,
   bounds
@@ -696,7 +696,7 @@ function resolveProposalDelta({
   return resolveLineConstraintDelta({ constraint: proposal, bounds })
 }
 
-/** Преобразует расчёт равноудалённости в ограничение для одной оси. */
+/** Converts an equal-spacing calculation to a constraint for one axis. */
 function resolveSpacingConstraint({
   axis,
   baseline,
@@ -734,7 +734,7 @@ function resolveSpacingConstraint({
   })
 }
 
-/** Создаёт ограничение из проверенного результата расчёта равноудалённости. */
+/** Creates a constraint from a verified equal-spacing calculation result. */
 function createPlannedMovementSpacingConstraint({
   axis,
   baseline,
@@ -782,7 +782,7 @@ function createPlannedMovementSpacingConstraint({
   })
 }
 
-/** Возвращает единственный основной интервал рассчитанной равноудалённости. */
+/** Returns the single primary interval of the calculated equal spacing. */
 function resolvePrimarySpacingSelection({
   selections
 }: {
@@ -796,7 +796,7 @@ function resolvePrimarySpacingSelection({
   return primarySelections[0]
 }
 
-/** Рассчитывает равноудалённость с порогом для выбранной оси. */
+/** Calculates equal spacing using the threshold for the selected axis. */
 function calculateMovementAxisSpacing({
   axis,
   baseline,
@@ -826,7 +826,7 @@ function calculateMovementAxisSpacing({
     : calculateVerticalSpacing(params)
 }
 
-/** Создаёт стабильный идентификатор по точным данным основного интервала. */
+/** Creates a stable identifier from the exact primary interval data. */
 function createSpacingCandidateId({
   axis,
   chainId,
@@ -846,12 +846,12 @@ function createSpacingCandidateId({
   })
 }
 
-/** Сравнивает точные координаты без округления отображаемого значения. */
+/** Compares exact coordinates without rounding the displayed value. */
 function areNumbersNear(first: number, second: number): boolean {
   return Math.abs(first - second) <= EXACT_BOUNDS_CENTER_EPSILON
 }
 
-/** Рассчитывает итоговую позицию объекта по одному ограничению на каждой оси. */
+/** Calculates the final object position using one constraint per axis. */
 function resolveNextMovementPosition({
   intent,
   proposals
@@ -875,7 +875,7 @@ function resolveNextMovementPosition({
   })
 }
 
-/** Округляет свободную ось до пикселя, не сдвигая объект с направляющей. */
+/** Rounds the free axis to a pixel without moving the object off its guide. */
 function resolveMovementAxisPosition({
   value,
   delta,
@@ -893,7 +893,7 @@ function resolveMovementAxisPosition({
   return Math.round(value / MOVE_SNAP_STEP) * MOVE_SNAP_STEP
 }
 
-/** Формирует ограничения плана и сдвигает равноудалённость по поперечной оси. */
+/** Builds the plan constraints and offsets equal spacing along the cross axis. */
 function createPlannedMovementConstraints({
   proposals,
   deltaX,
@@ -909,7 +909,7 @@ function createPlannedMovementConstraints({
   })
 }
 
-/** Сохраняет обычную направляющую или фиксирует равноудалённость в итоговой позиции. */
+/** Preserves a regular guide or fixes equal spacing at the final position. */
 function materializeMovementConstraint({
   proposal,
   deltaX,
@@ -938,7 +938,7 @@ function materializeMovementConstraint({
   })
 }
 
-/** Проверяет выбранное ограничение по итоговым границам, не заменяя его другим. */
+/** Verifies the selected constraint against the final bounds without replacing it. */
 function verifyMovementAxisConstraint({
   baseline,
   constraint,
@@ -975,7 +975,7 @@ function verifyMovementAxisConstraint({
   ) <= plan.verificationEpsilon
 }
 
-/** Сравнивает фактические и рассчитанные границы только по проверяемой оси. */
+/** Compares actual and calculated bounds only on the axis being verified. */
 function doesMovementAxisMatchPlan({
   axis,
   bounds,
@@ -994,7 +994,7 @@ function doesMovementAxisMatchPlan({
   })
 }
 
-/** Формирует окончательный результат verification. */
+/** Builds the final verification result. */
 function createMovementVerification({
   baseline,
   plan,
@@ -1040,7 +1040,7 @@ function createMovementVerification({
   })
 }
 
-/** Сохраняет подтверждённый hold и guide либо отмечает заблокированную ось. */
+/** Keeps the verified hold and guide or marks the axis as blocked. */
 function resolveVerifiedAxisHold({
   baseline,
   bounds,
@@ -1097,7 +1097,7 @@ function resolveVerifiedAxisHold({
   })
 }
 
-/** Переводит точные границы на рассчитанную дельту без округления. */
+/** Translates exact bounds by the calculated delta without rounding. */
 function translateBounds({
   bounds,
   deltaX,
@@ -1117,7 +1117,7 @@ function translateBounds({
   })
 }
 
-/** Проверяет и копирует raw intent до любых изменений target. */
+/** Validates and copies raw intent before any target changes. */
 function createRawIntentSnapshot({
   intent
 }: {
@@ -1136,7 +1136,7 @@ function createRawIntentSnapshot({
   })
 }
 
-/** Проверяет, что Fabric movement сохранил начальную геометрию и дал чистую translation. */
+/** Verifies that Fabric movement preserved the initial geometry and produced a pure translation. */
 function assertRawIntentMatchesBaseline({
   baseline,
   intent
@@ -1165,7 +1165,7 @@ function assertRawIntentMatchesBaseline({
   }
 }
 
-/** Проверяет и копирует точные границы movement-объекта. */
+/** Validates and copies the moving object's exact bounds. */
 function createExactBoundsSnapshot({ bounds }: { bounds: Bounds }): Bounds {
   const { left, right, top, bottom, centerX, centerY } = bounds
   const values = [left, right, top, bottom, centerX, centerY]
@@ -1183,7 +1183,7 @@ function createExactBoundsSnapshot({ bounds }: { bounds: Bounds }): Bounds {
   return Object.freeze({ left, right, top, bottom, centerX, centerY })
 }
 
-/** Проверяет и копирует положение Fabric target. */
+/** Validates and copies the Fabric target position. */
 function createPositionSnapshot({
   position
 }: {
@@ -1199,7 +1199,7 @@ function createPositionSnapshot({
   })
 }
 
-/** Возвращает пороги в координатах сцены с учётом zoom. */
+/** Returns thresholds in scene coordinates, accounting for zoom. */
 function createMovementSnapThresholds({
   zoom
 }: {
@@ -1213,7 +1213,7 @@ function createMovementSnapThresholds({
   })
 }
 
-/** Проверяет что переданный hold-state принадлежит текущему baseline. */
+/** Verifies that the supplied hold state belongs to the current baseline. */
 function assertMovementHoldState({
   baseline,
   holdState
@@ -1225,7 +1225,7 @@ function assertMovementHoldState({
   assertAxisHold({ axis: 'y', baseline, hold: holdState.y })
 }
 
-/** Проверяет candidate и active anchor одной удерживаемой оси. */
+/** Validates the candidate and active anchor of one held axis. */
 function assertAxisHold({
   axis,
   baseline,
@@ -1255,7 +1255,7 @@ function assertAxisHold({
   }
 }
 
-/** Возвращает ось именованной опорной точки bounds. */
+/** Returns the axis of a named bounds anchor. */
 function resolveAnchorAxis({
   anchor
 }: {
@@ -1264,7 +1264,7 @@ function resolveAnchorAxis({
   return anchor === 'left' || anchor === 'centerX' || anchor === 'right' ? 'x' : 'y'
 }
 
-/** Проверяет неизменность ширины и высоты во время translation. */
+/** Verifies that width and height remain unchanged during translation. */
 function areBoundsDimensionsEqual({
   first,
   second,
@@ -1283,7 +1283,7 @@ function areBoundsDimensionsEqual({
     && Math.abs(firstHeight - secondHeight) <= epsilon
 }
 
-/** Копирует и замораживает выбранные spacing-варианты вместе с их identity. */
+/** Copies and freezes selected spacing options along with their identities. */
 function freezeSpacingSelections({
   selections
 }: {
@@ -1312,7 +1312,7 @@ function freezeSpacingSelections({
   }))
 }
 
-/** Копирует один выбранный spacing-контекст. */
+/** Copies one selected spacing context. */
 function freezeSpacingContext({
   context
 }: {
@@ -1327,7 +1327,7 @@ function freezeSpacingContext({
   })
 }
 
-/** Преобразует подтверждённые movement-guide в формат renderer-а. */
+/** Converts verified movement guides to the renderer format. */
 export function createMovementGuideLines({
   guides
 }: {

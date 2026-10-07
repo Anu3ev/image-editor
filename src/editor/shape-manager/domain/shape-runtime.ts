@@ -9,8 +9,8 @@ import type {
 } from '../types'
 
 /**
- * Возвращает shape-группу в базовый интерактивный режим и включает sub-target клики.
- * Временное editing-состояние не должно переживать clone/deserialize/materialization.
+ * Returns the shape group to its base interactive mode and enables sub-target clicks.
+ * Temporary editing state must not survive clone/deserialize/materialization.
  */
 export const applyShapeGroupInteractivity = ({ group }: { group: ShapeGroupLike }): void => {
   const isLocked = Boolean(group.locked)
@@ -36,8 +36,8 @@ export const applyShapeGroupInteractivity = ({ group }: { group: ShapeGroupLike 
 }
 
 /**
- * Переводит текстовый узел shape в базовый режим без выделения и drag-поведения,
- * сохраняя текущее locked-состояние.
+ * Returns the shape's text node to its base mode without selection or drag behavior,
+ * preserving the current locked state.
  */
 export const prepareShapeTextNode = ({ text }: { text: ShapeTextNode }): void => {
   const isLocked = Boolean(text.locked || text.group?.locked)
@@ -57,7 +57,7 @@ export const prepareShapeTextNode = ({ text }: { text: ShapeTextNode }): void =>
 }
 
 /**
- * Отключает встроенный fit-content layout группы, чтобы композитом управлял shape-domain.
+ * Disables the group's built-in fit-content layout so the shape domain can manage the composite.
  */
 export const detachShapeGroupAutoLayout = ({ group }: { group: ShapeGroupLike }): void => {
   const groupWithLayoutManager = group as ShapeGroupLike & {
@@ -82,7 +82,7 @@ export const detachShapeGroupAutoLayout = ({ group }: { group: ShapeGroupLike })
 }
 
 /**
- * Возвращает текстовый узел shape-группы.
+ * Returns the shape group's text node.
  */
 export const getShapeRuntimeTextNode = ({ group }: { group: ShapeGroupLike }): ShapeTextNode | null => {
   const objects = group.getObjects()

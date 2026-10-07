@@ -8,7 +8,7 @@ import type {
 import { createBoundsObject, createSnappingTestContext } from '../canvas/geometry-objects'
 import { createMovementRoutingTarget } from './movement-snapping-routing'
 
-/** Доступная тестам часть временного состояния SnappingManager. */
+/** Part of SnappingManager's temporary state accessible to tests. */
 type SnappingManagerLifecycleState = {
   activeGuides: GuideLine[]
   activeSpacingGuides: SpacingGuide[]
@@ -20,7 +20,7 @@ type SnappingManagerLifecycleState = {
   }
 }
 
-/** Направляющие и опорные точки, используемые в сценариях завершения прилипания. */
+/** Guides and reference points used in snapping-completion scenarios. */
 export type VisibleSnappingState = {
   activeGuides: GuideLine[]
   activeSpacingGuides: SpacingGuide[]
@@ -28,7 +28,7 @@ export type VisibleSnappingState = {
 }
 
 /**
- * Создаёт SnappingManager и перехватывает вызовы завершения перемещения.
+ * Creates a SnappingManager and intercepts movement-completion calls.
  */
 export const createMovementSnappingLifecycleSetup = () => {
   const { editor, canvas } = createSnappingTestContext()
@@ -60,7 +60,7 @@ export const createMovementSnappingLifecycleSetup = () => {
   }
 }
 
-/** Создаёт реальную сессию перемещения общего выделения для проверки завершающих событий. */
+/** Creates a real multi-object selection movement session for testing completion events. */
 export const createActiveSelectionMovementLifecycleSetup = () => {
   const { editor, canvas, objects } = createSnappingTestContext()
   const manager = new SnappingManager({ editor })
@@ -83,7 +83,7 @@ export const createActiveSelectionMovementLifecycleSetup = () => {
   }
 }
 
-/** Заполняет направляющие и опорные точки, которые должны очищаться при завершении. */
+/** Populates guides and reference points that must be cleared on completion. */
 export const seedVisibleSnappingState = ({
   state
 }: {

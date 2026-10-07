@@ -1,288 +1,288 @@
-/** Кнопка открытия системного выбора изображений для импорта на canvas. */
+/** Button that opens the system image picker for importing images onto the canvas. */
 const chooseImageBtn = document.getElementById('choose-images-btn')
-/** Кнопка сохранения текущего результата редактора в файл. */
+/** Button that saves the current editor result to a file. */
 const saveCanvasBtn = document.getElementById('save-canvas')
-/** Select выбора формата экспортируемого файла. */
+/** Select for the exported file format. */
 const exportFormatSelect = document.getElementById('export-format-select')
-/** Input для выбора одного или нескольких файлов изображений. */
+/** Input for selecting one or more image files. */
 const fileInput = document.getElementById('file-input')
-/** Кнопка полной очистки canvas от объектов. */
+/** Button that removes all objects from the canvas. */
 const clearBtn = document.getElementById('clear-btn')
-/** Кнопка перемещения активного объекта на передний план. */
+/** Button that brings the active object to the front. */
 const bringToFrontBtn = document.getElementById('bring-to-front-btn')
-/** Кнопка перемещения активного объекта на один слой выше. */
+/** Button that moves the active object forward one layer. */
 const bringForwardBtn = document.getElementById('bring-object-forward')
-/** Кнопка перемещения активного объекта на задний план. */
+/** Button that sends the active object to the back. */
 const sendToBackBtn = document.getElementById('send-to-back-btn')
-/** Кнопка перемещения активного объекта на один слой ниже. */
+/** Button that moves the active object backward one layer. */
 const sendBackwardsBtn = document.getElementById('send-object-backwards')
-/** Кнопка копирования активного объекта в буфер редактора. */
+/** Button that copies the active object to the editor clipboard. */
 const copyBtn = document.getElementById('copy-btn')
-/** Кнопка вставки объекта из внутреннего буфера редактора. */
+/** Button that pastes an object from the editor's internal clipboard. */
 const pasteBtn = document.getElementById('paste-btn')
-/** Кнопка поворота активного объекта на 90 градусов по часовой стрелке. */
+/** Button that rotates the active object 90 degrees clockwise. */
 const rotateRightBtn = document.getElementById('rotate-plus-90-btn')
-/** Кнопка поворота активного объекта на 90 градусов против часовой стрелки. */
+/** Button that rotates the active object 90 degrees counterclockwise. */
 const rotateLeftBtn = document.getElementById('rotate-minus-90-btn')
-/** Кнопка зеркального отражения активного объекта по горизонтали. */
+/** Button that flips the active object horizontally. */
 const flipXBtn = document.getElementById('flip-x-btn')
-/** Кнопка зеркального отражения активного объекта по вертикали. */
+/** Button that flips the active object vertically. */
 const flipYBtn = document.getElementById('flip-y-btn')
-/** Кнопка выделения всех объектов на canvas. */
+/** Button that selects all objects on the canvas. */
 const selectAllBtn = document.getElementById('select-all-btn')
-/** Кнопка удаления выбранного объекта или группы объектов. */
+/** Button that deletes the selected object or group of objects. */
 const deleteSelectedBtn = document.getElementById('delete-selected-btn')
-/** Кнопка группировки нескольких выбранных объектов. */
+/** Button that groups multiple selected objects. */
 const groupBtn = document.getElementById('group-btn')
-/** Кнопка разгруппировки активной группы объектов. */
+/** Button that ungroups the active object group. */
 const ungroupBtn = document.getElementById('ungroup-btn')
-/** Кнопка увеличения масштаба viewport редактора. */
+/** Button that zooms in on the editor viewport. */
 const zoomInBtn = document.getElementById('zoom-in-btn')
-/** Кнопка уменьшения масштаба viewport редактора. */
+/** Button that zooms out of the editor viewport. */
 const zoomOutBtn = document.getElementById('zoom-out-btn')
-/** Кнопка сброса текущего zoom до базового состояния. */
+/** Button that resets the current zoom to its base state. */
 const resetZoomBtn = document.getElementById('reset-zoom-btn')
-/** Кнопка установки дефолтного масштаба для содержимого редактора. */
+/** Button that sets the default scale for the editor content. */
 const setDefaultScaleBtn = document.getElementById('set-default-scale-btn')
-/** Кнопка вписывания активного изображения в монтажную область по contain. */
+/** Button that fits the active image inside the artboard using contain. */
 const imageFitContainBtn = document.getElementById('fit-contain-btn')
-/** Кнопка заполнения монтажной области активным изображением по cover. */
+/** Button that fills the artboard with the active image using cover. */
 const imageFitCoverBtn = document.getElementById('fit-cover-btn')
-/** Кнопка сброса трансформаций активного объекта к дефолтным значениям. */
+/** Button that resets the active object's transforms to their defaults. */
 const resetFit = document.getElementById('reset-fit-btn')
-/** Кнопка подгонки размера монтажной области под размеры изображения. */
+/** Button that adjusts the artboard size to the image dimensions. */
 const scaleCanvasToImageBtn = document.getElementById('scale-canvas-btn')
-/** Select выбора пропорции crop frame. */
+/** Select for the crop frame aspect ratio. */
 const cropRatioSelect = document.getElementById('crop-ratio-select')
-/** Input ширины crop frame. */
+/** Crop frame width input. */
 const cropWidthInput = document.getElementById('crop-width-input')
-/** Input высоты crop frame. */
+/** Crop frame height input. */
 const cropHeightInput = document.getElementById('crop-height-input')
-/** Checkbox разрешения crop frame выходить за границы источника. */
+/** Checkbox allowing the crop frame to extend beyond the source bounds. */
 const cropAllowOverflowCheckbox = document.getElementById('crop-allow-overflow-checkbox')
-/** Checkbox отображения сетки crop frame. */
+/** Checkbox for displaying the crop frame grid. */
 const cropShowGridCheckbox = document.getElementById('crop-show-grid-checkbox')
-/** Checkbox затемнения области за пределами crop frame. */
+/** Checkbox for dimming the area outside the crop frame. */
 const cropShowDimmedAreaCheckbox = document.getElementById('crop-show-dimmed-area-checkbox')
-/** Checkbox сохранения текущих пропорций при resize crop frame. */
+/** Checkbox for preserving the current aspect ratio when resizing the crop frame. */
 const cropPreserveAspectRatioCheckbox = document.getElementById('crop-preserve-aspect-ratio-checkbox')
-/** Checkbox отмены crop mode при сбросе выделения. */
+/** Checkbox for canceling crop mode when the selection is cleared. */
 const cropCancelOnSelectionClearCheckbox = document.getElementById('crop-cancel-on-selection-clear-checkbox')
-/** Кнопка входа в crop mode монтажной области. */
+/** Button that enters crop mode for the artboard. */
 const startCanvasCropBtn = document.getElementById('start-canvas-crop-btn')
-/** Кнопка входа в crop mode выбранного изображения. */
+/** Button that enters crop mode for the selected image. */
 const startImageCropBtn = document.getElementById('start-image-crop-btn')
-/** Кнопка применения активного crop mode. */
+/** Button that applies the active crop mode. */
 const applyCropBtn = document.getElementById('apply-crop-btn')
-/** Кнопка выхода из crop mode без применения. */
+/** Button that exits crop mode without applying changes. */
 const cancelCropBtn = document.getElementById('cancel-crop-btn')
 
-/** Узел отображения текущего внутреннего разрешения canvas. */
+/** Element displaying the current internal canvas resolution. */
 const canvasResolutionNode = document.getElementById('canvas-resolution')
-/** Узел отображения разрешения монтажной области. */
+/** Element displaying the artboard resolution. */
 const montageAreaResolutionNode = document.getElementById('montage-area-resolution')
-/** Узел отображения визуального размера canvas в DOM. */
+/** Element displaying the visual canvas size in the DOM. */
 const canvasDisplaySizeNode = document.getElementById('canvas-display-size')
-/** Узел отображения данных текущего выделенного объекта. */
+/** Element displaying data for the currently selected object. */
 const currentObjectDataNode = document.getElementById('current-object-data')
-/** Узел отображения текущего значения zoom редактора. */
+/** Element displaying the current editor zoom. */
 const canvasZoomNode = document.getElementById('canvas-zoom')
 
-/** Кнопка открытия меню выбора пресета новой фигуры. */
+/** Button that opens the preset menu for a new shape. */
 const addShapeBtn = document.getElementById('add-shape-btn')
-/** Popup-меню с доступными пресетами фигур для добавления. */
+/** Popup menu with available presets for adding shapes. */
 const shapePickerMenu = document.getElementById('shape-picker-menu')
-/** Коллекция кнопок выбора пресета фигуры для создания нового shape-объекта. */
+/** Collection of shape preset buttons for creating a new shape object. */
 const shapePresetButtons = Array.from(document.querySelectorAll('[data-shape-preset]'))
-/** Кнопка открытия меню замены пресета у активной фигуры. */
+/** Button that opens the preset replacement menu for the active shape. */
 const replaceShapeBtn = document.getElementById('replace-shape-btn')
-/** Popup-меню с пресетами для замены активной фигуры. */
+/** Popup menu with presets for replacing the active shape. */
 const replaceShapeMenu = document.getElementById('replace-shape-menu')
-/** Коллекция кнопок выбора нового пресета для активной фигуры. */
+/** Collection of buttons for selecting a new preset for the active shape. */
 const replaceShapePresetButtons = Array.from(document.querySelectorAll('[data-replace-shape-preset]'))
-/** Input выбора цвета заливки активной фигуры. */
+/** Input for selecting the active shape's fill color. */
 const shapeFillInput = document.getElementById('shape-fill-color')
-/** Чекбокс режима auto expand для текста внутри shape. */
+/** Checkbox for auto expand mode for text inside a shape. */
 const shapeTextAutoExpandCheckbox = document.getElementById('shape-text-auto-expand')
-/** Контейнер палитры быстрых цветов заливки фигуры. */
+/** Container for the shape fill color preset palette. */
 const shapeFillPalette = document.getElementById('shape-fill-palette')
-/** Input выбора цвета обводки активной фигуры. */
+/** Input for selecting the active shape's stroke color. */
 const shapeStrokeInput = document.getElementById('shape-stroke-color')
-/** Контейнер палитры быстрых цветов обводки фигуры. */
+/** Container for the shape stroke color preset palette. */
 const shapeStrokePalette = document.getElementById('shape-stroke-palette')
-/** Input выбора ширины обводки фигуры. */
+/** Input for selecting the shape's stroke width. */
 const shapeStrokeWidthInput = document.getElementById('shape-stroke-width')
-/** Узел отображения текущей ширины обводки фигуры. */
+/** Element displaying the current shape stroke width. */
 const shapeStrokeWidthValue = document.getElementById('shape-stroke-width-value')
-/** Input выбора непрозрачности активной фигуры. */
+/** Input for selecting the active shape's opacity. */
 const shapeOpacityInput = document.getElementById('shape-opacity')
-/** Узел отображения текущей непрозрачности фигуры в процентах. */
+/** Element displaying the current shape opacity as a percentage. */
 const shapeOpacityValue = document.getElementById('shape-opacity-value')
-/** Чекбокс применения shape opacity к тексту внутри фигуры. */
+/** Checkbox for applying shape opacity to the text inside it. */
 const shapeOpacityApplyToTextCheckbox = document.getElementById('shape-opacity-apply-to-text')
-/** Коллекция кнопок горизонтального выравнивания контента внутри фигуры. */
+/** Collection of buttons for horizontally aligning content inside a shape. */
 const shapeAlignHorizontalButtons = Array.from(document.querySelectorAll('[data-shape-align-axis="horizontal"]'))
-/** Коллекция кнопок вертикального выравнивания контента внутри фигуры. */
+/** Collection of buttons for vertically aligning content inside a shape. */
 const shapeAlignVerticalButtons = Array.from(document.querySelectorAll('[data-shape-align-axis="vertical"]'))
-/** Input верхнего внутреннего отступа текста внутри фигуры. */
+/** Top padding input for text inside a shape. */
 const shapePaddingTopInput = document.getElementById('shape-padding-top')
-/** Input правого внутреннего отступа текста внутри фигуры. */
+/** Right padding input for text inside a shape. */
 const shapePaddingRightInput = document.getElementById('shape-padding-right')
-/** Input нижнего внутреннего отступа текста внутри фигуры. */
+/** Bottom padding input for text inside a shape. */
 const shapePaddingBottomInput = document.getElementById('shape-padding-bottom')
-/** Input левого внутреннего отступа текста внутри фигуры. */
+/** Left padding input for text inside a shape. */
 const shapePaddingLeftInput = document.getElementById('shape-padding-left')
-/** Input выбора радиуса скругления углов фигуры. */
+/** Input for selecting the shape's corner-rounding amount. */
 const shapeRoundingInput = document.getElementById('shape-rounding')
-/** Узел отображения текущего скругления фигуры. */
+/** Element displaying the current shape corner-rounding amount. */
 const shapeRoundingValue = document.getElementById('shape-rounding-value')
 
-/** Кнопка добавления нового текстового объекта на canvas. */
+/** Button that adds a new text object to the canvas. */
 const addTextBtn = document.getElementById('add-text-btn')
-/** Input содержимого текста для нового или активного текстового объекта. */
+/** Text content input for a new or active text object. */
 const textContentInput = document.getElementById('text-content')
-/** Select выбора семейства шрифта текста. */
+/** Select for the text font family. */
 const textFontFamilySelect = document.getElementById('text-font-family')
-/** Input выбора размера шрифта текста. */
+/** Input for selecting the text font size. */
 const textFontSizeInput = document.getElementById('text-font-size')
-/** Чекбокс режима auto expand для standalone text-объекта. */
+/** Checkbox for auto expand mode for a standalone text object. */
 const textAutoExpandCheckbox = document.getElementById('text-auto-expand')
-/** Кнопка переключения жирного начертания текста. */
+/** Button that toggles bold text. */
 const textBoldBtn = document.getElementById('text-bold-btn')
-/** Кнопка переключения курсива текста. */
+/** Button that toggles italic text. */
 const textItalicBtn = document.getElementById('text-italic-btn')
-/** Кнопка переключения подчёркивания текста. */
+/** Button that toggles underlined text. */
 const textUnderlineBtn = document.getElementById('text-underline-btn')
-/** Кнопка переключения uppercase-режима текста. */
+/** Button that toggles uppercase text mode. */
 const textUppercaseBtn = document.getElementById('text-uppercase-btn')
-/** Кнопка переключения зачёркивания текста. */
+/** Button that toggles strikethrough text. */
 const textStrikeBtn = document.getElementById('text-strike-btn')
-/** Кнопка циклического переключения выравнивания текста. */
+/** Button that cycles through text alignment options. */
 const textAlignToggle = document.getElementById('text-align-toggle')
-/** Input выбора цвета заливки текста. */
+/** Input for selecting the text fill color. */
 const textColorInput = document.getElementById('text-color')
-/** Контейнер палитры быстрых цветов текста. */
+/** Container for the text color preset palette. */
 const textColorPalette = document.getElementById('text-color-palette')
-/** Input выбора цвета stroke текста. */
+/** Input for selecting the text stroke color. */
 const textStrokeColorInput = document.getElementById('text-stroke-color')
-/** Контейнер палитры быстрых цветов stroke текста. */
+/** Container for the text stroke color preset palette. */
 const textStrokePalette = document.getElementById('text-stroke-palette')
-/** Input выбора ширины stroke текста. */
+/** Input for selecting the text stroke width. */
 const textStrokeWidthInput = document.getElementById('text-stroke-width')
-/** Узел отображения текущей ширины stroke текста. */
+/** Element displaying the current text stroke width. */
 const textStrokeWidthValue = document.getElementById('text-stroke-width-value')
-/** Input выбора непрозрачности текстового объекта. */
+/** Input for selecting the text object's opacity. */
 const textOpacityInput = document.getElementById('text-opacity')
-/** Узел отображения текущей непрозрачности текста в процентах. */
+/** Element displaying the current text opacity as a percentage. */
 const textOpacityValue = document.getElementById('text-opacity-value')
-/** Чекбокс включения подложки у текстового объекта. */
+/** Checkbox for enabling the text object's background. */
 const textBackgroundEnabledCheckbox = document.getElementById('text-background-enabled')
-/** Input выбора цвета подложки текста. */
+/** Input for selecting the text background color. */
 const textBackgroundColorInput = document.getElementById('text-background-color')
-/** Input выбора непрозрачности подложки текста. */
+/** Input for selecting the text background opacity. */
 const textBackgroundOpacityInput = document.getElementById('text-background-opacity')
-/** Узел отображения непрозрачности подложки текста. */
+/** Element displaying the text background opacity. */
 const textBackgroundOpacityValue = document.getElementById('text-background-opacity-value')
-/** Input верхнего внутреннего отступа подложки текста. */
+/** Top padding input for the text background. */
 const textPaddingTopInput = document.getElementById('text-padding-top')
-/** Input правого внутреннего отступа подложки текста. */
+/** Right padding input for the text background. */
 const textPaddingRightInput = document.getElementById('text-padding-right')
-/** Input нижнего внутреннего отступа подложки текста. */
+/** Bottom padding input for the text background. */
 const textPaddingBottomInput = document.getElementById('text-padding-bottom')
-/** Input левого внутреннего отступа подложки текста. */
+/** Left padding input for the text background. */
 const textPaddingLeftInput = document.getElementById('text-padding-left')
-/** Input радиуса верхнего левого угла подложки текста. */
+/** Top-left corner radius input for the text background. */
 const textRadiusTopLeftInput = document.getElementById('text-radius-top-left')
-/** Input радиуса верхнего правого угла подложки текста. */
+/** Top-right corner radius input for the text background. */
 const textRadiusTopRightInput = document.getElementById('text-radius-top-right')
-/** Input радиуса нижнего правого угла подложки текста. */
+/** Bottom-right corner radius input for the text background. */
 const textRadiusBottomRightInput = document.getElementById('text-radius-bottom-right')
-/** Input радиуса нижнего левого угла подложки текста. */
+/** Bottom-left corner radius input for the text background. */
 const textRadiusBottomLeftInput = document.getElementById('text-radius-bottom-left')
 
-/** Input ширины монтажной области для ручного изменения resolution. */
+/** Artboard width input for manually changing the resolution. */
 const montageWidthInput = document.getElementById('montage-width-input')
-/** Input высоты монтажной области для ручного изменения resolution. */
+/** Artboard height input for manually changing the resolution. */
 const montageHeightInput = document.getElementById('montage-height-input')
-/** Кнопка применения введённого разрешения монтажной области. */
+/** Button that applies the entered artboard resolution. */
 const applyMontageResolutionBtn = document.getElementById('apply-montage-resolution-btn')
 
-/** Кнопка сериализации выделения в JSON шаблона. */
+/** Button that serializes the selection into template JSON. */
 const serializeTemplateBtn = document.getElementById('serialize-template-btn')
-/** Кнопка применения JSON шаблона к редактору. */
+/** Button that applies template JSON to the editor. */
 const applyTemplateBtn = document.getElementById('apply-template-btn')
-/** Textarea с JSON шаблона для чтения и редактирования. */
+/** Textarea for reading and editing template JSON. */
 const templateJsonInput = document.getElementById('template-json-input')
-/** Чекбокс включения фона в сериализуемый шаблон. */
+/** Checkbox for including the background in the serialized template. */
 const serializeTemplateWithBackgroundCheckbox = document.getElementById('serialize-with-background')
-/** Кнопка загрузки JSON активного объекта в textarea. */
+/** Button that loads the active object's JSON into the textarea. */
 const loadActiveObjectBtn = document.getElementById('load-active-object-btn')
-/** Textarea с JSON активного объекта для ручного редактирования. */
+/** Textarea for manually editing the active object's JSON. */
 const activeObjectJsonInput = document.getElementById('active-object-json')
-/** Кнопка применения изменённого JSON к активному объекту. */
+/** Button that applies the edited JSON to the active object. */
 const saveActiveObjectBtn = document.getElementById('save-active-object-btn')
 
-/** Кнопка отката последнего действия истории редактора. */
+/** Button that undoes the latest action in the editor history. */
 const undoBtn = document.getElementById('undo-btn')
-/** Кнопка повторного применения отменённого действия истории редактора. */
+/** Button that redoes an undone action in the editor history. */
 const redoBtn = document.getElementById('redo-btn')
-/** Кнопка блокировки взаимодействия с редактором. */
+/** Button that blocks interaction with the editor. */
 const blockEditorBtn = document.getElementById('block-editor-btn')
-/** Кнопка блокировки взаимодействия с AI overlay. */
+/** Button that blocks editor interaction and shows the AI overlay. */
 const blockEditorWithAiOverlayBtn = document.getElementById('block-editor-with-ai-overlay-btn')
-/** Кнопка разблокировки взаимодействия с редактором. */
+/** Button that unblocks interaction with the editor. */
 const unblockEditorBtn = document.getElementById('unblock-editor-btn')
-/** Узел отображения текущего состояния InteractionBlocker. */
+/** Element displaying the current InteractionBlocker state. */
 const interactionBlockerStateNode = document.getElementById('interaction-blocker-state')
 
-/** Select выбора типа фоновой подложки редактора. */
+/** Select for the editor background type. */
 const backgroundTypeSelect = document.getElementById('background-type')
-/** Контейнер контролов однотонного цветового фона. */
+/** Container for solid-color background controls. */
 const colorBackgroundControls = document.getElementById('color-background-controls')
-/** Контейнер контролов градиентного фона. */
+/** Container for gradient background controls. */
 const gradientBackgroundControls = document.getElementById('gradient-background-controls')
-/** Контейнер контролов фонового изображения. */
+/** Container for background image controls. */
 const imageBackgroundControls = document.getElementById('image-background-controls')
-/** Input выбора цвета однотонного фона. */
+/** Input for selecting the solid background color. */
 const backgroundColorInput = document.getElementById('background-color')
-/** Кнопка применения однотонного цветового фона. */
+/** Button that applies a solid-color background. */
 const setColorBackgroundBtn = document.getElementById('set-color-background-btn')
-/** Select выбора типа градиента: linear или radial. */
+/** Select for the gradient type: linear or radial. */
 const gradientTypeSelect = document.getElementById('gradient-type')
-/** Контейнер контролов линейного градиента. */
+/** Container for linear gradient controls. */
 const linearGradientControls = document.getElementById('linear-gradient-controls')
-/** Контейнер контролов радиального градиента. */
+/** Container for radial gradient controls. */
 const radialGradientControls = document.getElementById('radial-gradient-controls')
-/** Контейнер списка точек цвета градиента. */
+/** Container for the gradient color stop list. */
 const gradientStopsContainer = document.getElementById('gradient-stops-container')
-/** Кнопка добавления новой точки цвета в градиент. */
+/** Button that adds a new color stop to the gradient. */
 const addGradientStopBtn = document.getElementById('add-gradient-stop-btn')
-/** Input угла линейного градиента. */
+/** Linear gradient angle input. */
 const gradientAngleInput = document.getElementById('gradient-angle')
-/** Узел отображения текущего угла линейного градиента. */
+/** Element displaying the current linear gradient angle. */
 const gradientAngleValue = document.getElementById('gradient-angle-value')
-/** Input координаты X центра радиального градиента. */
+/** Input for the radial gradient center's X coordinate. */
 const gradientCenterXInput = document.getElementById('gradient-center-x')
-/** Узел отображения текущего X центра радиального градиента. */
+/** Element displaying the radial gradient center's current X coordinate. */
 const gradientCenterXValue = document.getElementById('gradient-center-x-value')
-/** Input координаты Y центра радиального градиента. */
+/** Input for the radial gradient center's Y coordinate. */
 const gradientCenterYInput = document.getElementById('gradient-center-y')
-/** Узел отображения текущего Y центра радиального градиента. */
+/** Element displaying the radial gradient center's current Y coordinate. */
 const gradientCenterYValue = document.getElementById('gradient-center-y-value')
-/** Input радиуса радиального градиента. */
+/** Radial gradient radius input. */
 const gradientRadiusInput = document.getElementById('gradient-radius')
-/** Узел отображения текущего радиуса радиального градиента. */
+/** Element displaying the current radial gradient radius. */
 const gradientRadiusValue = document.getElementById('gradient-radius-value')
-/** Кнопка применения параметров градиентного фона. */
+/** Button that applies the gradient background settings. */
 const setGradientBackgroundBtn = document.getElementById('set-gradient-background-btn')
-/** Input выбора файла для фонового изображения. */
+/** File input for the background image. */
 const backgroundImageInput = document.getElementById('background-image-input')
-/** Кнопка применения выбранного изображения как фона. */
+/** Button that applies the selected image as the background. */
 const setImageBackgroundBtn = document.getElementById('set-image-background-btn')
-/** Кнопка удаления текущего фона редактора. */
+/** Button that removes the current editor background. */
 const removeBackgroundBtn = document.getElementById('remove-background-btn')
 
-/** Группа основных toolbar-контролов редактора. */
+/** Group of main editor toolbar controls. */
 export const toolbarControls = {
   chooseImageBtn,
   saveCanvasBtn,
@@ -313,7 +313,7 @@ export const toolbarControls = {
   scaleCanvasToImageBtn
 }
 
-/** Группа контролов crop mode. */
+/** Group of crop mode controls. */
 export const cropControls = {
   applyCropBtn,
   cancelCropBtn,
@@ -329,7 +329,7 @@ export const cropControls = {
   startImageCropBtn
 }
 
-/** Группа информационных узлов со служебным состоянием canvas. */
+/** Group of informational elements showing internal canvas state. */
 export const canvasInfoControls = {
   canvasResolutionNode,
   montageAreaResolutionNode,
@@ -338,7 +338,7 @@ export const canvasInfoControls = {
   canvasZoomNode
 }
 
-/** Группа контролов управления shape-объектами. */
+/** Group of shape object controls. */
 export const shapeControls = {
   addShapeBtn,
   shapePickerMenu,
@@ -366,7 +366,7 @@ export const shapeControls = {
   shapeRoundingValue
 }
 
-/** Группа контролов управления текстовыми объектами. */
+/** Group of text object controls. */
 export const textControls = {
   addTextBtn,
   textContentInput,
@@ -401,14 +401,14 @@ export const textControls = {
   textRadiusBottomLeftInput
 }
 
-/** Группа контролов изменения разрешения монтажной области. */
+/** Group of artboard resolution controls. */
 export const montageControls = {
   montageWidthInput,
   montageHeightInput,
   applyMontageResolutionBtn
 }
 
-/** Группа контролов сериализации шаблона и JSON активного объекта. */
+/** Group of template and active-object JSON serialization controls. */
 export const serializationControls = {
   serializeTemplateBtn,
   applyTemplateBtn,
@@ -419,13 +419,13 @@ export const serializationControls = {
   saveActiveObjectBtn
 }
 
-/** Группа контролов undo/redo истории редактора. */
+/** Group of editor history undo/redo controls. */
 export const historyControls = {
   undoBtn,
   redoBtn
 }
 
-/** Группа контролов блокировки взаимодействия с редактором. */
+/** Group of controls for blocking interaction with the editor. */
 export const interactionControls = {
   blockEditorBtn,
   blockEditorWithAiOverlayBtn,
@@ -433,7 +433,7 @@ export const interactionControls = {
   interactionBlockerStateNode
 }
 
-/** Группа контролов управления фоном редактора. */
+/** Group of editor background controls. */
 export const backgroundControls = {
   backgroundTypeSelect,
   colorBackgroundControls,

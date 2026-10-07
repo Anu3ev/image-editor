@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичная функция расположена перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- The public function appears before internal calculations. */
 import { MOVE_SNAP_STEP } from '../constants'
 import type { Bounds, SpacingGuide } from '../types'
 import type { MovementSceneAxis } from './movement-snap-candidates'
@@ -14,17 +14,17 @@ import {
   type MovementSpacingChain
 } from './spacing-chains'
 
-/** Допуск сравнения двух точных коррекций. */
+/** Tolerance for comparing two exact corrections. */
 export const MOVEMENT_CORRECTION_COMPARISON_EPSILON = 0.000000001
 
-/** Точная коррекция и цепочка, выбранные для одного ограничения равноудалённости. */
+/** Exact correction and chain selected for one equal-spacing constraint. */
 export type ResolvedMovementSpacingCorrection = Readonly<{
   chain: MovementSpacingChain | null
   delta: number
   selections: readonly ResolvedSpacingSelection[]
 }>
 
-/** Выбирает точную коррекцию существующей цепочки или отдельного интервала. */
+/** Selects the exact correction for an existing chain or individual interval. */
 export function resolveMovementSpacingCorrection({
   axis,
   baseline,
@@ -64,7 +64,7 @@ export function resolveMovementSpacingCorrection({
   return Object.freeze({ chain, delta, selections: exactSelections })
 }
 
-/** Находит исходную цепочку, если объект всё ещё рядом со своим начальным положением. */
+/** Finds the original chain if the object is still near its initial position. */
 function resolveExistingMovementSpacingChain({
   axis,
   baseline,
@@ -93,7 +93,7 @@ function resolveExistingMovementSpacingChain({
     : null
 }
 
-/** Находит цепочку активного объекта, которой принадлежит основной выбранный интервал. */
+/** Finds the active object's chain containing the selected primary interval. */
 function findMovementSpacingChainForSelection({
   chains,
   selection
@@ -116,7 +116,7 @@ function findMovementSpacingChainForSelection({
   return null
 }
 
-/** Проверяет, что оба интервала центрированного варианта входят в одну цепочку. */
+/** Verifies that both intervals of the centered option belong to the same chain. */
 function movementSpacingChainIncludesCenteredSelection({
   chain,
   selection
@@ -137,7 +137,7 @@ function movementSpacingChainIncludesCenteredSelection({
   return includesBefore && includesAfter
 }
 
-/** Возвращает объект из существующей цепочки в положение начала перемещения. */
+/** Returns an object from an existing chain to its position at the start of movement. */
 function resolveBaselineSpacingDelta({
   axis,
   baseline,
@@ -152,7 +152,7 @@ function resolveBaselineSpacingDelta({
   return baseline.bounds[startEdge] - bounds[startEdge]
 }
 
-/** Рассчитывает точное смещение по выбранным соседям или опорному интервалу. */
+/** Calculates the exact offset from the selected neighbors or reference interval. */
 function resolveExactSpacingDelta({
   axis,
   bounds,
@@ -191,7 +191,7 @@ function resolveExactSpacingDelta({
   throw new Error('Reference movement spacing requires the selected exact neighbour')
 }
 
-/** Оставляет варианты, совместимые с точной позицией или исходной цепочкой. */
+/** Keeps options compatible with the exact position or original chain. */
 function resolveExactSpacingSelections({
   axis,
   bounds,
@@ -233,7 +233,7 @@ function resolveExactSpacingSelections({
   return Object.freeze(exactSelections)
 }
 
-/** Перестраивает концы направляющей по точным итоговым границам объекта. */
+/** Rebuilds guide endpoints using the object's exact final bounds. */
 function createExactSpacingGuide({
   axis,
   bounds,

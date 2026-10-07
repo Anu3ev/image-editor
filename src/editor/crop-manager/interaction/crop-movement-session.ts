@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Расчёт намерения расположен перед ограничением итоговой позиции. */
+/* eslint-disable no-use-before-define -- Intent calculation precedes final position constraints. */
 import { Point, util, type TMat2D, type Transform } from 'fabric'
 
 import type SnappingManager from '../../snapping-manager'
@@ -19,10 +19,10 @@ import {
 } from '../domain/crop-geometry'
 import type { CropFrameTransformState, CropRect, CropSize } from '../types'
 
-/** Погрешность перевода ограничения источника в координаты сцены. */
+/** Tolerance for converting source constraints to scene coordinates. */
 const SOURCE_POSITION_EPSILON = 0.000000001
 
-/** Исходная геометрия перемещения crop и последний подтверждённый кадр. */
+/** Initial crop movement geometry and the last validated frame. */
 export interface CropMovementSession {
   kind: 'movement'
   transform: Transform
@@ -38,7 +38,7 @@ export interface CropMovementSession {
   confirmed: CropFrameTransformState
 }
 
-/** Фиксирует сценовую и исходную геометрию до первой мутации при перетаскивании. */
+/** Captures scene and source geometry before the first drag mutation. */
 export function createCropMovementSession({
   frame, transform, snapping
 }: {
@@ -79,7 +79,7 @@ export function createCropMovementSession({
   }
 }
 
-/** Вычисляет исходный сдвиг от положения указателя в начале жеста, не читая изменённую рамку. */
+/** Calculates the raw offset from the pointer position at the start of the gesture without reading the modified frame. */
 export function resolveCropMovementIntent({
   session, pointer, ctrlKey
 }: {
@@ -113,7 +113,7 @@ export function resolveCropMovementIntent({
   }
 }
 
-/** Ограничивает выбранную позицию границами источника без изменения размера crop. */
+/** Constrains the selected position to the source bounds without changing the crop size. */
 export function resolveCropMovementPosition({
   session, position
 }: {

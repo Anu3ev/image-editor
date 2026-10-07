@@ -7,7 +7,7 @@ jest.mock('nanoid')
 type DeferredSaveTestSetup = ReturnType<typeof createHistoryManagerTestSetup>
 
 /**
- * Параметры подготовки saveState, отложенного из-за заблокированного UI.
+ * Setup parameters for saveState deferred because the UI is locked.
  */
 type StageDeferredSaveParams = {
   setup: DeferredSaveTestSetup
@@ -16,7 +16,7 @@ type StageDeferredSaveParams = {
 }
 
 /**
- * Готовит baseState и ставит следующий saveState в deferred queue через публичный path.
+ * Prepares baseState and adds the next saveState to the deferred queue through the public path.
  */
 const stageDeferredSave = ({
   setup,
@@ -41,7 +41,7 @@ const stageDeferredSave = ({
 }
 
 /**
- * Проверяет, что deferred save сохранил ровно один history step.
+ * Checks that the deferred save saved exactly one history step.
  */
 const expectSingleHistoryStepSaved = ({
   historyManager,

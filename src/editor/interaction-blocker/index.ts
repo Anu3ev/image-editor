@@ -22,17 +22,17 @@ const OVERLAY_MASK_ID = 'overlay-mask'
 
 export default class InteractionBlocker {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageEditor
 
   /**
-   * Флаг, указывающий, заблокирован ли редактор.
+   * Flag indicating whether the editor is blocked.
    */
   public isBlocked: boolean
 
   /**
-   * Ссылка на маску, блокирующую взаимодействие с монтажной областью.
+   * Reference to the mask that blocks interaction with the artboard.
    */
   public overlayMask: Rect | null
 
@@ -48,9 +48,9 @@ export default class InteractionBlocker {
   }
 
   /**
-   * Возвращает каноническую геометрию overlay для текущей монтажной области.
-   * Overlay является derived/runtime слоем и должен совпадать с montageArea
-   * в scene coordinates, не сохраняя своё независимое положение.
+   * Returns the canonical overlay geometry for the current artboard.
+   * The overlay is a derived/runtime layer and must match montageArea
+   * in scene coordinates without persisting its own independent position.
    */
   private _getOverlayGeometry(): InteractionBlockerOverlayGeometry {
     const { canvasManager } = this.editor
@@ -114,7 +114,7 @@ export default class InteractionBlocker {
   }
 
   /**
-   * Создаёт overlay для блокировки монтажной области.
+   * Creates an overlay to block the artboard.
    */
   private _createOverlay({ overlay }: { overlay: InteractionBlockerOverlay }): void {
     const { canvas, historyManager } = this.editor
@@ -144,8 +144,8 @@ export default class InteractionBlocker {
   }
 
   /**
-   * Гарантирует наличие overlay и синхронизирует его с текущей монтажной областью.
-   * Overlay является runtime-слоем и не должен зависеть от persisted-state или порядка load-path.
+   * Ensures the overlay exists and synchronizes it with the current artboard.
+   * The overlay is a runtime layer and must not depend on persisted state or load path order.
    */
   public ensureOverlay({ overlay = this._overlayType }: InteractionBlockerBlockOptions = {}): void {
     if (!this.overlayMask || this._overlayType !== overlay) {
@@ -160,7 +160,7 @@ export default class InteractionBlocker {
   }
 
   /**
-   * Обновляет размеры и позицию overlay, выносит его на передний план
+   * Updates the overlay's size and position and brings it to the front
    */
   public refresh(): void {
     const { canvas, historyManager } = this.editor
@@ -185,10 +185,10 @@ export default class InteractionBlocker {
   }
 
   /**
-   * Выключает редактор:
-   * - убирает все селекты, события мыши, скейл/драг–н–дроп
-   * - делает все объекты не‑evented и не‑selectable
-   * - делает видимым overlayMask поверх всех объектов в монтажной области
+   * Disables the editor:
+   * - clears the selection and disables mouse interaction, scaling, and drag-and-drop
+   * - makes all objects non-evented and non-selectable
+   * - shows overlayMask above all objects in the artboard
    */
   public block({ overlay = DEFAULT_OVERLAY }: InteractionBlockerBlockOptions = {}): void {
     if (this.isBlocked) {
@@ -207,18 +207,18 @@ export default class InteractionBlocker {
     try {
       this.isBlocked = true
 
-      // Убираем все селекты, события мыши, скейл/драг–н–дроп
+      // Clear the selection and disable mouse interaction, scaling, and drag-and-drop
       canvas.discardActiveObject()
       canvas.selection = false
       canvas.skipTargetFind = true
 
-      // Делаем все объекты не‑evented и не‑selectable
+      // Make all objects non-evented and non-selectable
       canvasManager.getObjects().forEach((obj) => {
         obj.evented = false
         obj.selectable = false
       })
 
-      // блокируем сами canvas‑элементы в DOM
+      // block the canvas elements themselves in the DOM
       canvas.upperCanvasEl.style.pointerEvents = 'none'
       canvas.lowerCanvasEl.style.pointerEvents = 'none'
 
@@ -232,7 +232,7 @@ export default class InteractionBlocker {
   }
 
   /**
-   * Включает редактор
+   * Enables the editor
    */
   public unblock(): void {
     if (!this.isBlocked || !this.overlayMask) return
@@ -244,17 +244,17 @@ export default class InteractionBlocker {
     try {
       this.isBlocked = false
 
-      // возвращаем интерактивность
+      // restore interactivity
       canvas.selection = true
       canvas.skipTargetFind = false
 
-      // возвращаем селекты & ивенты
+      // re-enable object selection and event handling
       canvasManager.getObjects().forEach((obj) => {
         obj.evented = true
         obj.selectable = true
       })
 
-      // разблокируем DOM
+      // unblock the DOM
       canvas.upperCanvasEl.style.pointerEvents = ''
       canvas.lowerCanvasEl.style.pointerEvents = ''
 

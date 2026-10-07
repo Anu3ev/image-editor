@@ -13,7 +13,7 @@ import type {
 } from '../types'
 import { captureTextScaleBase } from './text-scaling-materialization'
 
-/** Точная геометрия Fabric-объекта до изменения общего выделения. */
+/** Exact Fabric-object geometry before modifying the selection. */
 type ActiveSelectionChildGeometryState = Readonly<{
   height: number
   originX: FabricObject['originX']
@@ -23,7 +23,7 @@ type ActiveSelectionChildGeometryState = Readonly<{
   width: number
 }>
 
-/** Канонические свойства отдельного текста, изменяемые во время скейлинга. */
+/** Canonical standalone-text properties modified during scaling. */
 type ActiveSelectionTextLiveState = Readonly<{
   autoExpand: EditorTextbox['autoExpand']
   base: TextScaleBaseState
@@ -33,7 +33,7 @@ type ActiveSelectionTextLiveState = Readonly<{
   target: EditorTextbox
 }>
 
-/** Подтверждённое живое состояние текстовой части общего выделения. */
+/** Confirmed live state of the text portion of the selection. */
 export type ActiveSelectionScaleLiveState = Readonly<{
   affineChildren: readonly ActiveSelectionChildGeometryState[]
   selection: ActiveSelectionChildGeometryState
@@ -43,12 +43,12 @@ export type ActiveSelectionScaleLiveState = Readonly<{
   transformScaleY: number
 }>
 
-/** Создаёт независимую копию посимвольных стилей текста. */
+/** Creates an independent copy of per-character text styles. */
 function cloneTextboxStyles({ styles }: { styles: TextboxStyles }): TextboxStyles {
   return JSON.parse(JSON.stringify(styles)) as TextboxStyles
 }
 
-/** Сохраняет преобразование и точные размеры живого объекта Fabric. */
+/** Saves the transform and exact dimensions of a live Fabric object. */
 function captureObjectGeometry({
   target
 }: {
@@ -64,7 +64,7 @@ function captureObjectGeometry({
   })
 }
 
-/** Восстанавливает преобразование и размеры без замены живого объекта Fabric. */
+/** Restores the transform and dimensions without replacing the live Fabric object. */
 function restoreObjectGeometry({
   state
 }: {
@@ -83,7 +83,7 @@ function restoreObjectGeometry({
   target.setCoords()
 }
 
-/** Сохраняет канонические свойства и геометрию одного отдельного текста. */
+/** Saves the canonical properties and geometry of one standalone text object. */
 function captureTextLiveState({
   target
 }: {
@@ -99,7 +99,7 @@ function captureTextLiveState({
   })
 }
 
-/** Восстанавливает текст напрямую из подтверждённого снимка без повторного расчёта масштаба. */
+/** Restores text directly from the confirmed snapshot without recalculating scale. */
 function restoreTextLiveState({
   state
 }: {
@@ -128,7 +128,7 @@ function restoreTextLiveState({
   restoreObjectGeometry({ state: state.geometry })
 }
 
-/** Сохраняет живое состояние, которое можно продвигать только после проверки общего шага. */
+/** Saves live state that can be advanced only after validating the overall step. */
 export function captureActiveSelectionScaleLiveState({
   affineChildren,
   selection,
@@ -150,7 +150,7 @@ export function captureActiveSelectionScaleLiveState({
   })
 }
 
-/** Возвращает общий состав к последнему подтверждённому живому состоянию. */
+/** Restores the entire selection to the last confirmed live state. */
 export function restoreActiveSelectionScaleLiveState({
   state
 }: {

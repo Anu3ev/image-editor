@@ -13,7 +13,7 @@ import {
 type ControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb' | 'mtr';
 
 export const DEFAULT_CONTROLS: Record<ControlKey, Partial<Control>> = {
-  // Угловые точки
+  // Corner points
   tl: {
     render: renderSquare,
     sizeX: SQUARE_SIZE,
@@ -44,7 +44,7 @@ export const DEFAULT_CONTROLS: Record<ControlKey, Partial<Control>> = {
     offsetY: 0
   },
 
-  // Середина вертикалей
+  // Midpoints of the vertical sides
   ml: {
     render: renderVerticalRect,
     sizeX: VERT_WIDTH,
@@ -60,7 +60,7 @@ export const DEFAULT_CONTROLS: Record<ControlKey, Partial<Control>> = {
     offsetY: 0
   },
 
-  // Середина горизонталей
+  // Midpoints of the horizontal sides
   mt: {
     render: renderHorizontalRect,
     sizeX: HORIZ_WIDTH,
@@ -74,7 +74,7 @@ export const DEFAULT_CONTROLS: Record<ControlKey, Partial<Control>> = {
     offsetX: 0,
     offsetY: 0 },
 
-  // Специальный «rotate» контрол
+  // Special "rotate" control
   mtr: {
     render: renderRotationControl,
     sizeX: ROTATE_DIAMETER,

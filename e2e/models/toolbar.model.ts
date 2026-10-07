@@ -10,7 +10,7 @@ export class ToolbarModel {
     this.page = page
   }
 
-  /** Возвращает true, если тулбар редактора видим сейчас. */
+  /** Returns true if the editor toolbar is currently visible. */
   async isVisible(): Promise<boolean> {
     return this.page.evaluate(() => {
       const copyPasteIcon = document.querySelector('img[title="Создать копию"]')
@@ -29,7 +29,7 @@ export class ToolbarModel {
     })
   }
 
-  /** Ожидает пока тулбар редактора станет видимым. */
+  /** Waits for the editor toolbar to become visible. */
   async waitUntilVisible(): Promise<void> {
     await this.page.waitForFunction(() => {
       const copyPasteIcon = document.querySelector('img[title="Создать копию"]')
@@ -48,7 +48,7 @@ export class ToolbarModel {
     })
   }
 
-  /** Возвращает границы тулбара в viewport-координатах canvas. */
+  /** Returns toolbar bounds in canvas viewport coordinates. */
   async getBounds(): Promise<ViewportBoundsInfo> {
     await this.waitUntilVisible()
 
@@ -86,7 +86,7 @@ export class ToolbarModel {
     return bounds as ViewportBoundsInfo
   }
 
-  /** Нажимает кнопку тулбара по пользовательскому названию действия. */
+  /** Clicks a toolbar button by its user-facing action name. */
   async clickAction(params: { name: string }): Promise<void> {
     const { name } = params
     const actionIcon = this.page.getByTitle(name)

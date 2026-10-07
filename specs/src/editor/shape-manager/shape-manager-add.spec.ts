@@ -433,13 +433,13 @@ describe('shape-manager add', () => {
       throw new Error('shape group should be created')
     }
 
-    // Фактический размер вырос под текст
+    // The actual size grew to fit the text
     expect(group.shapeBaseWidth).toBeCloseTo(expandedWidth, 4)
     expect(group.shapeBaseHeight).toBeCloseTo(expandedHeight, 4)
-    // Ручная база поднята до финального размера для текущего пресета
+    // The manual baseline was raised to the final size for the current preset
     expect(group.shapeManualBaseWidth).toBeCloseTo(expandedWidth, 4)
     expect(group.shapeManualBaseHeight).toBeCloseTo(expandedHeight, 4)
-    // Но replace box остаётся исходным (пользовательский контракт)
+    // But the replacement box retains its original size (the user-facing contract)
     expect(group.shapeReplaceBoxWidth).toBe(requestedWidth)
     expect(group.shapeReplaceBoxHeight).toBe(requestedHeight)
   })
@@ -699,7 +699,7 @@ describe('shape-manager add', () => {
       throw new Error('shape group should be created')
     }
 
-    // При смене фигуры используется исходный replace box, а не выросший размер
+    // Changing the shape uses the original replacement box, rather than the expanded size
     const nextScale = Math.min(
       requestedWidth / nextPreset.width,
       requestedHeight / nextPreset.height
@@ -713,12 +713,12 @@ describe('shape-manager add', () => {
 
     expect(updatedShape).not.toBeNull()
     expect(updatedShape?.shapePresetKey).toBe('arrow-right')
-    // Новая фигура вписывается в исходный replace box
+    // The new shape fits within the original replacement box
     expect(updatedShape?.shapeBaseWidth).toBeCloseTo(expectedWidth, 4)
     expect(updatedShape?.shapeBaseHeight).toBeCloseTo(expectedHeight, 4)
     expect(updatedShape?.shapeManualBaseWidth).toBeCloseTo(expectedWidth, 4)
     expect(updatedShape?.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
-    // Replace box остаётся исходным (пользовательский контракт)
+    // The replacement box retains its original size (the user-facing contract)
     expect(updatedShape?.shapeReplaceBoxWidth).toBe(requestedWidth)
     expect(updatedShape?.shapeReplaceBoxHeight).toBe(requestedHeight)
   })

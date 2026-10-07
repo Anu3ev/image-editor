@@ -8,7 +8,7 @@ import {
   createTemplateManagerTestSetup
 } from '../../../test-utils/managers/template'
 
-/** Размер монтажной области для проверки восстановления изображений. */
+/** Artboard dimensions for testing image restoration. */
 const MONTAGE_BOUNDS = {
   left: 100,
   top: 50,
@@ -16,7 +16,7 @@ const MONTAGE_BOUNDS = {
   height: 1080
 } as const
 
-/** Исходник, относительно которого сохранена crop-область. */
+/** The source relative to which the crop area was saved. */
 const CROPPED_SOURCE = {
   source: 'original-source.png',
   sourceWidth: 2000,

@@ -6,7 +6,7 @@ import {
 } from '../methods.js'
 
 /**
- * Инициализирует listeners для действий тулбара редактора.
+ * Initializes listeners for editor toolbar actions.
  */
 export default ({ editorInstance, controls, historyControls }) => {
   const {
@@ -44,7 +44,7 @@ export default ({ editorInstance, controls, historyControls }) => {
   } = historyControls
 
   /**
-   * Подписывает listeners на действия слоя и трансформации.
+   * Registers listeners for layer and transform actions.
    */
   const initTransformListeners = () => {
     scaleCanvasToImageBtn.addEventListener('click', () => {
@@ -97,7 +97,7 @@ export default ({ editorInstance, controls, historyControls }) => {
   }
 
   /**
-   * Подписывает listeners на действия выделения и буфера обмена.
+   * Registers listeners for selection and clipboard actions.
    */
   const initSelectionListeners = () => {
     groupBtn.addEventListener('click', () => {
@@ -130,7 +130,7 @@ export default ({ editorInstance, controls, historyControls }) => {
   }
 
   /**
-   * Подписывает listeners на zoom и history.
+   * Registers listeners for zoom and history.
    */
   const initViewportListeners = () => {
     resetZoomBtn.addEventListener('click', () => {
@@ -159,7 +159,7 @@ export default ({ editorInstance, controls, historyControls }) => {
   }
 
   /**
-   * Подписывает listeners на импорт и экспорт изображений.
+   * Registers listeners for image import and export.
    */
   const initFileListeners = () => {
     chooseImageBtn.addEventListener('click', () => {

@@ -253,12 +253,12 @@ describe('loadStateFromFullState', () => {
       ] as any[]
     })
 
-    // Очищаем вызовы от предыдущих тестов
+    // Clear calls from previous tests
     jest.clearAllMocks()
 
     await historyManager.loadStateFromFullState(state)
 
-    // updateCanvas не должен вызываться, т.к. размеры не изменились
+    // updateCanvas should not be called because the dimensions have not changed
     expect(mockEditor.canvasManager.updateCanvas).not.toHaveBeenCalled()
   })
 

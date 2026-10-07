@@ -380,7 +380,7 @@ describe('shape-manager update', () => {
       throw new Error('shape group should be created')
     }
 
-    // Запоминаем исходный replace box до замены
+    // Remember the original replacement box before replacing the shape
     const initialReplaceBoxWidth = group.shapeReplaceBoxWidth
     const initialReplaceBoxHeight = group.shapeReplaceBoxHeight
 
@@ -410,13 +410,13 @@ describe('shape-manager update', () => {
     })
 
     expect(updatedGroup).not.toBeNull()
-    // Фактический размер вырос под текст
+    // The actual size grew to fit the text
     expect(updatedGroup?.shapeBaseWidth).toBe(220)
     expect(updatedGroup?.shapeBaseHeight).toBe(200)
-    // Ручная база поднята до финального размера для текущего пресета
+    // The manual baseline was raised to the final size for the current preset
     expect(updatedGroup?.shapeManualBaseWidth).toBe(220)
     expect(updatedGroup?.shapeManualBaseHeight).toBe(200)
-    // Но replace box остаётся исходным, если не было явных width/height в update
+    // But the replacement box retains its original size if the update did not include explicit width/height values
     expect(updatedGroup?.shapeReplaceBoxWidth).toBe(initialReplaceBoxWidth)
     expect(updatedGroup?.shapeReplaceBoxHeight).toBe(initialReplaceBoxHeight)
   })
@@ -437,7 +437,7 @@ describe('shape-manager update', () => {
       throw new Error('shape group should be created')
     }
 
-    // Запоминаем исходный replace box
+    // Remember the original replacement box
     const initialReplaceBoxWidth = group.shapeReplaceBoxWidth
     const initialReplaceBoxHeight = group.shapeReplaceBoxHeight
 
@@ -466,7 +466,7 @@ describe('shape-manager update', () => {
       presetKey: 'arrow-up'
     })
 
-    // Вторая замена использует исходный replace box, а не выросший размер
+    // The second replacement uses the original replacement box, rather than the expanded size
     const updatedGroup = await manager.update({
       target: group,
       presetKey: 'arrow-right'
@@ -479,7 +479,7 @@ describe('shape-manager update', () => {
       throw new Error('replace box should exist')
     }
 
-    // Фигура вписывается в исходный replace box
+    // The shape fits within the original replacement box
     const nextScale = Math.min(
       initialReplaceBoxWidth / 180,
       initialReplaceBoxHeight / 140
@@ -490,7 +490,7 @@ describe('shape-manager update', () => {
     expect(updatedGroup?.shapeBaseHeight).toBeCloseTo(expectedHeight, 4)
     expect(updatedGroup?.shapeManualBaseWidth).toBeCloseTo(expectedWidth, 4)
     expect(updatedGroup?.shapeManualBaseHeight).toBeCloseTo(expectedHeight, 4)
-    // Replace box остаётся исходным
+    // The replacement box retains its original size
     expect(updatedGroup?.shapeReplaceBoxWidth).toBe(initialReplaceBoxWidth)
     expect(updatedGroup?.shapeReplaceBoxHeight).toBe(initialReplaceBoxHeight)
   })

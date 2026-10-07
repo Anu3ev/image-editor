@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные renderer-функции расположены перед внутренними примитивами. */
+/* eslint-disable no-use-before-define -- Public rendering functions appear before internal primitives. */
 import type { Canvas } from 'fabric'
 
 import { GUIDE_COLOR, GUIDE_WIDTH } from '../constants'
@@ -11,7 +11,7 @@ import { drawGuideLabel } from '../../utils/render-utils'
 import { resolveDisplayDistance } from '../../utils/distance'
 
 /**
- * Рисует подтверждённые линейные и spacing-направляющие в верхнем контексте canvas.
+ * Draws verified line and spacing guides in the upper canvas context.
  */
 export function renderSnappingGuides({
   canvas,
@@ -48,7 +48,7 @@ export function renderSnappingGuides({
   }
 }
 
-/** Возвращает scene-границы текущего viewport для рисования guide. */
+/** Returns the current viewport bounds in scene coordinates for drawing guides. */
 export function calculateSnappingViewportBounds({
   canvas
 }: {
@@ -73,7 +73,7 @@ export function calculateSnappingViewportBounds({
   }
 }
 
-/** Рисует обычные guide в заданных scene-границах. */
+/** Draws regular guides within the given scene bounds. */
 function drawLineGuides({
   context,
   bounds,
@@ -98,7 +98,7 @@ function drawLineGuides({
   }
 }
 
-/** Рисует spacing-guide вместе с единообразно округлёнными подписями. */
+/** Draws spacing guides with consistently rounded labels. */
 function drawSpacingGuides({
   context,
   zoom,
@@ -119,7 +119,7 @@ function drawSpacingGuides({
 }
 
 /**
- * Отрисовывает линии и бейджи для равноудалённых интервалов.
+ * Draws lines and badges for equal spacing intervals.
  */
 export const drawSpacingGuide = ({
   context,

@@ -19,109 +19,109 @@ import {
 } from './constants'
 import type { Bounds, MeasurementGuide } from './types'
 
-/** Событие движения мыши Fabric с необязательным объектом под курсором. */
+/** Fabric mouse move event with an optional object under the cursor. */
 type MouseMoveEvent = TPointerEventInfo<TPointerEvent> & {
   target?: FabricObject | null
 }
 
-/** Цель измерения и её точные границы в координатах сцены. */
+/** Measurement target and its exact bounds in scene coordinates. */
 type MeasurementTargetContext = {
   targetBounds: Bounds
   targetIsMontageArea: boolean
 }
 
-/** Направляющая измерения с готовой подписью расстояния. */
+/** Measurement guide with a prepared distance label. */
 type MeasurementRenderGuide = {
   guide: MeasurementGuide
   label: string
 }
 
 /**
- * Менеджер отвечает за отображение расстояний между выделенными объектами и объектом под курсором при зажатом ALT.
+ * Manager for displaying distances between selected objects and the object under the cursor while ALT is held down.
  */
 export default class MeasurementManager {
   /**
-   * Инстанс редактора.
+   * Editor instance.
    */
   public editor: ImageEditor
 
   /**
-   * Канвас редактора.
+   * Editor canvas.
    */
   private canvas: Canvas
 
   /**
-   * Текущие направляющие измерений.
+   * Current measurement guides.
    */
   private activeGuides: MeasurementGuide[] = []
 
   /**
-   * Флаг удержания клавиши ALT.
+   * Flag indicating that ALT is held down.
    */
   private isAltPressed: boolean = false
 
   /**
-   * Последнее движение мыши для отложенной обработки.
+   * Latest mouse movement for deferred processing.
    */
   private pendingEvent: MouseMoveEvent | null = null
 
   /**
-   * Идентификатор активного requestAnimationFrame.
+   * Active requestAnimationFrame identifier.
    */
   private frameRequest: number | null = null
 
   /**
-   * Флаг скрытия тулбара в режиме измерений.
+   * Flag for hiding the toolbar in measurement mode.
    */
   private isToolbarHidden: boolean = false
 
   /**
-   * Признак, что текущая цель измерения — монтажная область.
+   * Indicates whether the current measurement target is the artboard.
    */
   private isTargetMontageArea: boolean = false
 
   /**
-   * Последнее известное событие движения мыши.
+   * Last known mouse move event.
    */
   private lastMouseEvent: MouseMoveEvent | null = null
 
   /**
-   * Обработчик движения мыши.
+   * Mouse move handler.
    */
   private _onMouseMove: (event: MouseMoveEvent) => void
 
   /**
-   * Обработчик очистки перед рендером.
+   * Pre-render cleanup handler.
    */
   private _onBeforeRender: () => void
 
   /**
-   * Обработчик отрисовки направляющих.
+   * Guide rendering handler.
    */
   private _onAfterRender: () => void
 
   /**
-   * Обработчик сброса при очистке выделения.
+   * Reset handler for selection clearing.
    */
   private _onSelectionCleared: () => void
 
   /**
-   * Обработчик нажатия клавиш.
+   * Key press handler.
    */
   private _onKeyDown: (event: KeyboardEvent) => void
 
   /**
-   * Обработчик отпускания клавиш.
+   * Key release handler.
    */
   private _onKeyUp: (event: KeyboardEvent) => void
 
   /**
-   * Обработчик потери фокуса окна.
+   * Window blur handler.
    */
   private _onWindowBlur: () => void
 
   /**
-   * Создаёт менеджер измерений и инициализирует события.
+   * Creates the measurement manager and initializes events.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -139,7 +139,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Отключает менеджер и убирает все слушатели.
+   * Disables the manager and removes all listeners.
    */
   public destroy(): void {
     this._unbindEvents()
@@ -148,7 +148,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Подписывает менеджер на необходимые события.
+   * Subscribes the manager to the required events.
    */
   private _bindEvents(): void {
     const { canvas } = this
@@ -163,7 +163,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Снимает все обработчики событий.
+   * Removes all event handlers.
    */
   private _unbindEvents(): void {
     const { canvas } = this
@@ -178,7 +178,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Фиксирует удержание ALT для включения измерений.
+   * Records ALT being held down to enable measurements.
    */
   private _handleKeyDown(event: KeyboardEvent): void {
     if (event.altKey || event.key === 'Alt') {
@@ -191,7 +191,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Сбрасывает режим измерений при отпускании ALT.
+   * Resets measurement mode when ALT is released.
    */
   private _handleKeyUp(event: KeyboardEvent): void {
     if (!this.isAltPressed) return
@@ -204,7 +204,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Сбрасывает режим измерений при потере фокуса окна.
+   * Resets measurement mode when the window loses focus.
    */
   private _handleWindowBlur(): void {
     this.isAltPressed = false
@@ -212,14 +212,14 @@ export default class MeasurementManager {
   }
 
   /**
-   * Очищает измерения, если выделение сброшено.
+   * Clears measurements when the selection is cleared.
    */
   private _handleSelectionCleared(): void {
     this._clearGuides()
   }
 
   /**
-   * Обрабатывает движение мыши и планирует обновление измерений.
+   * Handles mouse movement and schedules a measurement update.
    */
   private _handleMouseMove(event: MouseMoveEvent): void {
     const { e } = event
@@ -246,7 +246,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Планирует обновление направляющих в animation frame.
+   * Schedules a guide update in an animation frame.
    */
   private _scheduleUpdate(): void {
     if (this.frameRequest !== null) return
@@ -258,7 +258,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Отменяет отложенное обновление.
+   * Cancels the deferred update.
    */
   private _cancelScheduledUpdate(): void {
     if (this.frameRequest === null) return
@@ -267,7 +267,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Обрабатывает накопленное событие движения.
+   * Processes the pending movement event.
    */
   private _processPending(): void {
     const event = this.pendingEvent
@@ -276,7 +276,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Обновляет набор измерительных направляющих.
+   * Updates the set of measurement guides.
    */
   private _updateGuides({
     event
@@ -338,7 +338,7 @@ export default class MeasurementManager {
     canvas.requestRenderAll()
   }
 
-  /** Возвращает объект под курсором или монтажную область вместе с точными bounds. */
+  /** Returns the object under the cursor or the artboard, along with its exact bounds. */
   private _resolveMeasurementTargetContext({
     event,
     activeObject
@@ -358,7 +358,7 @@ export default class MeasurementManager {
     }
   }
 
-  /** Проверяет, что активный объект целиком находится за пределами цели. */
+  /** Checks whether the active object is entirely outside the target. */
   private static _isOutsideBounds({
     activeBounds,
     targetBounds
@@ -373,7 +373,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Возвращает объект под курсором, подходящий для измерения.
+   * Returns the object under the cursor that is suitable for measurement.
    */
   private static _resolveTarget({
     event,
@@ -393,7 +393,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Собирает вертикальные и горизонтальные направляющие расстояний.
+   * Builds vertical and horizontal distance guides.
    */
   private static _buildGuides({
     activeBounds,
@@ -419,7 +419,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Строит горизонтальные направляющие (расстояние по оси X).
+   * Builds horizontal guides (distance along the X axis).
    */
   private static _buildHorizontalGuides({
     activeBounds,
@@ -520,7 +520,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Строит вертикальные направляющие (расстояние по оси Y).
+   * Builds vertical guides (distance along the Y axis).
    */
   private static _buildVerticalGuides({
     activeBounds,
@@ -621,7 +621,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Сбрасывает активные направляющие и инициирует перерисовку.
+   * Resets active guides and triggers a redraw.
    */
   private _clearGuides(): void {
     if (!this.activeGuides.length) {
@@ -636,7 +636,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Очищает вспомогательный слой перед рендером.
+   * Clears the helper layer before rendering.
    */
   private _handleBeforeRender(): void {
     const { canvas } = this
@@ -648,7 +648,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Рисует направляющие и бейджи после рендера канваса.
+   * Draws guides and badges after the canvas is rendered.
    */
   private _handleAfterRender(): void {
     if (!this.activeGuides.length) return
@@ -689,7 +689,7 @@ export default class MeasurementManager {
     }
   }
 
-  /** Рисует проверенные направляющие измерения и подписи расстояний. */
+  /** Draws validated measurement guides and distance labels. */
   private _drawMeasurementGuides({
     context,
     renderGuides,
@@ -736,7 +736,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Временно скрывает тулбар во время отображения измерений.
+   * Temporarily hides the toolbar while measurements are displayed.
    */
   private _hideToolbar(): void {
     if (this.isToolbarHidden) return
@@ -747,7 +747,7 @@ export default class MeasurementManager {
   }
 
   /**
-   * Возвращает тулбар после режима измерений.
+   * Restores the toolbar after measurement mode.
    */
   private _showToolbar(): void {
     if (!this.isToolbarHidden) return

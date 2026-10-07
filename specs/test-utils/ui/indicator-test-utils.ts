@@ -2,10 +2,10 @@ import ObjectSizeIndicatorManager from '../../../src/editor/ui/object-size-indic
 import CursorIndicator from '../../../src/editor/ui/cursor-indicator'
 import { createManagerTestMocks } from '../editor/manager-test-mocks'
 
-/** CSS-класс тестового cursor indicator. */
+/** CSS class of the test cursor indicator. */
 export const TEST_CURSOR_INDICATOR_CLASS = 'test-cursor-indicator'
 
-/** DOMRect-подобные размеры элемента для jsdom. */
+/** DOMRect-like element dimensions for jsdom. */
 export interface ElementBoundsStub {
   left?: number
   top?: number
@@ -13,7 +13,7 @@ export interface ElementBoundsStub {
   height?: number
 }
 
-/** Минимальный target для проверки индикатора размеров объекта. */
+/** Minimal target for testing the object size indicator. */
 export interface ObjectSizeIndicatorTargetStub {
   id: string
   locked?: boolean
@@ -24,7 +24,7 @@ export interface ObjectSizeIndicatorTargetStub {
   getObjectDisplaySize?: jest.Mock<{ width: number; height: number }, []>
 }
 
-/** Минимальная форма Fabric transform event, нужная ObjectSizeIndicatorManager. */
+/** Minimal shape of the Fabric transform event required by ObjectSizeIndicatorManager. */
 export interface ObjectSizeTransformEventStub {
   e: MouseEvent
   transform: {
@@ -32,24 +32,24 @@ export interface ObjectSizeTransformEventStub {
   }
 }
 
-/** Минимальная форма Fabric mouse:move event, нужная ObjectSizeIndicatorManager. */
+/** Minimal shape of the Fabric mouse:move event required by ObjectSizeIndicatorManager. */
 export interface ObjectSizeMouseMoveEventStub {
   e: MouseEvent
 }
 
-/** Fixture для CursorIndicator unit-тестов. */
+/** Fixture for CursorIndicator unit tests. */
 export interface CursorIndicatorTestFixture {
   indicator: CursorIndicator
   parent: HTMLElement
 }
 
-/** Touch-подобная точка для unit-проверок CursorIndicator. */
+/** Touch-like point for CursorIndicator unit checks. */
 export interface CursorIndicatorTouchPointStub {
   clientX: number
   clientY: number
 }
 
-/** Fixture для ObjectSizeIndicatorManager unit-тестов. */
+/** Fixture for ObjectSizeIndicatorManager unit tests. */
 export interface ObjectSizeIndicatorManagerTestFixture {
   manager: ObjectSizeIndicatorManager
   mockCanvas: ReturnType<typeof createManagerTestMocks>['mockCanvas']
@@ -57,7 +57,7 @@ export interface ObjectSizeIndicatorManagerTestFixture {
   target: ObjectSizeIndicatorTargetStub
 }
 
-/** Создаёт DOMRect-совместимый объект для jsdom. */
+/** Creates a DOMRect-compatible object for jsdom. */
 export const createBoundsStub = ({
   left = 0,
   top = 0,
@@ -75,7 +75,7 @@ export const createBoundsStub = ({
   toJSON: () => ({})
 } as DOMRect)
 
-/** Подменяет getBoundingClientRect у DOM-элемента. */
+/** Replaces getBoundingClientRect on a DOM element. */
 export const mockElementBounds = ({
   element,
   bounds
@@ -86,7 +86,7 @@ export const mockElementBounds = ({
   jest.spyOn(element, 'getBoundingClientRect').mockReturnValue(createBoundsStub(bounds))
 }
 
-/** Создаёт CursorIndicator с управляемыми размерами parent и самого индикатора. */
+/** Creates a CursorIndicator with controllable parent and indicator dimensions. */
 export const createCursorIndicatorFixture = ({
   parentBounds,
   indicatorBounds
@@ -116,7 +116,7 @@ export const createCursorIndicatorFixture = ({
   }
 }
 
-/** Создаёт минимальный TouchList-совместимый stub. */
+/** Creates a minimal TouchList-compatible stub. */
 export const createTouchListStub = (
   points: CursorIndicatorTouchPointStub[]
 ): TouchList => ({
@@ -124,7 +124,7 @@ export const createTouchListStub = (
   item: (index: number) => points[index] ?? null
 } as unknown as TouchList)
 
-/** Создаёт TouchEvent-совместимый stub для unit-проверок CursorIndicator. */
+/** Creates a TouchEvent-compatible stub for CursorIndicator unit checks. */
 export const createCursorTouchEventStub = ({
   touches = [],
   changedTouches = []
@@ -136,7 +136,7 @@ export const createCursorTouchEventStub = ({
   changedTouches: createTouchListStub(changedTouches)
 } as unknown as TouchEvent)
 
-/** Создаёт target с управляемыми scaled-размерами. */
+/** Creates a target with controllable scaled dimensions. */
 export const createObjectSizeIndicatorTarget = ({
   id = 'test-object',
   width = 120,
@@ -170,7 +170,7 @@ export const createObjectSizeIndicatorTarget = ({
   return target
 }
 
-/** Создаёт ObjectSizeIndicatorManager с минимальными editor/canvas mocks. */
+/** Creates an ObjectSizeIndicatorManager with minimal editor/canvas mocks. */
 export const createObjectSizeIndicatorManagerFixture = ({
   width,
   height,
@@ -201,7 +201,7 @@ export const createObjectSizeIndicatorManagerFixture = ({
   }
 }
 
-/** Возвращает первый обработчик canvas-события или падает, если его нет. */
+/** Returns the first canvas event handler or fails if none exists. */
 export const getCanvasHandler = <Event>(
   canvas: { __handlers: Record<string, Array<(event: Event) => void>> },
   eventName: string
@@ -215,7 +215,7 @@ export const getCanvasHandler = <Event>(
   return handler
 }
 
-/** Создаёт событие Fabric object:scaling/object:resizing для ObjectSizeIndicatorManager. */
+/** Creates a Fabric object:scaling/object:resizing event for ObjectSizeIndicatorManager. */
 export const createObjectSizeTransformEvent = ({
   target,
   clientX = 200,
@@ -231,7 +231,7 @@ export const createObjectSizeTransformEvent = ({
   }
 })
 
-/** Создаёт событие Fabric mouse:move для ObjectSizeIndicatorManager. */
+/** Creates a Fabric mouse:move event for ObjectSizeIndicatorManager. */
 export const createObjectSizeMouseMoveEvent = ({
   clientX = 200,
   clientY = 140

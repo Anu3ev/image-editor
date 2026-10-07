@@ -68,14 +68,14 @@ type ScaledAutoExpandOptions = {
   shouldScaleFontSize: boolean
 }
 
-/** Допуск сравнения коэффициентов точного пропорционального скейлинга. */
+/** Tolerance for comparing exact proportional-scaling factors. */
 const PROPORTIONAL_TEXT_SCALE_EPSILON = 0.000000001
 
-/** Максимальная погрешность высоты, которую можно считать следствием округления Fabric. */
+/** Maximum height discrepancy that can be attributed to Fabric rounding. */
 const UNSCALED_TEXTBOX_HEIGHT_DRIFT_LIMIT = 0.5 + DIMENSION_EPSILON
 
 /**
- * Возвращает число строк, заданных явными переносами текста.
+ * Returns the number of lines defined by explicit text line breaks.
  */
 const resolveExplicitLineCount = ({ text }: { text?: string }): number => {
   const textValue = typeof text === 'string' ? text : ''
@@ -83,7 +83,7 @@ const resolveExplicitLineCount = ({ text }: { text?: string }): number => {
 }
 
 /**
- * Возвращает число реально рассчитанных Fabric строк.
+ * Returns the number of lines actually calculated by Fabric.
  */
 const resolveRenderedLineCount = ({
   textbox,
@@ -100,7 +100,7 @@ const resolveRenderedLineCount = ({
 }
 
 /**
- * Возвращает максимальную ширину text-area для autoExpand внутри монтажной области.
+ * Returns the maximum text-area width for autoExpand within the artboard.
  */
 const resolveAutoExpandMaxWidth = ({
   textbox,
@@ -122,7 +122,7 @@ const resolveAutoExpandMaxWidth = ({
 }
 
 /**
- * При autoExpand сохраняет отсутствие soft-wrap во время пропорционального live-scale.
+ * With autoExpand, preserves the absence of soft wrapping during proportional live scaling.
  */
 const preserveScaledAutoExpandLineCount = ({
   textbox,
@@ -169,7 +169,7 @@ const preserveScaledAutoExpandLineCount = ({
 }
 
 /**
- * Снимает с textbox базовое состояние, относительно которого можно материализовать transient scale.
+ * Captures the textbox's base state against which transient scale can be materialized.
  */
 export const captureTextScaleBase = ({
   textbox
@@ -222,7 +222,7 @@ export const captureTextScaleBase = ({
 }
 
 /**
- * Возвращает минимальные допустимые scale-значения для width, font-size и пропорционального drag.
+ * Returns the minimum permitted scale values for width, font size, and proportional dragging.
  */
 export const resolveMinimumTextScalingBounds = (
   {
@@ -264,8 +264,8 @@ export const resolveMinimumTextScalingBounds = (
 }
 
 /**
- * Запекает масштаб в визуальные свойства textbox без изменения его placement и ширины.
- * Используется там, где геометрией объекта управляет другой доменный слой.
+ * Bakes scale into the textbox's visual properties without changing its placement or width.
+ * Used when another domain layer manages the object's geometry.
  */
 export const applyScaledTextboxVisualState = ({
   textbox,
@@ -362,7 +362,7 @@ export const applyScaledTextboxVisualState = ({
   })
 }
 
-/** Восстанавливает обычное положение объекта или неподвижную точку текущего жеста. */
+/** Restores the object's normal position or the current gesture's fixed point. */
 function restoreScaledTextboxPlacement({
   anchorPlacement,
   canvasManager,
@@ -398,9 +398,9 @@ function restoreScaledTextboxPlacement({
 }
 
 /**
- * Сохраняет единый множитель ширины и шрифта, если Fabric поднял ширину до дробного `dynamicMinWidth`.
- * Исходная ширина текста может быть округлена вниз, поэтому повторное ограничение во время точного
- * пропорционального скейлинга не должно добавлять к ней скрытую долю пикселя.
+ * Preserves a single width and font multiplier if Fabric increased width to a fractional `dynamicMinWidth`.
+ * The original text width may have been rounded down, so constraining it again during exact
+ * proportional scaling must not add a hidden fraction of a pixel.
  */
 function restoreExactProportionalWidth({
   base,
@@ -423,13 +423,13 @@ function restoreExactProportionalWidth({
   const usesOneScale = Math.abs(widthScale - appliedFontScale) <= PROPORTIONAL_TEXT_SCALE_EPSILON
   if (!usesOneScale || (textbox.width ?? committedWidth) <= committedWidth) return
 
-  // Fabric повторно применяет dynamicMinWidth внутри `_set('width')`, поэтому точный измеренный
-  // результат записывается напрямую после завершения layout.
+  // Fabric reapplies dynamicMinWidth inside `_set('width')`, so the exact measured
+  // result is written directly after layout is complete.
   textbox.width = committedWidth
   textbox.dirty = true
 }
 
-/** Сохраняет высоту текста, если изменение ширины не повлияло на количество строк. */
+/** Preserves text height if a width change did not affect the line count. */
 function restoreUnscaledTextboxHeight({
   base,
   shouldScaleFontSize,
@@ -454,7 +454,7 @@ function restoreUnscaledTextboxHeight({
   textbox.dirty = true
 }
 
-/** Применяет канонические свойства текста и восстанавливает положение объекта. */
+/** Applies canonical text properties and restores the object's position. */
 function materializeStandaloneTextboxScale({
   options,
   shouldRoundDimensions
@@ -522,8 +522,8 @@ function materializeStandaloneTextboxScale({
 }
 
 /**
- * Переносит временный масштаб отдельного текста в его ширину, размер шрифта, отступы и скругления.
- * Обычное положение берётся из `placement`, а неподвижная точка текущего жеста — из `anchorPlacement`.
+ * Transfers a standalone text object's temporary scale into its width, font size, padding, and corner rounding.
+ * The normal position comes from `placement`, and the current gesture's fixed point comes from `anchorPlacement`.
  */
 export const commitStandaloneTextboxScale = (
   options: CommitStandaloneTextScaleOptions

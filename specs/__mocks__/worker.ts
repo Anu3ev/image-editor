@@ -1,11 +1,11 @@
-// Мок для Web Worker
+// Mock for Web Worker
 export default class MockWorker {
   onmessage: ((e: MessageEvent) => void) | null = null
 
   onerror: ((e: ErrorEvent) => void) | null = null
 
   postMessage(message: any) {
-    // Заглушка для отправки сообщений
+    // Stub for sending messages
     setTimeout(() => {
       if (this.onmessage) {
         this.onmessage({
@@ -16,6 +16,6 @@ export default class MockWorker {
   }
 
   terminate() {
-    // Заглушка для завершения worker
+    // Stub for terminating the worker
   }
 }

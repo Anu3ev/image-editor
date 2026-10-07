@@ -11,7 +11,7 @@ export interface PanBounds {
 }
 
 /**
- * Смещение viewportTransform в canvas coordinates.
+ * viewportTransform offset in canvas coordinates.
  */
 export interface PanDelta {
   deltaX: number
@@ -19,7 +19,7 @@ export interface PanDelta {
 }
 
 /**
- * Позиция viewportTransform как scroll-ratio в диапазоне 0..1.
+ * viewportTransform position as a scroll ratio in the range 0..1.
  */
 export interface PanRatio {
   horizontalRatio?: number
@@ -27,7 +27,7 @@ export interface PanRatio {
 }
 
 /**
- * Scroll-состояние одной оси viewport относительно монтажной области.
+ * Scroll state of one viewport axis relative to the artboard.
  */
 export interface PanAxisState {
   canPan: boolean
@@ -41,7 +41,7 @@ export interface PanAxisState {
 }
 
 /**
- * Полное scroll-состояние viewport по горизонтальной и вертикальной осям.
+ * Full viewport scroll state along the horizontal and vertical axes.
  */
 export interface PanViewportState {
   canPan: boolean
@@ -52,24 +52,24 @@ export interface PanViewportState {
 type PanAxis = 'x' | 'y'
 
 /**
- * Видимый запас за краем монтажной области при pan.
+ * Visible margin beyond the artboard edge when panning.
  */
 const PAN_OVERSCROLL_MARGIN = 48
 
 /**
- * Менеджер для управления границами перетаскивания канваса.
- * Ограничивает расстояние, на которое можно переместить канвас при зажатой клавише Space.
- * Pan относится только к camera-state и должен изменять исключительно viewportTransform.
- * MontageArea выступает стабильной сценической опорой, а не движущейся частью resize/pan-логики.
+ * Manager for controlling canvas drag bounds.
+ * Limits how far the canvas can move while the Space key is held down.
+ * Panning affects only camera state and must change viewportTransform exclusively.
+ * MontageArea is a stable scene reference, not a moving part of the resize/pan logic.
  */
 export default class PanConstraintManager {
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor: ImageEditor
 
   /**
-   * Текущие границы перетаскивания
+   * Current drag bounds
    */
   private currentBounds: PanBounds | null = null
 
@@ -78,14 +78,14 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Рассчитывает границы перетаскивания на основе текущего зума.
-   * Если currentZoom <= defaultZoom, pan блокируется.
-   * Если currentZoom > defaultZoom, pan включается только по осям,
-   * где увеличенная монтажная область подошла к краю viewport с учётом видимого запаса.
-   * Расчёт опирается на scene coordinates монтажной области и не должен вызывать
-   * никаких изменений scene state сам по себе.
+   * Calculates drag bounds based on the current zoom.
+   * If currentZoom <= defaultZoom, panning is blocked.
+   * If currentZoom > defaultZoom, panning is enabled only on axes
+   * where the enlarged artboard reaches the viewport edge, accounting for the visible margin.
+   * The calculation is based on the artboard's scene coordinates and must not
+   * change scene state on its own.
    *
-   * @returns Объект с границами перетаскивания
+   * @returns Object containing drag bounds
    */
   public calculatePanBounds(): PanBounds {
     const state = this.getViewportPanState()
@@ -102,8 +102,8 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Проверяет, разрешено ли перетаскивание при текущем зуме.
-   * @returns true если можно перетаскивать
+   * Checks whether dragging is allowed at the current zoom.
+   * @returns true if dragging is allowed
    */
   public isPanAllowed(): boolean {
     this.updateBounds()
@@ -112,14 +112,14 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Ограничивает координаты viewportTransform границами.
-   * Координаты vpt[4] и vpt[5] представляют смещение канваса.
-   * Метод работает только в плоскости camera-state и не должен компенсировать
-   * или маскировать смещения scene state.
+   * Clamps viewportTransform coordinates to the bounds.
+   * The vpt[4] and vpt[5] coordinates represent the canvas offset.
+   * The method operates only on camera state and must not compensate for
+   * or hide scene state offsets.
    *
-   * @param vptX - текущее смещение по X из viewportTransform[4]
-   * @param vptY - текущее смещение по Y из viewportTransform[5]
-   * @returns Скорректированные координаты смещения
+   * @param vptX - Current X offset from viewportTransform[4]
+   * @param vptY - Current Y offset from viewportTransform[5]
+   * @returns Adjusted offset coordinates
    */
   public constrainPan(vptX: number, vptY: number): { x: number; y: number } {
     let bounds = this.currentBounds
@@ -136,7 +136,7 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Возвращает scroll-состояние viewport по осям.
+   * Returns the viewport scroll state for each axis.
    */
   public getViewportPanState(): PanViewportState {
     const horizontal = this._getPanAxisState({ axis: 'x' })
@@ -150,8 +150,8 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Применяет позицию viewport по scroll-ratio.
-   * @param params - Позиция по осям в диапазоне 0..1
+   * Applies the viewport position by scroll ratio.
+   * @param params - Axis positions in the range 0..1
    */
   public applyPanRatio({ horizontalRatio, verticalRatio }: PanRatio): boolean {
     const state = this.getViewportPanState()
@@ -175,12 +175,12 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Применяет смещение viewportTransform через общие pan-ограничения.
-   * Метод является единым write-path для mouse drag, trackpad wheel-pan и touch-pan.
-   * @param params - Параметры смещения viewport
-   * @param params.deltaX - Смещение viewportTransform по X
-   * @param params.deltaY - Смещение viewportTransform по Y
-   * @returns true если pan-событие обработано текущим camera-state
+   * Applies a viewportTransform offset through the shared pan constraints.
+   * This method is the single write path for mouse dragging, trackpad wheel panning, and touch panning.
+   * @param params - Viewport offset parameters
+   * @param params.deltaX - viewportTransform X offset
+   * @param params.deltaY - viewportTransform Y offset
+   * @returns true if the pan event was handled by the current camera state
    */
   public applyPanDelta({ deltaX, deltaY }: PanDelta): boolean {
     if (deltaX === 0 && deltaY === 0) return false
@@ -196,7 +196,7 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Применяет уже вычисленные координаты viewportTransform через pan-ограничения.
+   * Applies already calculated viewportTransform coordinates through the pan constraints.
    */
   private _applyConstrainedViewport({ vptX, vptY }: { vptX: number; vptY: number }): boolean {
     this.updateBounds()
@@ -223,31 +223,31 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Получить текущие границы перетаскивания (геттер для внешнего использования).
-   * @returns Текущие границы или null если они ещё не рассчитаны
+   * Get the current drag bounds (getter for external use).
+   * @returns Current bounds, or null if they have not yet been calculated
    */
   public getPanBounds(): PanBounds | null {
     return this.currentBounds
   }
 
   /**
-   * Получить текущее смещение монтажной области относительно центра канваса.
-   * @returns Объект с координатами смещения
+   * Get the current artboard offset relative to the canvas center.
+   * @returns Object containing offset coordinates
    */
   public getCurrentOffset(): { x: number; y: number } {
     const { canvas, montageArea } = this.editor
     const currentZoom = canvas.getZoom()
     const vpt = canvas.viewportTransform
 
-    // Центр монтажной области в canvas coordinates (origin уже в центре)
+    // Artboard center in canvas coordinates (origin is already centered)
     const montageCenterX = montageArea.left
     const montageCenterY = montageArea.top
 
-    // Центр канваса
+    // Canvas center
     const canvasCenterX = canvas.getWidth() / 2
     const canvasCenterY = canvas.getHeight() / 2
 
-    // Текущее смещение монтажной области относительно центра канваса
+    // Current artboard offset relative to the canvas center
     const offsetX = (montageCenterX * currentZoom + vpt[4]) - canvasCenterX
     const offsetY = (montageCenterY * currentZoom + vpt[5]) - canvasCenterY
 
@@ -255,7 +255,7 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Возвращает scroll-состояние одной оси viewport.
+   * Returns the scroll state of one viewport axis.
    */
   private _getPanAxisState({ axis }: { axis: PanAxis }): PanAxisState {
     const { canvas, montageArea, zoomManager } = this.editor
@@ -300,9 +300,9 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Возвращает длину pan-диапазона для одной оси viewport.
-   * Диапазон начинает расти до фактического переполнения viewport,
-   * чтобы у пользователя был небольшой видимый запас около края монтажной области.
+   * Returns the length of the pan range for one viewport axis.
+   * The range starts growing before the viewport actually overflows,
+   * giving the user a small visible margin around the artboard edge.
    */
   private static _getScrollDistance({
     contentSize,
@@ -317,7 +317,7 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Создаёт состояние заблокированной оси, где viewport центрируется относительно монтажной области.
+   * Creates a locked axis state with the viewport centered on the artboard.
    */
   private static _createLockedAxisState({
     contentSize,
@@ -341,7 +341,7 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Возвращает scroll-ratio текущей позиции оси.
+   * Returns the scroll ratio of the current axis position.
    */
   private static _getAxisRatio({ current, max, min }: { current: number; max: number; min: number }): number {
     const scrollDistance = max - min
@@ -352,7 +352,7 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Возвращает координату viewportTransform для scroll-ratio.
+   * Returns the viewportTransform coordinate for a scroll ratio.
    */
   private static _getAxisPositionByRatio({
     axisState,
@@ -367,22 +367,22 @@ export default class PanConstraintManager {
   }
 
   /**
-   * Ограничивает значение диапазоном.
+   * Clamps a value to a range.
    */
   private static _clamp(value: number, min: number, max: number): number {
     return PanConstraintManager._normalizeZero(Math.max(min, Math.min(max, value)))
   }
 
   /**
-   * Приводит JavaScript -0 к обычному 0 для стабильного публичного state.
+   * Converts JavaScript -0 to regular 0 for stable public state.
    */
   private static _normalizeZero(value: number): number {
     return Object.is(value, -0) ? 0 : value
   }
 
   /**
-   * Обновить границы перетаскивания.
-   * Вызывается при изменении зума или размеров монтажной области.
+   * Update drag bounds.
+   * Called when the zoom or artboard dimensions change.
    */
   public updateBounds(): void {
     this.currentBounds = this.calculatePanBounds()

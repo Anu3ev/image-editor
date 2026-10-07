@@ -3,12 +3,12 @@ import { cloneLineFontDefaults } from '../line-defaults'
 import type { EditorTextbox } from '../types'
 import { applyCanonicalTextboxWidth } from './text-width-materialization'
 
-/** Настройки отдельного Textbox, который используется только для измерения геометрии. */
+/** Settings for a separate Textbox used only to measure geometry. */
 type TextScalingMeasurementOptions = Readonly<{
   autoExpand?: boolean
 }>
 
-/** Создаёт независимую копию посимвольных стилей для измерительного Textbox. */
+/** Creates an independent copy of per-character styles for the measurement Textbox. */
 function cloneTextboxStyles({ textbox }: { textbox: EditorTextbox }): EditorTextbox['styles'] {
   const styles: NonNullable<EditorTextbox['styles']> = {}
 
@@ -27,7 +27,7 @@ function cloneTextboxStyles({ textbox }: { textbox: EditorTextbox }): EditorText
   return styles
 }
 
-/** Собирает свойства, которые влияют на перенос строк и внешнюю геометрию текста. */
+/** Collects properties that affect line wrapping and outer text geometry. */
 function createMeasurementTextboxOptions({
   target,
   autoExpand
@@ -75,7 +75,7 @@ function createMeasurementTextboxOptions({
   }
 }
 
-/** Создаёт Textbox для расчётов, не добавляя его на холст и не меняя исходный объект. */
+/** Creates a Textbox for calculations without adding it to the canvas or modifying the original object. */
 export function createTextScalingMeasurementTextbox({
   target,
   options = {}

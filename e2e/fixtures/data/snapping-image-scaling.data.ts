@@ -1,18 +1,18 @@
 import type { ImageScaleControl } from '../../types'
 
-/** Размер изображения для real-pointer сценариев изменения ширины. */
+/** Image dimensions for real-pointer width-change scenarios. */
 export const SNAPPING_IMAGE_SCALE_SIZE = {
   width: 80,
   height: 50
 }
 
-/** Доля исходного размера, на которую ручка уходит к reference guide. */
+/** Fraction of the initial size the handle travels toward the reference guide. */
 export const SNAPPING_IMAGE_SCALE_CONTROL_GROWTH = 0.2
 
-/** Сторона reference geometry, к которой должна прилипнуть ручка. */
+/** Reference-geometry side to which the handle should snap. */
 export type ImageScaleGuideSide = 'left' | 'right' | 'top' | 'bottom'
 
-/** Один пользовательский сценарий scale через стандартную ручку изображения. */
+/** One user scaling scenario using a standard image handle. */
 export type ImageScaleControlCase = Readonly<{
   control: ImageScaleControl
   fixedControl: ImageScaleControl
@@ -21,7 +21,7 @@ export type ImageScaleControlCase = Readonly<{
   yGuide?: Extract<ImageScaleGuideSide, 'top' | 'bottom'>
 }>
 
-/** Все стандартные ручки Image и соответствующие им неподвижные точки. */
+/** All standard Image handles and their corresponding fixed points. */
 export const SNAPPING_IMAGE_SCALE_CONTROL_CASES: readonly ImageScaleControlCase[] = [
   {
     control: 'tl',
@@ -77,20 +77,20 @@ export const SNAPPING_IMAGE_SCALE_CONTROL_CASES: readonly ImageScaleControlCase[
   }
 ]
 
-/** Идентификатор узкого шейпа с конкурирующими вертикальными направляющими. */
+/** ID of a narrow shape with competing vertical guides. */
 export const SNAPPING_IMAGE_SCALE_REFERENCE_ID = 'image-scale-reference'
 
-/** Расстояние до reference-шейпа в экранных пикселях. */
+/** Distance to the reference shape in screen pixels. */
 export const SNAPPING_IMAGE_SCALE_REFERENCE_GAP_PX = 40
 
-/** Ширина reference-шейпа в экранных пикселях. */
+/** Reference-shape width in screen pixels. */
 export const SNAPPING_IMAGE_SCALE_REFERENCE_WIDTH_PX = 8
 
-/** Смещения указателя для последовательных шагов внутри зоны удержания. */
+/** Pointer offsets for successive steps within the snap-hold zone. */
 export const SNAPPING_IMAGE_SCALE_HOLD_OFFSETS_PX = [1, 2, 3] as const
 
-/** Расстояние после reference-шейпа, на котором уже нет подходящей направляющей. */
+/** Distance beyond the reference shape where no suitable guide remains. */
 export const SNAPPING_IMAGE_SCALE_RELEASE_OFFSET_PX = 12
 
-/** Допуск Fabric control geometry относительно указателя в viewport-пикселях. */
+/** Tolerance of Fabric control geometry relative to the pointer in viewport pixels. */
 export const SNAPPING_IMAGE_SCALE_POINTER_TOLERANCE_PX = 1.5

@@ -11,7 +11,7 @@ const TRACKPAD_PINCH_ZOOM_CHANGE_PERCENT = 0.8
 const TRACKPAD_PINCH_DELTA_THRESHOLD = 50
 const WEBKIT_GESTURE_ZOOM_GAIN = 1
 
-/** Обработчик с отменяемым отложенным вызовом. */
+/** Handler with a cancelable deferred invocation. */
 type DebouncedHandler<T extends(...args: unknown[]) => unknown> = ((...args: Parameters<T>) => void) & {
   cancel: () => void
 }
@@ -27,7 +27,7 @@ interface CanvasGestureEvent extends Event {
 }
 
 /**
- * Точка pan-жеста в viewport coordinates DOM-события.
+ * Pan gesture point in the DOM event's viewport coordinates.
  */
 interface PanPointer {
   x: number
@@ -35,7 +35,7 @@ interface PanPointer {
 }
 
 /**
- * Минимальный touch-контракт, который нужен для расчёта центра двух пальцев.
+ * Minimal touch contract needed to calculate the midpoint between two fingers.
  */
 interface TouchPointLike {
   clientX: number
@@ -43,7 +43,7 @@ interface TouchPointLike {
 }
 
 /**
- * Минимальный контракт mouse/pointer события для pan по Space + ЛКМ.
+ * Minimal mouse/pointer event contract for panning with Space + left mouse button.
  */
 interface ClientPointerLike {
   clientX: number
@@ -51,7 +51,7 @@ interface ClientPointerLike {
 }
 
 /**
- * Touch-событие с индексируемым списком активных точек касания.
+ * Touch event with an indexable list of active touch points.
  */
 interface TouchEventWithPoints extends Event {
   touches: ArrayLike<TouchPointLike>
@@ -61,71 +61,71 @@ class Listeners {
   private _destroyed = false
 
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   editor: ImageEditor
 
   /**
-   * Ссылка на Fabric Canvas.
+   * Reference to the Fabric Canvas.
    */
   canvas: Canvas
 
   /**
-   * Параметры (опции) для слушателей.
+   * Listener parameters (options).
    */
   options: Partial<EditorOptions>
 
   /**
-   * Флаг, что перетаскивание канваса активно.
+   * Flag indicating that canvas dragging is active.
    * @default false
    */
   private isDragging: boolean = false
 
   /**
-   * Координаты последнего pan-указателя по оси X при перетаскивании канваса.
-   * Используется для расчёта смещения по горизонтали при mouse и touch pan.
+   * Last pan pointer X coordinate while dragging the canvas.
+   * Used to calculate horizontal movement during mouse and touch panning.
    * @default 0
    */
   private lastPanPointerX: number = 0
 
   /**
-   * Координаты последнего pan-указателя по оси Y при перетаскивании канваса.
-   * Используется для расчёта смещения по вертикали при mouse и touch pan.
+   * Last pan pointer Y coordinate while dragging the canvas.
+   * Used to calculate vertical movement during mouse and touch panning.
    * @default 0
    */
   private lastPanPointerY: number = 0
 
   /**
-   * Последний cumulative scale WebKit gesture-события.
-   * Нужен только для перевода gesturechange в инкрементальный zoom-step.
+   * Last cumulative scale from a WebKit gesture event.
+   * Needed only to convert gesturechange into an incremental zoom step.
    * @default 1
    */
   private lastGestureScale: number = 1
 
   /**
-   * Флаг, что сочетание Ctrl+Z/Ctrl+Y удерживается.
-   * Используется для предотвращения множественных вызовов при удерживании клавиш.
+   * Flag indicating that Ctrl+Z/Ctrl+Y is held down.
+   * Prevents repeated calls while the keys are held down.
    * @default false
    */
   isUndoRedoKeyPressed: boolean = false
 
   /**
-   * Флаг, что пробел удерживается.
-   * Используется для активации режима перетаскивания канваса.
+   * Flag indicating that the space bar is held down.
+   * Used to activate canvas dragging mode.
    * @default false
    */
   isSpacePressed: boolean = false
 
   /**
-   * Сохраненное выделение перед началом режима перетаскивания канваса.
-   * Используется для восстановления выделения после отпускания пробела.
+   * Selection saved before entering canvas dragging mode.
+   * Used to restore the selection after releasing the space bar.
    * @default []
    */
   private savedSelection: FabricObject[] = []
 
   /**
-   * Привязанные обработчики событий.
-   * Используются для удаления слушателей при уничтожении экземпляра.
+   * Bound event handlers.
+   * Used to remove listeners when the instance is destroyed.
    */
   handleContainerResizeBound: ((e: Event) => void) & { cancel: () => void }
 
@@ -182,7 +182,7 @@ class Listeners {
   handleResetObjectFitBound: (options: TPointerEventInfo<TPointerEvent>) => void
 
   /**
-   * Опции редактора, которые могут быть изменены пользователем.
+   * Editor options that the user can change.
    */
   canvasDragging: boolean = false
 
@@ -207,29 +207,29 @@ class Listeners {
   adaptCanvasToContainerOnResize: boolean = false
 
   /**
-   * Конструктор принимает редактор и опции.
+   * The constructor takes the editor and options.
    * @param params
-   * @param params.editor – редактор, содержащий canvas
-   * @param params.options — настройки редактора (см. defaults.js)
-   * @param params.options.canvasDragging — включить перетаскивание канваса
-   * @param params.options.mouseWheelZooming — включить зум колесом мыши
-   * @param params.options.copyObjectsByHotkey — копировать объекты по Ctrl+C
-   * @param params.options.cutObjectsByHotkey — вырезать объекты по Ctrl+X
-   * @param params.options.duplicateObjectsByHotkey — дублировать объекты по Ctrl+D
-   * @param params.options.pasteImageFromClipboard — вставлять изображения и объекты из буфера обмена
-   * @param params.options.undoRedoByHotKeys — отмена/повтор по Ctrl+Z/Ctrl+Y
-   * @param params.options.selectAllByHotkey — выделение всех объектов по Ctrl+A
-   * @param params.options.deleteObjectsByHotkey — удаление объектов по Delete
-   * @param params.options.resetObjectFitByDoubleClick — сброс фита объекта по двойному клику
-   * @param params.options.adaptCanvasToContainerOnResize — адаптировать канвас к размерам контейнера при изменении размеров окна
+   * @param params.editor – Editor containing the canvas
+   * @param params.options — Editor settings (see defaults.js)
+   * @param params.options.canvasDragging — Enable canvas dragging
+   * @param params.options.mouseWheelZooming — Enable mouse wheel zoom
+   * @param params.options.copyObjectsByHotkey — Copy objects with Ctrl+C
+   * @param params.options.cutObjectsByHotkey — Cut objects with Ctrl+X
+   * @param params.options.duplicateObjectsByHotkey — Duplicate objects with Ctrl+D
+   * @param params.options.pasteImageFromClipboard — Paste images and objects from the clipboard
+   * @param params.options.undoRedoByHotKeys — Undo/redo with Ctrl+Z/Ctrl+Y
+   * @param params.options.selectAllByHotkey — Select all objects with Ctrl+A
+   * @param params.options.deleteObjectsByHotkey — Delete objects with Delete
+   * @param params.options.resetObjectFitByDoubleClick — Reset object fit on double-click
+   * @param params.options.adaptCanvasToContainerOnResize — Adapt the canvas to the container size when the window is resized
    */
   constructor({ editor, options = {} }: { editor: ImageEditor; options?: Partial<EditorOptions> }) {
     this.editor = editor
     this.canvas = editor.canvas
     this.options = options
 
-    // Создаем и сохраняем привязанные обработчики, чтобы потом можно было их снять.
-    // Глобальные (DOM) события:
+    // Create and store bound handlers so they can be removed later.
+    // Global (DOM) events:
     this.handleContainerResizeBound = Listeners.debounce(this.handleContainerResize.bind(this), 500)
     this.handleCopyEventBound = this.handleCopyEvent.bind(this)
     this.handleCutEventBound = this.handleCutEvent.bind(this)
@@ -242,7 +242,7 @@ class Listeners {
     this.handleSpaceKeyDownBound = this.handleSpaceKeyDown.bind(this)
     this.handleSpaceKeyUpBound = this.handleSpaceKeyUp.bind(this)
 
-    // Canvas (Fabric) события:
+    // Canvas (Fabric) events:
     this.handleObjectModifiedHistoryBound = this.handleObjectModifiedHistory.bind(this)
     this.handleObjectRotatingHistoryBound = this.handleObjectRotatingHistory.bind(this)
     this.handleObjectTransformStartBound = this.handleObjectTransformStart.bind(this)
@@ -264,7 +264,7 @@ class Listeners {
   }
 
   /**
-   * Инициализация всех обработчиков согласно опциям.
+   * Initialize all handlers according to the options.
    */
   init(): void {
     if (this._destroyed) return
@@ -313,7 +313,7 @@ class Listeners {
   }
 
   private _bindDomEvents(): void {
-    // Подключаем глобальные DOM-события:
+    // Attach global DOM events:
     if (this.options.adaptCanvasToContainerOnResize) {
       window.addEventListener('resize', this.handleContainerResizeBound, { capture: true })
     }
@@ -350,7 +350,7 @@ class Listeners {
   }
 
   private _bindHistoryEvents(): void {
-    // Инициализация истории редактора
+    // Initialize editor history
     this.canvas.on('object:modified', this.handleObjectModifiedHistoryBound)
     this.canvas.on('object:rotating', this.handleObjectRotatingHistoryBound)
     this.canvas.on('object:added', this.handleObjectAddedHistoryBound)
@@ -364,20 +364,20 @@ class Listeners {
   }
 
   private _bindOverlayEvents(): void {
-    // Инициализация событий для overlayMask
+    // Initialize overlayMask events
     this.canvas.on('object:added', this.handleOverlayUpdateBound)
     this.canvas.on('selection:created', this.handleOverlayUpdateBound)
   }
 
   private _bindBackgroundEvents(): void {
-    // Инициализация событий для background
+    // Initialize background events
     this.canvas.on('object:added', this.handleBackgroundUpdateBound)
     this.canvas.on('selection:created', this.handleBackgroundUpdateBound)
   }
 
   /**
-   * Обработчики для сохранения состояния редактора в истории.
-   * Срабатывают при изменении объектов (перемещение, изменение размера и т.д.).
+   * Handlers for saving editor state to history.
+   * Run when objects change (movement, resizing, etc.).
    */
   handleObjectModifiedHistory({ target }: { target?: FabricObject } = {}): void {
     const { historyManager, textManager } = this.editor
@@ -409,9 +409,9 @@ class Listeners {
   }
 
   /**
-   * Фиксирует старт трансформации объекта для корректного undo.
-   * @param options - параметры события
-   * @param options.target - объект, который трансформируется
+   * Records the start of an object transform for correct undo behavior.
+   * @param options - Event parameters
+   * @param options.target - Object being transformed
    */
   handleObjectTransformStart({ target }: { target?: FabricObject }): void {
     if (!target) return
@@ -420,7 +420,7 @@ class Listeners {
   }
 
   /**
-   * Завершает трансформацию объекта.
+   * Finishes an object transform.
    */
   handleObjectTransformEnd(): void {
     this.editor.historyManager.endAction({ reason: 'object-transform' })
@@ -439,7 +439,7 @@ class Listeners {
   }
 
   /**
-   * Обновление overlayMask при добавлении объектов или выделении.
+   * Update overlayMask when objects are added or selected.
    */
   handleOverlayUpdate(): void {
     const { interactionBlocker } = this.editor
@@ -454,12 +454,12 @@ class Listeners {
     this.editor.backgroundManager.refresh()
   }
 
-  // --- Глобальные DOM-обработчики ---
+  // --- Global DOM handlers ---
 
   /**
-   * Обработчик изменения размеров окна браузера.
-   * Адаптирует canvas camera-state к размерам контейнера.
-   * Derived-слои, завязанные на montageArea и viewport, синхронизируются внутри CanvasManager.
+   * Browser window resize handler.
+   * Adapts the canvas camera state to the container dimensions.
+   * Derived layers that depend on montageArea and the viewport are synchronized inside CanvasManager.
    */
   handleContainerResize(): void {
     if (this._destroyed) return
@@ -467,11 +467,11 @@ class Listeners {
   }
 
   /**
-   * Обработчик для Ctrl+C (копирование).
-   * @param event — объект события
-   * @param event.ctrlKey — зажата ли клавиша Ctrl
-   * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
-   * @param event.code — код клавиши
+   * Handler for Ctrl+C (copy).
+   * @param event — Event object
+   * @param event.ctrlKey — Whether Ctrl is held down
+   * @param event.metaKey — Whether Cmd is held down (on Mac)
+   * @param event.code — Key code
    */
   handleCopyEvent(event: KeyboardEvent): void {
     const { ctrlKey, metaKey, code } = event
@@ -484,11 +484,11 @@ class Listeners {
   }
 
   /**
-   * Обработчик для Ctrl+X (вырезание).
-   * @param event — объект события
-   * @param event.ctrlKey — зажата ли клавиша Ctrl
-   * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
-   * @param event.code — код клавиши
+   * Handler for Ctrl+X (cut).
+   * @param event — Event object
+   * @param event.ctrlKey — Whether Ctrl is held down
+   * @param event.metaKey — Whether Cmd is held down (on Mac)
+   * @param event.code — Key code
    */
   handleCutEvent(event: KeyboardEvent): void {
     const { ctrlKey, metaKey, code } = event
@@ -501,11 +501,11 @@ class Listeners {
   }
 
   /**
-   * Обработчик для Ctrl+D (дублирование).
-   * @param event — объект события
-   * @param event.ctrlKey — зажата ли клавиша Ctrl
-   * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
-   * @param event.code — код клавиши
+   * Handler for Ctrl+D (duplicate).
+   * @param event — Event object
+   * @param event.ctrlKey — Whether Ctrl is held down
+   * @param event.metaKey — Whether Cmd is held down (on Mac)
+   * @param event.code — Key code
    */
   handleDuplicateEvent(event: KeyboardEvent): void {
     const { ctrlKey, metaKey, code } = event
@@ -518,8 +518,8 @@ class Listeners {
   }
 
   /**
-   * Обработчик вставки объекта или изображения из буфера обмена.
-   * @param event — объект события
+   * Handler for pasting an object or image from the clipboard.
+   * @param event — Event object
    */
   handlePasteEvent(event: ClipboardEvent): void {
     if (this._shouldIgnoreKeyboardEvent(event)) return
@@ -528,13 +528,13 @@ class Listeners {
   }
 
   /**
-   * Обработчик для отмены/повтора (Ctrl+Z/Ctrl+Y).
-   * @param event — объект события
-   * @param event.ctrlKey — зажата ли клавиша Ctrl
-   * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
-   * @param event.code — код клавиши
-   * При активном interactionBlocker hotkeys не обрабатываются,
-   * потому что блокировка редактора должна выключать пользовательскую интерактивность.
+   * Handler for undo/redo (Ctrl+Z/Ctrl+Y).
+   * @param event — Event object
+   * @param event.ctrlKey — Whether Ctrl is held down
+   * @param event.metaKey — Whether Cmd is held down (on Mac)
+   * @param event.code — Key code
+   * Hotkeys are not handled while interactionBlocker is active,
+   * because blocking the editor must disable user interaction.
    */
   async handleUndoRedoEvent(event:KeyboardEvent): Promise<void> {
     const { ctrlKey, metaKey, code, repeat } = event
@@ -549,7 +549,7 @@ class Listeners {
       return
     }
 
-    // Если это Mac, то не смотрим на флаг isUndoRedoKeyPressed, потому что macos не даёт эмитить keyup события при удерживании Meta.
+    // On Mac, ignore isUndoRedoKeyPressed because macOS does not emit keyup events while Meta is held down.
     const isMac = /Mac/i.test(navigator.userAgent)
     if (!isMac && this.isUndoRedoKeyPressed) return
 
@@ -565,9 +565,9 @@ class Listeners {
   }
 
   /**
-   * Обработчик для отпускания клавиш Ctrl+Z/Ctrl+Y.
-   * @param event — объект события
-   * @param event.code — код клавиши
+   * Handler for releasing Ctrl+Z/Ctrl+Y.
+   * @param event — Event object
+   * @param event.code — Key code
    */
   handleUndoRedoKeyUp(event: KeyboardEvent): void {
     if (this._shouldIgnoreKeyboardEvent(event)) return
@@ -577,11 +577,11 @@ class Listeners {
   }
 
   /**
-   * Обработчик для выделения всех объектов (Ctrl+A).
-   * @param event — объект события
-   * @param event.ctrlKey — зажата ли клавиша Ctrl
-   * @param event.metaKey — зажата ли клавиша Cmd (для Mac)
-   * @param event.code — код клавиши
+   * Handler for selecting all objects (Ctrl+A).
+   * @param event — Event object
+   * @param event.ctrlKey — Whether Ctrl is held down
+   * @param event.metaKey — Whether Cmd is held down (on Mac)
+   * @param event.code — Key code
    */
   handleSelectAllEvent(event:KeyboardEvent): void {
     if (this._shouldIgnoreKeyboardEvent(event)) return
@@ -593,9 +593,9 @@ class Listeners {
   }
 
   /**
-   * Обработчик для удаления объектов (Delete или Backspace).
-   * @param event — объект события
-   * @param event.code — код клавиши
+   * Handler for deleting objects (Delete or Backspace).
+   * @param event — Event object
+   * @param event.code — Key code
    */
   handleDeleteObjectsEvent(event:KeyboardEvent): void {
     if (this._shouldIgnoreKeyboardEvent(event)) return
@@ -605,10 +605,10 @@ class Listeners {
   }
 
   /**
-   * Обработчик для нажатия пробела.
-   * Отключает взаимодействие с объектами и делает курсор "grab" для перетаскивания канваса.
-   * @param event — объект события
-   * @param event.code — код клавиши
+   * Handler for pressing the space bar.
+   * Disables object interaction and sets the cursor to "grab" for dragging the canvas.
+   * @param event — Event object
+   * @param event.code — Key code
    */
   handleSpaceKeyDown(event:KeyboardEvent): void {
     const { code } = event
@@ -625,8 +625,8 @@ class Listeners {
 
     if (isSpacePressed || isDragging) return
 
-    // Фиксируем все изменения до входа в режим панорамирования,
-    // чтобы временные selectable/evented не попадали в историю.
+    // Commit all changes before entering pan mode
+    // so temporary selectable/evented values do not enter history.
     if (!editor.historyManager.skipHistory) {
       editor.historyManager.saveState()
     }
@@ -636,7 +636,7 @@ class Listeners {
     this.isSpacePressed = true
     event.preventDefault()
 
-    // Сохраняем текущее выделение
+    // Save the current selection
     const activeObject = canvas.getActiveObject() || null
 
     if (activeObject instanceof ActiveSelection) {
@@ -645,17 +645,17 @@ class Listeners {
       this.savedSelection = [activeObject]
     }
 
-    // Сбрасываем выделение сразу при нажатии пробела
+    // Clear the selection as soon as the space bar is pressed
     canvas.discardActiveObject()
 
-    // Устанавливаем курсор grab для всего канваса
+    // Set the grab cursor for the entire canvas
     canvas.set({
       selection: false,
       defaultCursor: 'grab'
     })
     canvas.setCursor('grab')
 
-    // Отключаем интерактивность объектов
+    // Disable object interactivity
     editor.canvasManager.getObjects().forEach((obj) => {
       obj.set({
         selectable: false,
@@ -667,11 +667,11 @@ class Listeners {
   }
 
   /**
-   * Обработчик для отпускания пробела.
-   * Завершает перетаскивание канваса, если оно активно.
-   * Восстанавливает нормальное взаимодействие с объектами.
-   * @param event — объект события
-   * @param event.code — код клавиши
+   * Handler for releasing the space bar.
+   * Stops canvas dragging if it is active.
+   * Restores normal object interaction.
+   * @param event — Event object
+   * @param event.code — Key code
    */
   handleSpaceKeyUp(event:KeyboardEvent): void {
     const { code } = event
@@ -682,19 +682,19 @@ class Listeners {
 
     this.isSpacePressed = false
 
-    // Завершаем перетаскивание при отпускании пробела
+    // Stop dragging when the space bar is released
     if (this.isDragging) {
       this.handleCanvasDragEnd()
     }
 
-    // Восстанавливаем нормальное поведение канваса
+    // Restore normal canvas behavior
     this.canvas.set({
       defaultCursor: 'default',
       selection: true
     })
     this.canvas.setCursor('default')
 
-    // Восстанавливаем интерактивность объектов и их курсоры
+    // Restore object interactivity and cursors
     this.editor.canvasManager.getObjects().forEach((obj) => {
       obj.set({
         selectable: true,
@@ -702,7 +702,7 @@ class Listeners {
       })
     })
 
-    // Восстанавливаем сохраненное выделение
+    // Restore the saved selection
     this._restoreSelection(this.savedSelection)
     this.savedSelection = []
 
@@ -712,28 +712,28 @@ class Listeners {
   }
 
   /**
-   * Восстанавливает выделение с проверкой корректности объектов
-   * @param selection - объекты для восстановления выделения
+   * Restores the selection after validating its objects
+   * @param selection - Objects whose selection should be restored
    */
   private _restoreSelection(selection: FabricObject[]): void {
     const { canvas, editor } = this
 
-    // Если нет валидных объектов, ничего не восстанавливаем
+    // If there are no valid objects, do not restore anything
     if (selection.length === 0) return
 
-    // Если остался только один объект, выделяем его напрямую
+    // If only one object remains, select it directly
     if (selection.length === 1) {
       canvas.setActiveObject(selection[0])
       return
     }
 
-    // Фильтруем только те объекты, которые все еще существуют на канвасе
+    // Keep only objects that still exist on the canvas
     const validObjects = selection.filter((obj) => editor.canvasManager.getObjects().includes(obj))
 
-    // Создаем новый ActiveSelection с валидными объектами
+    // Create a new ActiveSelection with the valid objects
     const newSelection = new ActiveSelection(validObjects, { canvas })
 
-    // Если хотя бы один объект заблокирован, блокируем и само выделение
+    // If at least one object is locked, lock the selection itself too
     if (validObjects.some((obj) => obj.locked)) {
       editor.objectLockManager.lockObject({
         object: newSelection,
@@ -746,7 +746,7 @@ class Listeners {
   }
 
   /**
-   * Проверяет, идет ли трансформация объекта на канвасе прямо сейчас.
+   * Checks whether an object transform is currently in progress on the canvas.
    */
   private _isObjectTransforming(): boolean {
     const { canvas } = this
@@ -755,13 +755,13 @@ class Listeners {
     return Boolean(_currentTransform)
   }
 
-  // --- Обработчики для событий canvas (Fabric) ---
+  // --- Canvas (Fabric) event handlers ---
 
   /**
-   * Начало перетаскивания канваса.
-   * Mouse pan требует зажатый Space, touch pan начинается по двум пальцам без клавиатуры.
-   * @param options - событие указателя
-   * @param options.e — объект события указателя
+   * Start dragging the canvas.
+   * Mouse panning requires Space to be held down; touch panning starts with two fingers without a keyboard.
+   * @param options - Pointer event
+   * @param options.e — Pointer event object
    */
   handleCanvasDragStart({ e: event }:TPointerEventInfo<TPointerEvent>): void {
     const pointer = this._getPanPointer(event)
@@ -779,10 +779,10 @@ class Listeners {
   }
 
   /**
-   * Перетаскивание канваса.
-   * Проверяет, разрешено ли перетаскивание при текущем зуме и применяет ограничения на панорамирование с помощью panConstraintManager.
+   * Drag the canvas.
+   * Checks whether dragging is allowed at the current zoom and applies pan constraints through panConstraintManager.
    * @param options
-   * @param options.e — объект события
+   * @param options.e — Event object
    */
   handleCanvasDragging({ e: event }:TPointerEventInfo<TPointerEvent>): void {
     if (!this.isDragging) return
@@ -807,8 +807,8 @@ class Listeners {
   }
 
   /**
-   * Завершение перетаскивания канваса (mouse:up).
-   * Сохраняет новое положение канваса.
+   * Finish dragging the canvas (mouse:up).
+   * Saves the new canvas position.
    */
   handleCanvasDragEnd(): void {
     if (!this.isDragging) return
@@ -823,9 +823,9 @@ class Listeners {
   }
 
   /**
-   * Возвращает текущую точку pan-жеста для mouse или двух пальцев touch.
-   * @param event - Событие указателя
-   * @returns Точка pan-жеста или null, если событие не должно двигать viewport
+   * Returns the current pan gesture point for the mouse or a two-finger touch.
+   * @param event - Pointer event
+   * @returns Pan gesture point, or null if the event should not move the viewport
    */
   private _getPanPointer(event: TPointerEvent): PanPointer | null {
     const touchCenter = this._getTwoTouchCenter(event)
@@ -844,7 +844,7 @@ class Listeners {
   }
 
   /**
-   * Проверяет, что событие несёт viewport coordinates указателя.
+   * Checks whether the event contains pointer viewport coordinates.
    */
   private _isClientPointerEvent(event: TPointerEvent): event is TPointerEvent & ClientPointerLike {
     const pointer = event as Partial<ClientPointerLike>
@@ -853,9 +853,9 @@ class Listeners {
   }
 
   /**
-   * Рассчитывает центр двух активных touch-точек.
-   * @param event - Событие указателя
-   * @returns Центр двух пальцев или null для другого touch-сценария
+   * Calculates the midpoint between two active touch points.
+   * @param event - Pointer event
+   * @returns Midpoint between two fingers, or null for other touch scenarios
    */
   private _getTwoTouchCenter(event: TPointerEvent): PanPointer | null {
     if (!('touches' in event)) return null
@@ -876,10 +876,10 @@ class Listeners {
   }
 
   /**
-   * Рассчитывает шаг зума на основе текущего масштаба канваса и типа wheel-события.
-   * Обычное колесо остаётся спокойным, а мелкое pixel-wheel событие тачпада получает отдельный gain.
-   * @param event - Событие wheel
-   * @returns Шаг изменения зума
+   * Calculates the zoom step based on the current canvas scale and wheel event type.
+   * A regular wheel remains gentle, while small pixel-wheel trackpad events receive a separate gain.
+   * @param event - Wheel event
+   * @returns Zoom change step
    */
   private _calculateAdaptiveZoomStep(event: WheelEvent): number {
     const currentZoom = this.canvas.getZoom()
@@ -894,10 +894,10 @@ class Listeners {
   }
 
   /**
-   * Приводит wheel-delta к одной шкале, чтобы pixel/line/page wheel считались одинаково.
-   * @param event - Событие wheel
-   * @param axis - Ось wheel-события
-   * @returns Нормализованная delta
+   * Normalizes wheel delta to a single scale so pixel/line/page wheel events are treated equally.
+   * @param event - Wheel event
+   * @param axis - Wheel event axis
+   * @returns Normalized delta
    */
   private _normalizeWheelDelta({
     event,
@@ -924,18 +924,18 @@ class Listeners {
   }
 
   /**
-   * Приводит deltaY к одной шкале, чтобы pixel/line/page wheel считались одинаково.
-   * @param event - Событие wheel
-   * @returns Нормализованное deltaY
+   * Normalizes deltaY to a single scale so pixel/line/page wheel events are treated equally.
+   * @param event - Wheel event
+   * @returns Normalized deltaY
    */
   private _normalizeWheelDeltaY(event: WheelEvent): number {
     return this._normalizeWheelDelta({ event, axis: 'y' })
   }
 
   /**
-   * Отличает pinch-жест тачпада от обычного колеса по мелкому pixel-delta.
-   * @param event - Событие wheel
-   * @returns true, если событие похоже на pinch тачпада
+   * Distinguishes a trackpad pinch gesture from a regular wheel using small pixel deltas.
+   * @param event - Wheel event
+   * @returns true if the event resembles a trackpad pinch
    */
   private _isTrackpadPinchWheel(event: WheelEvent): boolean {
     const normalizedDeltaY = Math.abs(this._normalizeWheelDeltaY(event))
@@ -944,10 +944,10 @@ class Listeners {
   }
 
   /**
-   * Переводит wheel scroll в pan-delta viewport.
-   * Wheel-delta описывает прокрутку viewport, поэтому viewportTransform двигается в обратную сторону.
-   * @param event - Событие wheel
-   * @returns Смещение viewportTransform для pan
+   * Converts wheel scrolling to a viewport pan delta.
+   * Wheel delta describes viewport scrolling, so viewportTransform moves in the opposite direction.
+   * @param event - Wheel event
+   * @returns viewportTransform offset for panning
    */
   private _getWheelPanDelta(event: WheelEvent): { deltaX: number; deltaY: number } {
     return {
@@ -957,9 +957,9 @@ class Listeners {
   }
 
   /**
-   * Переводит cumulative scale из gesturechange в инкрементальный шаг зума.
-   * @param scale - Текущее cumulative scale из WebKit gesture
-   * @returns Шаг изменения зума
+   * Converts the cumulative scale from gesturechange into an incremental zoom step.
+   * @param scale - Current cumulative scale from a WebKit gesture
+   * @returns Zoom change step
    */
   private _calculateGestureZoomStep(scale: number): number {
     const currentZoom = this.canvas.getZoom()
@@ -971,19 +971,19 @@ class Listeners {
   }
 
   /**
-   * Проверяет, что DOM-событие действительно несёт WebKit gesture scale.
-   * @param event - DOM-событие
-   * @returns true, если событие можно трактовать как CanvasGestureEvent
+   * Checks whether a DOM event actually contains a WebKit gesture scale.
+   * @param event - DOM event
+   * @returns true if the event can be treated as a CanvasGestureEvent
    */
   private _isCanvasGestureEvent(event: Event): event is CanvasGestureEvent {
     return 'scale' in event && typeof event.scale === 'number'
   }
 
   /**
-   * Возвращает DOM-координаты gesture-события.
-   * Если браузер не прислал clientX/clientY, используется центр wrapper-элемента canvas.
-   * @param event - WebKit gesture-событие
-   * @returns DOM-координаты для pointer-zoom
+   * Returns the DOM coordinates of a gesture event.
+   * If the browser did not provide clientX/clientY, uses the center of the canvas wrapper element.
+   * @param event - WebKit gesture event
+   * @returns DOM coordinates for pointer zoom
    */
   private _getGesturePointer(event: CanvasGestureEvent): { clientX: number; clientY: number } {
     const {
@@ -1007,9 +1007,9 @@ class Listeners {
   }
 
   /**
-   * Обработчик wheel на DOM-границе канваса.
-   * Ctrl/Cmd + wheel остаётся zoom-сценарием, а wheel без модификаторов
-   * используется как pan-сценарий для двухпальцевого scroll на тачпаде.
+   * Wheel handler at the canvas DOM boundary.
+   * Ctrl/Cmd + wheel remains a zoom interaction, while wheel without modifiers
+   * is used for panning via two-finger trackpad scrolling.
    */
   handleCanvasWheelInput(event: WheelEvent): void {
     if (!event.ctrlKey && !event.metaKey) {
@@ -1026,8 +1026,8 @@ class Listeners {
   }
 
   /**
-   * Применяет wheel без Ctrl/Cmd как pan-событие.
-   * @param event - Событие wheel
+   * Applies wheel input without Ctrl/Cmd as a pan event.
+   * @param event - Wheel event
    */
   private _handleCanvasWheelPan(event: WheelEvent): void {
     if (!this.options.canvasDragging) return
@@ -1041,9 +1041,9 @@ class Listeners {
   }
 
   /**
-   * Начало WebKit gesture-события.
-   * Это резервный путь для Safari/macOS, где pinch может приходить не через wheel.
-   * @param event - DOM-событие gesturestart
+   * Start of a WebKit gesture event.
+   * This is a fallback path for Safari/macOS, where pinch may not arrive through wheel events.
+   * @param event - gesturestart DOM event
    */
   handleCanvasGestureStart(event: Event): void {
     if (!this._isCanvasGestureEvent(event)) return
@@ -1055,9 +1055,9 @@ class Listeners {
   }
 
   /**
-   * Обработчик WebKit gesturechange.
-   * GestureEvent.scale является cumulative, поэтому здесь он переводится в инкрементальный zoom-step.
-   * @param event - DOM-событие gesturechange
+   * WebKit gesturechange handler.
+   * GestureEvent.scale is cumulative, so it is converted here into an incremental zoom step.
+   * @param event - gesturechange DOM event
    */
   handleCanvasGestureChange(event: Event): void {
     if (!this._isCanvasGestureEvent(event)) return
@@ -1076,7 +1076,7 @@ class Listeners {
   }
 
   /**
-   * Завершение WebKit gesture-события.
+   * End of a WebKit gesture event.
    */
   handleCanvasGestureEnd(event: Event): void {
     if (this._isCanvasGestureEvent(event)) {
@@ -1088,8 +1088,8 @@ class Listeners {
   }
 
   /**
-   * Обработчик сброса объекта или active crop frame по двойному клику.
-   * @param options - объект события fabric
+   * Handler for resetting an object or active crop frame on double-click.
+   * @param options - Fabric event object
    */
   handleResetObjectFit(options: TPointerEventInfo<TPointerEvent>): void {
     const { target, e } = options
@@ -1106,35 +1106,35 @@ class Listeners {
   }
 
   /**
-   * Проверяет, должно ли событие клавиатуры быть проигнорировано
-   * Возвращает true если фокус находится в поле ввода или элементе из списка игнорируемых селекторов
-   * @param event - Событие клавиатуры
-   * @returns true если событие должно быть проигнорировано
+   * Checks whether the keyboard event should be ignored
+   * Returns true if focus is in an input field or an element matching the ignored selectors
+   * @param event - Keyboard event
+   * @returns true if the event should be ignored
    */
   _shouldIgnoreKeyboardEvent(event: KeyboardEvent | ClipboardEvent): boolean {
-    // Используем document.activeElement как основной способ определения текущего элемента
-    // так как event.target может указывать на корневой элемент диалога
+    // Use document.activeElement as the primary way to determine the current element
+    // because event.target may point to the dialog root element
     const activeElement = document.activeElement as HTMLElement
     const eventTarget = event.target as HTMLElement
 
-    // Проверяем базовые элементы ввода для обоих элементов
+    // Check standard input elements for both elements
     const inputTypes = ['input', 'textarea', 'select']
 
-    // Проверяем eventTarget
+    // Check eventTarget
     if (eventTarget) {
       const eventTagName = eventTarget.tagName.toLowerCase()
 
-      // Для события paste: если eventTarget - это input/select/textarea,
-      // дополнительно проверяем activeElement
+      // For a paste event: if eventTarget is an input/select/textarea,
+      // also check activeElement
       if (event.type === 'paste' && inputTypes.includes(eventTagName)) {
-        // Если activeElement - это тоже input/select/textarea, то игнорируем
-        // Если activeElement - это body/canvas, то НЕ игнорируем
+        // If activeElement is also an input/select/textarea, ignore the event
+        // If activeElement is body/canvas, do NOT ignore it
         const activeTagName = activeElement?.tagName.toLowerCase()
         if (activeTagName && inputTypes.includes(activeTagName)) return true
         return false
       }
 
-      // Для других событий (не paste) проверяем как обычно
+      // For other events (not paste), check as usual
       if (inputTypes.includes(eventTagName)) {
         return true
       }
@@ -1143,27 +1143,27 @@ class Listeners {
       }
     }
 
-    // Проверяем activeElement если он отличается от eventTarget
+    // Check activeElement if it differs from eventTarget
     if (activeElement && activeElement !== eventTarget) {
       const activeTagName = activeElement.tagName.toLowerCase()
       if (inputTypes.includes(activeTagName)) return true
       if (activeElement.contentEditable === 'true') return true
     }
 
-    // Проверяем выделение текста - если есть выделенный текст, проверяем его контекст
+    // Check text selection: if there is selected text, check its context
     const selection = window.getSelection()
 
     if (selection && !selection.isCollapsed && selection.rangeCount > 0) {
       const range = selection.getRangeAt(0)
       const commonAncestor = range.commonAncestorContainer
 
-      // Получаем элемент-контейнер выделенного текста
+      // Get the selected text's container element
       let selectionContainer: Node | null = commonAncestor
       if (selectionContainer.nodeType === Node.TEXT_NODE) {
         selectionContainer = selectionContainer.parentElement
       }
 
-      // Проверяем, находится ли выделенный текст в игнорируемых селекторах
+      // Check whether the selected text is inside any ignored selectors
       const { keyboardIgnoreSelectors } = this.options
       if (keyboardIgnoreSelectors?.length && selectionContainer) {
         for (const selector of keyboardIgnoreSelectors) {
@@ -1187,14 +1187,14 @@ class Listeners {
   }
 
   /**
-   * Метод для удаления всех слушателей
+   * Method for removing all listeners
    */
   destroy(): void {
     if (this._destroyed) return
     this._destroyed = true
     this.handleContainerResizeBound.cancel()
 
-    // Глобальные DOM-обработчики
+    // Global DOM handlers
     window.removeEventListener('resize', this.handleContainerResizeBound, { capture: true })
     document.removeEventListener('keydown', this.handleCopyEventBound, { capture: true })
     document.removeEventListener('keydown', this.handleCutEventBound, { capture: true })
@@ -1205,7 +1205,7 @@ class Listeners {
     document.removeEventListener('keydown', this.handleSelectAllEventBound, { capture: true })
     document.removeEventListener('keydown', this.handleDeleteObjectsEventBound, { capture: true })
 
-    // Обработчики canvas (Fabric):
+    // Canvas (Fabric) handlers:
     if (this.options.canvasDragging) {
       this.canvas.off('mouse:down', this.handleCanvasDragStartBound)
       this.canvas.off('mouse:move', this.handleCanvasDraggingBound)
@@ -1254,10 +1254,10 @@ class Listeners {
   }
 
   /**
-   * Дебаунс для снижения частоты вызова функции.
-   * @param fn — функция-обработчик
-   * @param delay — задержка в миллисекундах
-   * @returns новую обёртку-обработчик
+   * Debounce to reduce the function call frequency.
+   * @param fn — Handler function
+   * @param delay — Delay in milliseconds
+   * @returns A new handler wrapper
    */
   static debounce<T extends(...args: unknown[]) => unknown>(fn: T, delay: number): DebouncedHandler<T> {
     let timer: ReturnType<typeof setTimeout> | null = null

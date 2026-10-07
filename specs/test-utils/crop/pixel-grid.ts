@@ -3,7 +3,7 @@ import { Rect } from 'fabric'
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 import { CropFrame } from '../../../src/editor/crop-manager/domain/crop-frame'
 
-/** Source bounds тестового изображения после пересчёта в scene-пиксели. */
+/** Source bounds of the test image after conversion to scene pixels. */
 export const SOURCE_BOUNDS = {
   left: 0,
   top: 0,
@@ -13,7 +13,7 @@ export const SOURCE_BOUNDS = {
   centerY: 171
 } as const
 
-/** Source bounds прямоугольного изображения 1000x667 после scale 0.512 и округления source guides. */
+/** Source bounds of a 1000x667 rectangular image after scaling by 0.512 and rounding the source guides. */
 export const RECTANGULAR_SOURCE_BOUNDS = {
   left: 0,
   top: 0,
@@ -23,7 +23,7 @@ export const RECTANGULAR_SOURCE_BOUNDS = {
   centerY: 171
 } as const
 
-/** Внешние source-границы, которые test fixture может проверить без отдельной placement-модели. */
+/** Outer source bounds that the test fixture can check without a separate placement model. */
 export const SOURCE_BOUNDARY_GUIDE_CASES = [
   {
     title: 'нижней границы source',
@@ -43,7 +43,7 @@ export const SOURCE_BOUNDARY_GUIDE_CASES = [
   }
 ] as const
 
-/** Параметры crop-рамки с размером в пикселях источника. */
+/** Crop frame parameters with dimensions in source pixels. */
 type SourceScaledCropFrameParams = {
   width: number
   height: number
@@ -56,7 +56,7 @@ type SourceScaledCropFrameParams = {
   sourceBounds?: ObjectBounds
 }
 
-/** Создаёт source-объект с явными snapping-bounds для crop-frame тестов. */
+/** Creates a source object with explicit snapping bounds for crop-frame tests. */
 function createSourceBoundsRect({ bounds }: { bounds: ObjectBounds }): Rect {
   const source = new Rect({
     left: bounds.left,
@@ -71,7 +71,7 @@ function createSourceBoundsRect({ bounds }: { bounds: ObjectBounds }): Rect {
   return source
 }
 
-/** Создаёт crop-рамку с управляемыми границами и размером в пикселях источника. */
+/** Creates a crop frame with controllable bounds and dimensions in source pixels. */
 export function createSourceScaledCropFrame({
   width,
   height,
@@ -118,7 +118,7 @@ export function createSourceScaledCropFrame({
   return target
 }
 
-/** Возвращает display-size так, как его показывает object size indicator. */
+/** Returns the display size as shown by the object size indicator. */
 export function getRoundedDisplaySize({
   target
 }: {

@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable no-use-before-define -- Public e2e model держим выше private scenario helpers. */
+/* eslint-disable no-use-before-define -- Keep the public e2e model above private scenario helpers. */
 import { type Page, expect } from '@playwright/test'
 
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
@@ -26,14 +26,14 @@ import type {
   ObjectTargetParams
 } from '../../types'
 
-/** Последняя pointer-позиция live resize crop frame. */
+/** Last pointer position of a live crop-frame resize. */
 type CropResizePointer = {
   x: number
   y: number
   shiftKey: boolean
 }
 
-/** Последняя pointer-позиция live drag crop frame. */
+/** Last pointer position of a live crop-frame drag. */
 type CropMovePointer = {
   x: number
   y: number
@@ -41,35 +41,35 @@ type CropMovePointer = {
   ctrlKey: boolean
 }
 
-/** Результат browser-side шага drag crop frame. */
+/** Result of a browser-side crop-frame drag step. */
 type CropResizeDragResult = {
   point: CropResizePointer
 }
 
-/** Live-состояние медленного resize crop frame. */
+/** Live state of a slow crop-frame resize. */
 type CropSlowResizeState = {
   state: CropStateInfo
   indicator: ObjectSizeIndicatorInfo
 }
 
-/** Результат browser-side шага drag crop frame за центр. */
+/** Result of a browser-side crop-frame center-drag step. */
 type CropMoveDragResult = {
   point: CropMovePointer
 }
 
-/** Параметры browser-side drag crop frame с управлением live-сессией. */
+/** Options for browser-side crop-frame dragging with live-session control. */
 type CropFrameControlDragParams = CropResizeFromControlParams & {
   continueInteraction?: boolean
 }
 
-/** Параметры resize crop frame до целевого размера результата. */
+/** Options for resizing the crop frame to target result dimensions. */
 type CropFrameResizeToSizeParams = {
   control: CropControlKey
   size: CropSizeInfo
   shiftKey?: boolean
 }
 
-/** Параметры видимого drag resize control crop frame реальной мышью. */
+/** Options for visibly dragging a crop-frame resize control with a real mouse. */
 type CropFrameControlMouseDragParams = {
   control: CropControlKey
   deltaX: number
@@ -77,14 +77,14 @@ type CropFrameControlMouseDragParams = {
   pointerSteps?: number
 }
 
-/** Параметры продолжения видимого resize drag crop frame реальной мышью. */
+/** Options for continuing a visible crop-frame resize drag with a real mouse. */
 type CropFrameControlMouseDragContinuationParams = {
   deltaX: number
   deltaY: number
   pointerSteps?: number
 }
 
-/** Параметры drag resize control crop frame в source-пикселях. */
+/** Options for dragging a crop-frame resize control in source pixels. */
 type CropFrameControlSourceDragParams = {
   control: CropControlKey
   deltaX: number
@@ -92,7 +92,7 @@ type CropFrameControlSourceDragParams = {
   pointerSteps?: number
 }
 
-/** Параметры медленного drag resize control crop frame в source-пикселях. */
+/** Options for slowly dragging a crop-frame resize control in source pixels. */
 type CropFrameControlSlowSourceDragParams = {
   control: CropControlKey
   deltaX: number
@@ -100,7 +100,7 @@ type CropFrameControlSlowSourceDragParams = {
   steps: number
 }
 
-/** Параметры медленного drag resize control crop frame к source-точке. */
+/** Options for slowly dragging a crop-frame resize control to a source point. */
 type CropFrameControlSlowSourcePointDragParams = {
   control: CropControlKey
   sourcePoint: {
@@ -110,75 +110,75 @@ type CropFrameControlSlowSourcePointDragParams = {
   steps: number
 }
 
-/** Параметры продолжения drag resize control crop frame в source-пикселях. */
+/** Options for continuing a crop-frame resize-control drag in source pixels. */
 type CropFrameControlSourceDragContinuationParams = {
   deltaX: number
   deltaY: number
   pointerSteps?: number
 }
 
-/** Параметры переноса граней active crop frame к центральным guide монтажной области. */
+/** Options for moving active crop-frame edges to the artboard's center guides. */
 type CropFrameMontageCenterGuideMoveParams = {
   horizontalEdge: 'left' | 'right'
   verticalEdge: 'top' | 'bottom'
 }
 
-/** Параметры пошагового resize crop frame до набора live-размеров. */
+/** Options for stepwise crop-frame resize through a set of live dimensions. */
 type CropFrameResizeToSizesParams = {
   control: CropControlKey
   sizes: CropSizeInfo[]
   shiftKey?: boolean
 }
 
-/** Изображение, которое гарантированно создано и имеет id. */
+/** Image guaranteed to have been created and to have an ID. */
 interface CreatedCropImage extends EditorObjectInfo {
   id: string
 }
 
-/** Параметры подготовки image crop для созданного изображения. */
+/** Options for preparing image cropping for a created image. */
 type ImageCropSetupParams = {
   image: CreatedCropImage
 }
 
-/** Параметры подготовки пропорционального image crop у центральных guide монтажной области. */
+/** Options for preparing proportional image cropping at the artboard's center guides. */
 type ProportionalImageCropAtMontageCenterGuidesParams = ImageCropSetupParams & {
   size: CropSizeInfo
   alignedEdges: CropFrameMontageCenterGuideMoveParams
 }
 
-/** Параметры переноса active image crop к правой границе source. */
+/** Options for moving the active image crop to the right source boundary. */
 type MoveCropFrameToImageRightEdgeParams = {
   image: CreatedCropImage
 }
 
-/** Параметры resize crop frame за source-границу. */
+/** Options for resizing the crop frame beyond the source boundary. */
 type CropFrameSourceBoundaryResizeParams = {
   control: CropControlKey
   image: CreatedCropImage
   extraPixels?: number
 }
 
-/** Параметры resize crop frame до source-границы. */
+/** Options for resizing the crop frame to the source boundary. */
 type CropFrameSourceBoundaryDragParams = {
   control: CropControlKey
   image: CreatedCropImage
   overshootPixels?: number
 }
 
-/** Результат resize crop frame до source-границы и следующего движения наружу. */
+/** Result of resizing the crop frame to the source boundary and the next outward movement. */
 type CropFrameSourceBoundaryResizeResult = {
   expectedRect: CropRectInfo
   stateAtBoundary: CropStateInfo
   stateAfterExtraDrag: CropStateInfo
 }
 
-/** Live-шаги уменьшения квадратной crop-области перед переносом в середину. */
+/** Live steps for shrinking the square crop area before moving it to the center. */
 const CENTERED_SQUARE_CROP_SHRINK_DELTAS = [48, 96, 144]
 
-/** Дополнительный drag после первого упора в source. */
+/** Additional drag after first reaching the source limit. */
 const SOURCE_BOUNDARY_EXTRA_DRAG_PIXELS = 40
 
-/** Соответствие drag-control crop frame его фиксированному противоположному control. */
+/** Mapping from a crop-frame drag control to its fixed opposite control. */
 const OPPOSITE_CROP_CONTROL = {
   tl: 'br',
   tr: 'bl',
@@ -193,19 +193,19 @@ const OPPOSITE_CROP_CONTROL = {
 export class CropModel {
   private readonly page: Page
 
-  /** E2E-модель hover/cursor действий над controls активной crop-области. */
+  /** E2E model of hover/cursor actions on active crop-area controls. */
   readonly frameControls: CropFrameControlModel
 
-  /** E2E-модель визуального затемнения вне active crop frame. */
+  /** E2E model of visual dimming outside the active crop frame. */
   readonly dimmingOverlay: CropDimmingOverlayModel
 
-  /** Запись публичных событий применения, отмены и изменения crop. */
+  /** Recording of public crop apply, cancel, and change events. */
   readonly events: CropEventRecorder
 
-  /** Pointer-позиция последнего незавершённого resize crop frame. */
+  /** Pointer position of the last unfinished crop-frame resize. */
   private lastResizePointer: CropResizePointer | null = null
 
-  /** Pointer-позиция последнего незавершённого drag crop frame. */
+  /** Pointer position of the last unfinished crop-frame drag. */
   private lastMovePointer: CropMovePointer | null = null
 
   constructor(page: Page) {
@@ -215,7 +215,7 @@ export class CropModel {
     this.events = new CropEventRecorder(page)
   }
 
-  /** Возвращает true, если crop mode активен. */
+  /** Returns true if crop mode is active. */
   async isActive(): Promise<boolean> {
     return this.page.evaluate(() => {
       const { editor } = window as any
@@ -224,7 +224,7 @@ export class CropModel {
     })
   }
 
-  /** Ожидает выхода из crop mode. */
+  /** Waits for crop mode to exit. */
   async waitUntilInactive(): Promise<void> {
     await this.page.waitForFunction(() => {
       const { editor } = window as any
@@ -235,7 +235,7 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Возвращает публичное состояние crop mode в сериализованном виде. */
+  /** Returns the serialized public crop-mode state. */
   async getState(): Promise<CropStateInfo | null> {
     return this.page.evaluate(() => {
       const { editor } = window as any
@@ -265,7 +265,7 @@ export class CropModel {
     })
   }
 
-  /** Входит в режим кропа монтажной области через публичный API редактора. */
+  /** Enters artboard crop mode through the public editor API. */
   async startCanvasCrop(params: CropStartParams = {}): Promise<CropStateInfo> {
     const state = await this.page.evaluate((options) => {
       const { editor } = window as any
@@ -279,7 +279,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Входит в режим кропа изображения через публичный API редактора. */
+  /** Enters image crop mode through the public editor API. */
   async startImageCrop(params: CropStartParams = {}): Promise<CropStateInfo> {
     const state = await this.page.evaluate(({ objectIndex, id, ...options }) => {
       const {
@@ -300,7 +300,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Включает квадратный image crop, уменьшает его и переносит в середину source. */
+  /** Enables square image cropping, shrinks it, and moves it to the source center. */
   async startCenteredSmallSquareImageCrop({
     image
   }: ImageCropSetupParams): Promise<CropStateInfo> {
@@ -327,7 +327,7 @@ export class CropModel {
     return centeredState
   }
 
-  /** Включает квадратный image crop 1:1 и переносит frame к правой границе source. */
+  /** Enables square 1:1 image cropping and moves the frame to the right source boundary. */
   async startSquareImageCropAtImageRightEdge({
     image
   }: ImageCropSetupParams): Promise<CropStateInfo> {
@@ -347,7 +347,7 @@ export class CropModel {
     return this.moveActiveCropFrameToImageRightEdge({ image })
   }
 
-  /** Включает пропорциональный image crop, уменьшает его и переносит выбранные грани к центру монтажной области. */
+  /** Enables proportional image cropping, shrinks it, and moves selected edges to the artboard center. */
   async startProportionalImageCropAtMontageCenterGuides({
     image,
     size,
@@ -375,7 +375,7 @@ export class CropModel {
     return movedState
   }
 
-  /** Переносит active crop frame к правой границе изображения и завершает drag. */
+  /** Moves the active crop frame to the image's right boundary and ends the drag. */
   async moveActiveCropFrameToImageRightEdge({
     image
   }: MoveCropFrameToImageRightEdgeParams): Promise<CropStateInfo> {
@@ -401,7 +401,7 @@ export class CropModel {
     return movedState
   }
 
-  /** Задаёт размер активной crop-области через публичный API редактора. */
+  /** Sets the active crop-area dimensions through the public editor API. */
   async setSize(params: { width: number, height: number }): Promise<CropStateInfo> {
     await this.page.evaluate((size) => {
       const { editor } = window as any
@@ -414,7 +414,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Задаёт пропорции активной crop-области через публичный API редактора. */
+  /** Sets the active crop-area aspect ratio through the public editor API. */
   async setAspectRatio(params: CropSizeInfo): Promise<CropStateInfo> {
     await this.page.evaluate((aspectRatio) => {
       const { editor } = window as any
@@ -427,7 +427,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Переключает сохранение пропорций у resize crop-области через публичный API редактора. */
+  /** Toggles aspect-ratio preservation for crop-area resize through the public editor API. */
   async setPreserveAspectRatio(
     params: { preserveAspectRatio: boolean, keepCurrentResizeMode?: boolean }
   ): Promise<CropStateInfo> {
@@ -443,7 +443,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Масштабирует активную crop-область к монтажной области через публичный API crop manager. */
+  /** Scales the active crop area to the artboard through the public crop-manager API. */
   async fitFrame(params: { type: 'contain' | 'cover' }): Promise<CropStateInfo> {
     const state = await this.page.evaluate((payload) => {
       const { editor } = window as any
@@ -457,7 +457,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Разворачивает active image crop до source без передачи Fabric event target. */
+  /** Expands the active image crop to the source without passing a Fabric event target. */
   async resetFrameToSource(): Promise<CropStateInfo> {
     const state = await this.page.evaluate(() => {
       const { editor } = window as any
@@ -471,7 +471,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Применяет активный crop mode. */
+  /** Applies the active crop mode. */
   async apply(): Promise<void> {
     const result = await this.page.evaluate(() => {
       const { editor } = window as any
@@ -483,7 +483,7 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отменяет активный crop mode. */
+  /** Cancels the active crop mode. */
   async cancel(): Promise<void> {
     await this.page.evaluate(() => {
       const { editor } = window as any
@@ -494,14 +494,14 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Масштабирует crop-область из control через реальную Fabric drag-сессию. */
+  /** Scales the crop area from a control through a real Fabric drag session. */
   async resizeFrameFromControl(params: CropResizeFromControlParams): Promise<CropStateInfo> {
     await this.dragFrameFromControl(params)
 
     return this.finishFrameResize()
   }
 
-  /** Тянет crop-область из control и оставляет Fabric drag-сессию активной. */
+  /** Drags the crop area from a control and leaves the Fabric drag session active. */
   async dragFrameFromControl(params: CropResizeFromControlParams): Promise<CropStateInfo> {
     const dragResult = await this.performFrameControlDrag(params)
 
@@ -511,7 +511,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Тянет resize control crop frame реальной мышью и оставляет drag-сессию открытой. */
+  /** Drags a crop-frame resize control with a real mouse and leaves the drag session open. */
   async dragFrameControlBy(params: CropFrameControlMouseDragParams): Promise<CropStateInfo> {
     expect(
       this.lastResizePointer,
@@ -541,7 +541,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Тянет resize control crop frame на смещение, заданное в source-пикселях. */
+  /** Drags a crop-frame resize control by an offset specified in source pixels. */
   async dragFrameControlBySourcePixels(
     params: CropFrameControlSourceDragParams
   ): Promise<CropStateInfo> {
@@ -577,7 +577,7 @@ export class CropModel {
     })
   }
 
-  /** Медленно тянет resize control crop frame и возвращает состояние после каждого live-step. */
+  /** Slowly drags a crop-frame resize control and returns the state after each live step. */
   async dragFrameControlSlowlyBySourcePixels(
     params: CropFrameControlSlowSourceDragParams
   ): Promise<CropSlowResizeState[]> {
@@ -614,7 +614,7 @@ export class CropModel {
     })
   }
 
-  /** Медленно тянет resize control crop frame к точке внутри source и возвращает live-состояния. */
+  /** Slowly drags a crop-frame resize control to a point inside the source and returns live states. */
   async dragFrameControlSlowlyToSourcePoint(
     params: CropFrameControlSlowSourcePointDragParams
   ): Promise<CropSlowResizeState[]> {
@@ -642,7 +642,7 @@ export class CropModel {
     })
   }
 
-  /** Тянет resize control до source-границы и продолжает движение наружу. */
+  /** Drags a resize control to the source boundary and continues outward. */
   async dragFrameControlPastSourceBoundary({
     control,
     image,
@@ -681,7 +681,7 @@ export class CropModel {
     }
   }
 
-  /** Тянет свободный resize control до source-границы. */
+  /** Drags a free-resize control to the source boundary. */
   async dragFreeFrameControlToSourceBoundary({
     control,
     image,
@@ -709,7 +709,7 @@ export class CropModel {
     })
   }
 
-  /** Тянет свободный resize control до source-границы и продолжает движение наружу. */
+  /** Drags a free-resize control to the source boundary and continues outward. */
   async dragFreeFrameControlPastSourceBoundary({
     control,
     image,
@@ -748,14 +748,14 @@ export class CropModel {
     }
   }
 
-  /** Тянет crop-область из control до целевого результата в source-пикселях. */
+  /** Drags the crop area from a control to the target result in source pixels. */
   async dragFrameFromControlToSize(params: CropFrameResizeToSizeParams): Promise<CropStateInfo> {
     const resizeParams = await this.resolveResizeFromSize(params)
 
     return this.dragFrameFromControl(resizeParams)
   }
 
-  /** Продолжает активный drag crop-control без нового mousedown. */
+  /** Continues an active crop-control drag without a new mousedown. */
   async continueFrameResizeFromControl(params: CropResizeFromControlParams): Promise<CropStateInfo> {
     const dragResult = await this.performFrameControlDrag({
       ...params,
@@ -768,7 +768,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Продолжает открытую resize drag-сессию crop frame реальным движением мыши. */
+  /** Continues an open crop-frame resize drag session with real mouse movement. */
   async continueFrameResizeBy(
     params: CropFrameControlMouseDragContinuationParams
   ): Promise<CropStateInfo> {
@@ -800,7 +800,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Продолжает resize crop frame на смещение, заданное в source-пикселях. */
+  /** Continues crop-frame resize by an offset specified in source pixels. */
   async continueFrameResizeBySourcePixels(
     params: CropFrameControlSourceDragContinuationParams
   ): Promise<CropStateInfo> {
@@ -834,14 +834,14 @@ export class CropModel {
     })
   }
 
-  /** Продолжает активный drag crop-control до целевого результата в source-пикселях. */
+  /** Continues an active crop-control drag to the target result in source pixels. */
   async continueFrameResizeFromControlToSize(params: CropFrameResizeToSizeParams): Promise<CropStateInfo> {
     const resizeParams = await this.resolveResizeFromSize(params)
 
     return this.continueFrameResizeFromControl(resizeParams)
   }
 
-  /** Тянет crop-control через последовательность live-размеров и возвращает состояние после каждого шага. */
+  /** Drags a crop control through a sequence of live dimensions and returns the state after each step. */
   async dragFrameFromControlToSizes(params: CropFrameResizeToSizesParams): Promise<CropStateInfo[]> {
     const {
       control,
@@ -886,7 +886,7 @@ export class CropModel {
     return states
   }
 
-  /** Тянет active crop frame за центр на заданное смещение и оставляет drag-сессию активной. */
+  /** Drags the active crop frame by its center through the specified offset and leaves the drag session active. */
   async dragFrameByOffset(
     params: { deltaX: number, deltaY: number, altKey?: boolean, ctrlKey?: boolean }
   ): Promise<CropStateInfo> {
@@ -898,7 +898,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Переносит выбранные грани active crop frame к центральным guide монтажной области. */
+  /** Moves selected active crop-frame edges to the artboard's center guides. */
   async moveFrameEdgesToMontageCenterGuides(
     params: CropFrameMontageCenterGuideMoveParams
   ): Promise<CropStateInfo> {
@@ -945,7 +945,7 @@ export class CropModel {
     return movedState
   }
 
-  /** Выполняет реальный двойной клик по центру активной crop-области. */
+  /** Performs a real double-click at the center of the active crop area. */
   async doubleClickFrame(): Promise<CropStateInfo> {
     const point = await this.page.evaluate(() => {
       const { editor } = window as any
@@ -975,7 +975,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Завершает активный resize crop frame через mouseup. */
+  /** Ends the active crop-frame resize with mouseup. */
   async finishFrameResize(): Promise<CropStateInfo> {
     const pointer = this.lastResizePointer
 
@@ -1013,7 +1013,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Завершает активный drag crop frame через mouseup. */
+  /** Ends the active crop-frame drag with mouseup. */
   async finishFrameMove(): Promise<CropStateInfo> {
     const pointer = this.lastMovePointer
 
@@ -1046,7 +1046,7 @@ export class CropModel {
     return this.requireState()
   }
 
-  /** Уменьшает активный квадратный crop frame несколькими live-шагами. */
+  /** Shrinks the active square crop frame in several live steps. */
   private async shrinkActiveSquareCropFrame({
     initialState
   }: {
@@ -1071,7 +1071,7 @@ export class CropModel {
     return shrunkenState
   }
 
-  /** Перетаскивает активный crop frame в середину изображения. */
+  /** Drags the active crop frame to the image center. */
   private async moveActiveCropFrameToImageCenter({
     image,
     state
@@ -1097,7 +1097,7 @@ export class CropModel {
     return centeredState
   }
 
-  /** Возвращает текущий zoom canvas для расчёта visible pointer-смещений. */
+  /** Returns the current canvas zoom for calculating visible pointer offsets. */
   private async getCanvasZoom(): Promise<number> {
     const zoom = await this.page.evaluate(() => {
       const { editor } = window as any
@@ -1114,7 +1114,7 @@ export class CropModel {
     return zoom
   }
 
-  /** Возвращает текущее состояние DOM-индикатора размеров объекта. */
+  /** Returns the current state of the DOM object-size indicator. */
   private async getObjectSizeIndicator(): Promise<ObjectSizeIndicatorInfo> {
     return this.page.evaluate(() => {
       const indicator = document.querySelector('.fabric-editor-object-size-indicator')
@@ -1181,7 +1181,7 @@ export class CropModel {
     return states
   }
 
-  /** Пересчитывает source-пиксели active crop frame в client-смещение pointer. */
+  /** Converts active crop-frame source pixels to a client-pointer offset. */
   private async resolveSourcePixelPointerDelta({
     deltaX,
     deltaY
@@ -1206,7 +1206,7 @@ export class CropModel {
     }
   }
 
-  /** Переводит source-точку active image crop в client-координаты браузера. */
+  /** Converts an active image-crop source point to browser client coordinates. */
   private async resolveSourcePointAsClientPoint(
     point: { x: number, y: number }
   ): Promise<{ x: number, y: number }> {
@@ -1243,7 +1243,7 @@ export class CropModel {
     return clientPoint
   }
 
-  /** Выполняет browser-side drag crop-control и возвращает pointer для завершения drag. */
+  /** Performs a browser-side crop-control drag and returns the pointer for ending the drag. */
   private async performFrameControlDrag(params: CropFrameControlDragParams): Promise<CropResizeDragResult> {
     const oppositeControl = OPPOSITE_CROP_CONTROL[params.control]
     const dragResult = await this.page.evaluate((payload) => {
@@ -1295,7 +1295,7 @@ export class CropModel {
     return dragResult
   }
 
-  /** Выполняет browser-side drag active crop frame за центр и возвращает pointer для завершения drag. */
+  /** Performs a browser-side center drag of the active crop frame and returns the pointer for ending the drag. */
   private async performFrameMove(
     params: { deltaX: number, deltaY: number, altKey?: boolean, ctrlKey?: boolean }
   ): Promise<CropMoveDragResult> {
@@ -1367,7 +1367,7 @@ export class CropModel {
     return dragResult
   }
 
-  /** Кликает в центр canvas-объекта реальным mouse-событием. */
+  /** Clicks a canvas object's center with a real mouse event. */
   async clickObjectCenter(params: ObjectTargetParams): Promise<void> {
     const point = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -1396,7 +1396,7 @@ export class CropModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Возвращает pixel/source-состояние изображения после image crop. */
+  /** Returns the image's pixel/source state after image cropping. */
   async getImageSourceInfo(params: ObjectTargetParams): Promise<CropImageSourceInfo> {
     const info = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -1426,7 +1426,7 @@ export class CropModel {
     return info
   }
 
-  /** Возвращает активное состояние crop mode или падает, если оно отсутствует. */
+  /** Returns the active crop-mode state or fails if it is absent. */
   async requireState(): Promise<CropStateInfo> {
     const state = await this.getState()
 
@@ -1438,7 +1438,7 @@ export class CropModel {
     return state
   }
 
-  /** Преобразует желаемый размер результата crop в ratio-параметры resize control. */
+  /** Converts the desired crop-result dimensions to resize-control ratio parameters. */
   private async resolveResizeFromSize(params: CropFrameResizeToSizeParams): Promise<CropResizeFromControlParams> {
     const state = await this.requireState()
     const {

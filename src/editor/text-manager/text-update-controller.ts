@@ -43,7 +43,7 @@ import {
 } from '../utils/text'
 
 /**
- * Runtime-зависимости text update controller без прямого доступа ко всему TextManager.
+ * Text-update controller runtime dependencies without direct access to the entire TextManager.
  */
 type TextUpdateRuntime = {
   canvas: Canvas
@@ -71,7 +71,7 @@ type TextUpdateRuntime = {
 }
 
 /**
- * Нормализованный selection-контекст для whole-text и partial-style update paths.
+ * Normalized selection context for whole-text and partial-style update paths.
  */
 type TextSelectionContext = {
   selectionRange: TextSelectionRange | null
@@ -82,7 +82,7 @@ type TextSelectionContext = {
 }
 
 /**
- * Карта style-обновлений, разведённая по object, selection и whole-text слоям.
+ * Style-update map split across object, selection, and whole-text layers.
  */
 type TextStyleMaps = {
   updates: Partial<BackgroundTextboxProps>
@@ -96,7 +96,7 @@ type TextStyleMaps = {
 }
 
 /**
- * Сводка об изменении текстового содержимого до post-layout шага.
+ * Summary of text-content changes before the post-layout step.
  */
 type TextContentUpdate = {
   hasTextUpdate: boolean
@@ -105,7 +105,7 @@ type TextContentUpdate = {
 }
 
 /**
- * Полностью подготовленное update-состояние textbox до фактического apply/finish path.
+ * Fully prepared textbox-update state before the actual apply/finish path.
  */
 type PreparedTextUpdate = {
   textbox: EditorTextbox
@@ -124,7 +124,7 @@ type PreparedTextUpdate = {
   shouldRoundDimensions: boolean
 }
 
-/** Полностью нормализованные параметры подготовки текстового обновления. */
+/** Fully normalized parameters for preparing a text update. */
 type PrepareTextUpdateOptions = {
   emitLifecycleEvents: boolean
   selectionRangeOverride?: TextSelectionRange | null
@@ -136,29 +136,29 @@ type PrepareTextUpdateOptions = {
   withoutSave?: boolean
 }
 
-/** Внутренние параметры обновления, не входящие в публичный API TextManager. */
+/** Internal update parameters outside the public TextManager API. */
 type TextUpdateControllerOptions = UpdateOptions & Readonly<{
   shouldRoundDimensions?: boolean
 }>
 
 /**
- * Владеет программным update pipeline для standalone text objects.
+ * Owns the programmatic update pipeline for standalone text objects.
  */
 export default class TextUpdateController {
   /**
-   * Runtime-зависимости text update path без прямого владения всем TextManager.
+   * Text-update path runtime dependencies without direct ownership of the entire TextManager.
    */
   private readonly runtime: TextUpdateRuntime
 
   /**
-   * Инициализирует text update controller editor-level runtime зависимостями.
+   * Initializes the text-update controller with editor-level runtime dependencies.
    */
   constructor({ runtime }: { runtime: TextUpdateRuntime }) {
     this.runtime = runtime
   }
 
   /**
-   * Обновляет текстовый объект через единый prepare/apply/finish pipeline.
+   * Updates a text object through a unified prepare/apply/finish pipeline.
    */
   public updateText({
     target,
@@ -190,7 +190,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Собирает selection, style и content контекст до фактической мутации textbox.
+   * Builds selection, style, and content context before actually mutating the textbox.
    */
   private _prepareUpdate({
     target,
@@ -253,7 +253,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Нормализует selection range и derived flags для whole-object и partial updates.
+   * Normalizes the selection range and derived flags for whole-object and partial updates.
    */
   private _createSelectionContext({
     textbox,
@@ -293,7 +293,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Разводит входной style payload по object-level, selection-level и whole-text updates.
+   * Distributes the incoming style payload across object-level, selection-level, and whole-text updates.
    */
   private _buildStyleMaps({
     textbox,
@@ -350,7 +350,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Раскладывает font family, font size, align и opacity по нужным style maps.
+   * Distributes font family, font size, alignment, and opacity across the appropriate style maps.
    */
   private _applyFontUpdates({
     styleMaps,
@@ -409,7 +409,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Раскладывает decoration-style обновления по font-weight, font-style и boolean flags.
+   * Distributes decoration-style updates across font weight, font style, and boolean flags.
    */
   private _applyTextDecorationUpdates({
     styleMaps,
@@ -439,7 +439,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Применяет bold обновление к selection и whole-object слоям.
+   * Applies a bold update to the selection and whole-object layers.
    */
   private _applyFontWeightUpdate({
     styleMaps,
@@ -470,7 +470,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Применяет italic обновление к selection и whole-object слоям.
+   * Applies an italic update to the selection and whole-object layers.
    */
   private _applyFontStyleUpdate({
     styleMaps,
@@ -501,7 +501,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Применяет boolean текстовый флаг к selection и object-level style maps.
+   * Applies a boolean text flag to the selection and object-level style maps.
    */
   private _applyBooleanTextStyleUpdate({
     styleMaps,
@@ -532,7 +532,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Применяет fill и stroke обновления с учётом partial selection контракта.
+   * Applies fill and stroke updates under the partial-selection contract.
    */
   private _applyColorUpdates({
     textbox,
@@ -588,7 +588,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Разрешает итоговые strokeColor и strokeWidth для текущего update path.
+   * Resolves the final strokeColor and strokeWidth for the current update path.
    */
   private _resolveStrokeUpdate({
     textbox,
@@ -634,7 +634,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Перекладывает box-style свойства textbox в object-level updates.
+   * Transfers textbox box-style properties into object-level updates.
    */
   private _applyBoxStyleUpdates({
     styleMaps,
@@ -685,7 +685,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Обновляет text/textCaseRaw/uppercase и возвращает сводку для post-layout шага.
+   * Updates text/textCaseRaw/uppercase and returns a summary for the post-layout step.
    */
   private _applyTextContentUpdate({
     textbox,
@@ -725,7 +725,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Решает, нужно ли после padding-only обновления восстановить placement текстового содержимого.
+   * Determines whether text-content placement must be restored after a padding-only update.
    */
   private _resolveContentPlacement({
     textbox,
@@ -776,7 +776,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Применяет подготовленные object, range и line-default обновления к textbox.
+   * Applies prepared object, range, and line-default updates to the textbox.
    */
   private _applyUpdates({ preparedUpdate }: { preparedUpdate: PreparedTextUpdate }): void {
     const {
@@ -818,7 +818,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Применяет whole-text styles, когда update затрагивает весь textbox целиком.
+   * Applies whole-text styles when the update affects the entire textbox.
    */
   private _applyWholeTextStyles({
     textbox,
@@ -854,7 +854,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Применяет partial selection styles и при необходимости пересчитывает размеры textbox.
+   * Applies partial-selection styles and recalculates textbox dimensions if needed.
    */
   private _applySelectionStyles({
     textbox,
@@ -898,7 +898,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Обновляет line defaults для font- и decoration-style paths.
+   * Updates line defaults for font- and decoration-style paths.
    */
   private _applyLineDefaultUpdates({
     textbox,
@@ -925,7 +925,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Обновляет line defaults для font family и font size по расширенному line range.
+   * Updates font-family and font-size line defaults over the expanded line range.
    */
   private _applyFontLineDefaultUpdates({
     textbox,
@@ -961,7 +961,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Обновляет line defaults для decoration и color/stroke стилей в выбранном диапазоне.
+   * Updates decoration and color/stroke style line defaults in the selected range.
    */
   private _applyDecorationLineDefaultUpdates({
     textbox,
@@ -1033,7 +1033,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Выполняет post-style layout шаг: dirty state, auto-expand, line sync и placement restore.
+   * Performs the post-style layout step: dirty state, auto-expansion, line synchronization, and placement restoration.
    */
   private _applyPostStyleLayout({
     textbox,
@@ -1094,7 +1094,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Проверяет, затрагивает ли update visual background-box свойства textbox.
+   * Checks whether the update affects the textbox's visual background-box properties.
    */
   private _hasBackgroundStyleUpdate({ style }: { style: TextStyleOptions }): boolean {
     return [
@@ -1112,7 +1112,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Определяет нужно ли после текущего обновления перерасчитать auto-expand layout.
+   * Determines whether auto-expansion layout must be recalculated after the current update.
    */
   private _resolveShouldAutoExpand({
     textbox,
@@ -1133,7 +1133,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Определяет, нужно ли заново измерять textbox после обновления текста или layout-affecting styles.
+   * Determines whether to remeasure the textbox after updating text or layout-affecting styles.
    */
   private _shouldRefreshDimensions({
     contentUpdate,
@@ -1155,7 +1155,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Синхронизирует persisted autoExpand preference на самом textbox.
+   * Synchronizes the persisted autoExpand preference on the textbox itself.
    */
   private _applyAutoExpandPreference({
     textbox,
@@ -1175,7 +1175,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Синхронизирует line styles после реального изменения rendered text.
+   * Synchronizes line styles after the rendered text actually changes.
    */
   private _syncRenderedTextChange({
     textbox,
@@ -1198,7 +1198,7 @@ export default class TextUpdateController {
   }
 
   /**
-   * Завершает update: lifecycle events, render и history commit.
+   * Finalizes the update: lifecycle events, rendering, and history commit.
    */
   private _finishUpdate({ preparedUpdate }: { preparedUpdate: PreparedTextUpdate }): void {
     const {

@@ -2,14 +2,14 @@ import type { Canvas } from 'fabric'
 import type { CanvasFullState } from './types'
 
 /**
- * Делает глубокую копию customData, чтобы избежать общих ссылок.
+ * Creates a deep copy of customData to avoid shared references.
  */
 export function cloneCustomData({ customData }: { customData: object }): object {
   return JSON.parse(JSON.stringify(customData)) as object
 }
 
 /**
- * Создаёт безопасную копию состояния для загрузки в canvas.
+ * Creates a safe copy of the state to load into the canvas.
  */
 export function createLoadSafeState({ state }: { state: CanvasFullState }): CanvasFullState {
   const clonedState = JSON.parse(JSON.stringify(state)) as CanvasFullState
@@ -30,7 +30,7 @@ export function createLoadSafeState({ state }: { state: CanvasFullState }): Canv
 }
 
 /**
- * Восстанавливает customData на объектах canvas из состояния history.
+ * Restores customData on canvas objects from the history state.
  */
 export function applyCustomDataFromState({
   state,

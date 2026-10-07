@@ -1,13 +1,13 @@
-/* eslint-disable quote-props, quotes -- Базовый объект дословно сохраняет сериализованные данные пользователя. */
+/* eslint-disable quote-props, quotes -- The base object preserves the user's serialized data verbatim. */
 import type {
   TemplateDefinition,
   TemplateObjectData
 } from '../../types'
 
-/** Якорь нормализованного положения одного шейпа в шаблоне. */
+/** Anchor for one shape's normalized position in the template. */
 type ShapeTemplateAnchor = 'start' | 'center' | 'end'
 
-/** Изменяемая геометрия и идентификаторы одного сериализованного шейпа. */
+/** Editable geometry and identifiers of one serialized shape. */
 type ShapeTemplateParams = {
   id: string
   shapeNodeId: string
@@ -20,7 +20,7 @@ type ShapeTemplateParams = {
   anchorY: ShapeTemplateAnchor
 }
 
-/** Полная сериализованная форма шейпа из приложенного шаблона. */
+/** Complete serialized representation of a shape from the attached template. */
 const BASE_SPACING_SHAPE = {
   "subTargetCheck": true,
   "interactive": true,
@@ -231,7 +231,7 @@ const BASE_SPACING_SHAPE = {
   "_templateAnchorY": "center"
 } satisfies TemplateObjectData
 
-/** Собирает конечную сериализованную форму одного шейпа из шаблона. */
+/** Builds the final serialized representation of one shape from the template. */
 function createSpacingShape({
   id,
   shapeNodeId,
@@ -275,7 +275,7 @@ function createSpacingShape({
   return shape
 }
 
-/** Первый пользовательский шаблон со средним шейпом 79 × 79. */
+/** First user template with a 79 × 79 middle shape. */
 export const MIDDLE_SHAPE_79_SPACING_TEMPLATE = {
   id: 'template-G6ndKV6n9BeZ9osWdB4fW',
   meta: {
@@ -317,7 +317,7 @@ export const MIDDLE_SHAPE_79_SPACING_TEMPLATE = {
   ]
 } satisfies TemplateDefinition
 
-/** Второй пользовательский шаблон со средним шейпом 85 × 85. */
+/** Second user template with an 85 × 85 middle shape. */
 export const MIDDLE_SHAPE_85_SPACING_TEMPLATE = {
   id: 'template-lhr3pBQZl-kjdIa1Mcjpn',
   meta: {
@@ -360,7 +360,7 @@ export const MIDDLE_SHAPE_85_SPACING_TEMPLATE = {
   ]
 } satisfies TemplateDefinition
 
-/** Пользовательский шаблон с четырьмя шейпами и тремя интервалами 47,25 пикселя. */
+/** User template with four shapes and three 47.25-pixel gaps. */
 export const FOUR_SHAPE_EQUAL_SPACING_TEMPLATE = {
   id: 'template-6TbBfhjIdE5FEfuIqDfUh',
   meta: {
@@ -412,7 +412,7 @@ export const FOUR_SHAPE_EQUAL_SPACING_TEMPLATE = {
   ]
 } satisfies TemplateDefinition
 
-/** Вертикальная транспозиция пользовательского шаблона с тремя интервалами 47,25 пикселя. */
+/** Vertical transposition of the user template with three 47.25-pixel gaps. */
 export const FOUR_SHAPE_VERTICAL_EQUAL_SPACING_TEMPLATE = {
   id: 'template-four-shape-vertical-equal-spacing',
   meta: {

@@ -353,10 +353,10 @@ export default [
     }
   },
   {
-  // применить только к .ts (и .vue, если у вас там <script lang="ts">)
+  // Apply only to .ts (and .vue if it uses <script lang="ts">)
     files: ['**/*.ts', '**/*.vue'],
 
-    // уровень «каким парсером обрабатывать»
+    // Configure the parser at this level
     languageOptions: {
       parser: tsParser,
       parserOptions: {
@@ -367,20 +367,20 @@ export default [
       }
     },
 
-    // плагины – на верхнем уровне
+    // Plugins belong at the top level
     plugins: {
       '@typescript-eslint': tsPlugin
     },
 
     rules: {
-    // подтягиваем рекомендуемые правила
+    // Include the recommended rules
       ...tsPlugin.configs.recommended.rules,
-      // пример своего правила
+      // Example of a custom rule
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }]
     }
   },
   {
-    // Специальная конфигурация для spec/test файлов
+    // Special configuration for spec/test files
     files: ['**/*.spec.ts', '**/*.test.ts', '**/specs/**/*.ts'],
 
     languageOptions: {
@@ -401,30 +401,30 @@ export default [
     },
 
     rules: {
-      // Базовые TypeScript правила
+      // Basic TypeScript rules
       ...tsPlugin.configs.recommended.rules,
 
-      // Разрешаем any в тестах для моков
+      // Allow any in test mocks
       '@typescript-eslint/no-explicit-any': 'off',
 
-      // Разрешаем доступ к приватным свойствам через bracket notation
+      // Allow access to private properties through bracket notation
       'dot-notation': 'off',
 
-      // Более мягкие правила для тестов
+      // Relaxed rules for tests
       'max-len': ['warn', { code: 140, ignoreComments: true }],
       'no-unused-vars': 'off',
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
 
-      // Разрешаем trailing comma в тестах
+      // Allow trailing commas in tests
       'comma-dangle': ['error', 'never'],
 
-      // Не требуем деструктуризацию в тестах - иногда прямое обращение понятнее
+      // Do not require destructuring in tests; direct access is sometimes clearer
       'prefer-destructuring': 'off',
 
-      // Разрешаем function expressions в тестах
+      // Allow function expressions in tests
       'func-names': 'off',
 
-      // Более гибкие правила для объектов в тестах
+      // More flexible object rules in tests
       'object-curly-newline': 'off',
       'max-classes-per-file': 'off',
       'semi-style': ['error', 'last']

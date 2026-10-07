@@ -8,7 +8,7 @@ import {
 } from '../methods.js'
 
 /**
- * Инициализирует listeners для управления фоном demo-редактора.
+ * Initializes listeners for controlling the demo editor background.
  */
 export default ({ editorInstance, controls }) => {
   const {
@@ -38,7 +38,7 @@ export default ({ editorInstance, controls }) => {
   } = controls
 
   /**
-   * Обновляет видимость блоков выбора типа фона.
+   * Updates the visibility of background type selection sections.
    */
   const updateBackgroundTypeControls = ({ selectedType }) => {
     colorBackgroundControls.style.display = 'none'
@@ -61,7 +61,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Обновляет видимость блоков конкретного типа градиента.
+   * Updates the visibility of sections for the selected gradient type.
    */
   const updateGradientTypeControls = ({ selectedType }) => {
     linearGradientControls.style.display = 'none'
@@ -78,7 +78,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Создает DOM-элемент одного color stop для градиента.
+   * Creates a DOM element for a single gradient color stop.
    */
   const createGradientStopElement = ({ color = '#000000', offset = 0 } = {}) => {
     const container = document.createElement('div')
@@ -111,7 +111,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает текущий набор градиентных stop'ов из UI.
+   * Returns the current set of gradient stops from the UI.
    */
   const getGradientStops = () => {
     const rows = gradientStopsContainer.querySelectorAll('.gradient-stop-row')
@@ -128,7 +128,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Инициализирует стартовые stop'ы градиента.
+   * Initializes the starting gradient stops.
    */
   const initDefaultGradientStops = () => {
     if (gradientStopsContainer.children.length > 0) return
@@ -138,7 +138,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на выбор типа фона и градиента.
+   * Registers listeners for background and gradient type selection.
    */
   const initBackgroundTypeListeners = () => {
     backgroundTypeSelect.addEventListener('change', (event) => {
@@ -151,7 +151,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на значения контролов градиента.
+   * Registers listeners for gradient control values.
    */
   const initGradientControlListeners = () => {
     gradientAngleInput.addEventListener('input', (event) => {
@@ -176,7 +176,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на действия изменения фона.
+   * Registers listeners for background change actions.
    */
   const initBackgroundActionListeners = () => {
     setColorBackgroundBtn.addEventListener('click', () => {
@@ -221,7 +221,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на canvas-события изменения фона.
+   * Registers listeners for canvas background change events.
    */
   const initBackgroundCanvasListeners = () => {
     editorInstance.canvas.on('background:changed', (event) => {
@@ -238,7 +238,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Инициализирует стартовое состояние UI фона.
+   * Initializes the background UI state.
    */
   const initBackgroundState = () => {
     initDefaultGradientStops()

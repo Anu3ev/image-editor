@@ -60,28 +60,28 @@ export default class ImageManager {
   private _destroyed = false
 
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageManagerEditor
 
   /**
-   * Настройки редактора
+   * Editor settings
    */
   options: EditorOptions
 
   /**
-   * Массив blobURL, созданных в процессе работы менеджера.
-   * Используется для того чтобы при необходимости можно было удалить их (revoke) и освободить память.
+   * Array of blobURLs created while the manager is running.
+   * Used to revoke them and release memory when needed.
    */
   private _blobUrls: BlobUrlRegistry
 
   /**
-   * Массив допустимых contentType, которые можно импортировать. По умолчанию берётся из EditorOptions.acceptContentTypes.
+   * Array of allowed contentType values for import. Defaults to EditorOptions.acceptContentTypes.
    */
   public acceptContentTypes: string[]
 
   /**
-   * Массив допустимых форматов изображений, которые можно импортировать. Массив получается из настроек редактора.
+   * Array of allowed image formats for import, derived from the editor settings.
    */
   public acceptFormats: string[]
 
@@ -95,8 +95,8 @@ export default class ImageManager {
   }
 
   /**
-   * Подготавливает serialized state: заменяет src у изображений на blob URL с кешированием.
-   * Если запрос не удался (например, CORS), src остаётся исходным.
+   * Prepares serialized state: replaces image src values with cached blob URLs.
+   * If the request fails (for example, due to CORS), src remains unchanged.
    */
   public async prepareSerializedImageSources<State extends { objects?: unknown[] } | null | undefined>({
     state
@@ -119,18 +119,18 @@ export default class ImageManager {
   }
 
   /**
-   * Импорт изображения
+   * Import an image
    * @param options
-   * @param options.source - URL изображения или объект File
-   * @param options.scale - Если изображение не вписывается в допустимые размеры, то как масштабировать:
-   * 'image-contain' - скейлит картинку, чтобы она вписалась в монтажную область
-   * 'image-cover' - скейлит картинку, чтобы она вписалась в монтажную область
-   * 'scale-montage' - Обновляет backstore-резолюцию монтажной области (масштабирует
-   * экспортный размер канваса под размер изображения)
-   * Импортированное изображение материализуется с `originX: 'left'` и `originY: 'top'`,
-   * чтобы `left/top` оставались placement-точкой верхнего левого угла объекта.
-   * @param options.withoutSave - Не сохранять в историю изменений
-   * @returns возвращает Promise с объектом изображения или null в случае ошибки
+   * @param options.source - Image URL or File object
+   * @param options.scale - How to scale an image that does not fit within the allowed dimensions:
+   * 'image-contain' - scales the image to fit within the artboard
+   * 'image-cover' - scales the image to cover the artboard
+   * 'scale-montage' - Updates the artboard backstore resolution (scales
+   * the exported canvas dimensions to the image size)
+   * The imported image is materialized with `originX: 'left'` and `originY: 'top'`,
+   * so that `left/top` remain the placement point for the object's top-left corner.
+   * @param options.withoutSave - Do not save to the change history
+   * @returns A Promise with the image object, or null on error
    */
   public async importImage(options: ImportImageOptions): Promise<SuccessulImageImportResult | null> {
     if (this._destroyed) return null
@@ -214,21 +214,21 @@ export default class ImageManager {
   }
 
   /**
-   * Ресайзит изображение до заданных максимальных или минимальных размеров,
-   * сохраняя пропорции. По умолчанию использует границы канваса.
+   * Resizes an image to the specified maximum or minimum dimensions,
+   * preserving its aspect ratio. Uses the canvas bounds by default.
    *
-   * @param options - опции
-   * @param options.dataURL - dataURL изображения
-   * @param options.sizeType - максимальный или минимальный размер ('max' | 'min')
-   * @param options.maxWidth - максимальная ширина (по умолчанию CANVAS_MAX_WIDTH)
-   * @param options.maxHeight - максимальная высота (по умолчанию CANVAS_MAX_HEIGHT)
-   * @param options.minWidth - минимальная ширина (по умолчанию CANVAS_MIN_WIDTH)
-   * @param options.minHeight - минимальная высота (по умолчанию CANVAS_MIN_HEIGHT)
-   * @param options.asBase64 - вернуть base64 вместо Blob
-   * @param options.emitMessage - выводить предупреждение в случае ресайза
-   * @param options.contentType - тип контента
-   * @param options.quality - качество изображения от 0 до 1 (для JPEG/WebP)
-   * @returns возвращает Promise с Blob или base64 в зависимости от опций
+   * @param options - Options
+   * @param options.dataURL - Image dataURL
+   * @param options.sizeType - Maximum or minimum size ('max' | 'min')
+   * @param options.maxWidth - Maximum width (defaults to CANVAS_MAX_WIDTH)
+   * @param options.maxHeight - Maximum height (defaults to CANVAS_MAX_HEIGHT)
+   * @param options.minWidth - Minimum width (defaults to CANVAS_MIN_WIDTH)
+   * @param options.minHeight - Minimum height (defaults to CANVAS_MIN_HEIGHT)
+   * @param options.asBase64 - Return base64 instead of a Blob
+   * @param options.emitMessage - Emit a warning if the image is resized
+   * @param options.contentType - Content type
+   * @param options.quality - Image quality from 0 to 1 (for JPEG/WebP)
+   * @returns A Promise with a Blob or base64, depending on the options
    */
   public async resizeImageToBoundaries(
     options: ResizeImageToBoundariesOptions & { asBase64: true }
@@ -250,14 +250,14 @@ export default class ImageManager {
   }
 
   /**
-   * Экспорт изображения в файл – экспортируется содержимое монтажной области.
-   * Независимо от текущего зума, экспортируется монтажная область в исходном масштабе. Можно экспортировать как base64.
-   * @param options - опции
-   * @param options.fileName - имя файла
-   * @param options.contentType - тип контента
-   * @param options.exportAsBase64 - экспортировать как base64
-   * @param options.exportAsBlob - экспортировать как blob
-   * @returns возвращает Promise с объектом файла или null в случае ошибки
+   * Export an image to a file: exports the contents of the artboard.
+   * The artboard is exported at its original scale regardless of the current zoom. Base64 export is also supported.
+   * @param options - Options
+   * @param options.fileName - Filename
+   * @param options.contentType - Content type
+   * @param options.exportAsBase64 - Export as base64
+   * @param options.exportAsBlob - Export as a blob
+   * @returns A Promise with a file object, or null on error
    * @fires editor:canvas-exported
    */
   async exportCanvasAsImageFile(
@@ -297,14 +297,14 @@ export default class ImageManager {
   }
 
   /**
-   * Экспорт выбранного объекта в виде изображения или base64
-   * @param options - опции
-   * @param options.object - объект для экспорта
-   * @param options.fileName - имя файла
-   * @param options.contentType - тип контента
-   * @param options.exportAsBase64 - экспортировать как base64
-   * @param options.exportAsBlob - экспортировать как blob
-   * @returns - возвращает Promise с объектом файла или null в случае ошибки
+   * Export the selected object as an image or base64
+   * @param options - Options
+   * @param options.object - Object to export
+   * @param options.fileName - Filename
+   * @param options.contentType - Content type
+   * @param options.exportAsBase64 - Export as base64
+   * @param options.exportAsBlob - Export as a blob
+   * @returns - A Promise with a file object, or null on error
    * @fires editor:object-exported
    */
   public async exportObjectAsImageFile(
@@ -361,7 +361,7 @@ export default class ImageManager {
     }
   }
 
-  /** Останавливает импорт и освобождает принадлежащие менеджеру blob URL. */
+  /** Stops importing and releases the manager's blob URLs. */
   public destroy(): void {
     if (this._destroyed) return
     this._destroyed = true
@@ -369,15 +369,15 @@ export default class ImageManager {
   }
 
   /**
-   * Удаляет все созданные blobURL
+   * Removes all created blobURLs
    */
   public revokeBlobUrls(): void {
     this._blobUrls.revokeAll()
   }
 
   /**
-   * Получает список допустимых форматов изображений
-   * @returns массив допустимых форматов изображений
+   * Gets the list of allowed image formats
+   * @returns Array of allowed image formats
    */
   public getAllowedFormatsFromContentTypes(): string[] {
     return resolveAllowedFormats({
@@ -386,8 +386,8 @@ export default class ImageManager {
   }
 
   /**
-   * Проверяет, является ли contentType допустимым типом изображения.
-   * @returns true, если contentType допустим, иначе false
+   * Checks whether contentType is an allowed image type.
+   * @returns true if contentType is allowed, otherwise false
    */
   public isAllowedContentType(contentType = ''): boolean {
     return resolveIsAllowedContentType({
@@ -397,9 +397,9 @@ export default class ImageManager {
   }
 
   /**
-   * Получает contentType изображения из источника
-   * @param source - URL изображения или объект File
-   * @returns MIME-тип изображения
+   * Gets an image's contentType from its source
+   * @param source - Image URL or File object
+   * @returns Image MIME type
    * @public
    */
   public async getContentType(source: File | string): Promise<string> {
@@ -414,9 +414,9 @@ export default class ImageManager {
   }
 
   /**
-   * Получает contentType изображения через HTTP HEAD запрос или анализ URL
-   * @param src - URL изображения
-   * @returns MIME-тип изображения
+   * Gets an image's contentType through an HTTP HEAD request or URL analysis
+   * @param src - Image URL
+   * @returns Image MIME type
    * @public
    */
   public async getContentTypeFromUrl(src: string): Promise<string> {
@@ -427,9 +427,9 @@ export default class ImageManager {
   }
 
   /**
-   * Определяет contentType по расширению файла в URL
-   * @param url - URL файла
-   * @returns MIME-тип
+   * Determines contentType from the file extension in a URL
+   * @param url - File URL
+   * @returns MIME type
    * @public
    */
   public getContentTypeFromExtension(url: string): string {
@@ -440,11 +440,11 @@ export default class ImageManager {
   }
 
   /**
-   * Рассчитывает коэффициент масштабирования изображения.
-   * @param options - опции
-   * @param options.imageObject - объект изображения
-   * @param options.scaleType - тип масштабирования ('contain' или 'cover')
-   * @returns коэффициент масштабирования
+   * Calculates the image scale factor.
+   * @param options - Options
+   * @param options.imageObject - Image object
+   * @param options.scaleType - Scaling type ('contain' or 'cover')
+   * @returns Scale factor
    */
   public calculateScaleFactor({
     imageObject,
@@ -461,10 +461,10 @@ export default class ImageManager {
   }
 
   /**
-   * Извлекает чистый формат (subtype) из contentType,
-   * отбросив любую часть после «+» или «;»
+   * Extracts the plain format (subtype) from contentType,
+   * discarding anything after "+" or ";"
    * @param contentType
-   * @returns формат, например 'png', 'jpeg', 'svg'
+   * @returns Format, for example 'png', 'jpeg', 'svg'
    * @public
    */
   getFormatFromContentType(contentType = ''): string {

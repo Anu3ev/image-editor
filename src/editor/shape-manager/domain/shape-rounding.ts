@@ -1,10 +1,10 @@
 /**
- * Максимальное значение скругления фигуры в публичном shape API.
+ * Maximum shape-rounding value in the public shape API.
  */
 export const MAX_SHAPE_ROUNDING = 100
 
 /**
- * Нормализует степень скругления фигуры в стабильный диапазон 0..100.
+ * Normalizes shape rounding to the stable 0..100 range.
  */
 export function normalizeShapeRounding({
   rounding
@@ -19,7 +19,7 @@ export function normalizeShapeRounding({
 }
 
 /**
- * Переводит степень скругления фигуры из диапазона 0..100 в ratio 0..1.
+ * Converts shape rounding from the 0..100 range to a 0..1 ratio.
  */
 export function resolveShapeRoundingRatio({
   rounding

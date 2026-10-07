@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Расчёт crop-округления расположен перед внутренними ограничениями. */
+/* eslint-disable no-use-before-define -- Crop rounding calculation precedes internal constraints. */
 import type { Transform } from 'fabric'
 
 import { getObjectBounds, getObjectExactBounds, type ObjectBounds } from '../../utils/geometry'
@@ -21,28 +21,28 @@ import {
 } from '../../snapping-manager/scaling/scaling-snap-guard'
 import type { CropFrame } from '../domain/crop-frame'
 
-/** Допуск удержания crop-рамки около направляющей, с которой начался прежний resize. */
+/** Tolerance for holding the crop frame near the guide where the legacy resize began. */
 export const SOURCE_SCALED_GUIDE_HOLD_EPSILON = 1
 
-/** Округление crop в пикселях источника с учётом исходного масштаба жеста. */
+/** Crop rounding in source pixels, accounting for the initial gesture scale. */
 interface CropGuardedScalingStepParams extends GuardedScalingStepParams {
   target: CropFrame
   transform?: Transform | null
 }
 
-/** Допуск текущего scale около дробного guide после округления bounds. */
+/** Tolerance for the current scale near a fractional guide after rounding the bounds. */
 const SOURCE_SCALED_RAW_GUIDE_POSITION_EPSILON = 0.5
 
-/** Допуск сравнения размера в исходном изображении с целым пикселем. */
+/** Tolerance for comparing a size in the source image to an integer pixel value. */
 const DISPLAY_SIZE_INTEGER_EPSILON = 0.000001
 
-/** Допуск дрейфа размера после применения resize-плана. */
+/** Tolerance for size drift after applying a resize plan. */
 const SNAP_PLAN_DISPLAY_SIZE_EPSILON = 0.02
 
-/** Допуск сравнения scale исходного изображения с scale canvas. */
+/** Tolerance for comparing the source image scale with the canvas scale. */
 const SOURCE_DISPLAY_SCALE_EPSILON = 0.000001
 
-/** Параметры выбора кандидата, который сохраняет активные guide. */
+/** Parameters for selecting a candidate that preserves the active guides. */
 interface GuardedScalingCandidateSelectorParams extends GuardedScalingCandidateMatchParams {
   target: CropFrame
   rawScaleX: number
@@ -52,7 +52,7 @@ interface GuardedScalingCandidateSelectorParams extends GuardedScalingCandidateM
   shouldPreferInsideCandidate: boolean
 }
 
-/** Параметры проверки scale, который уже удерживает грань на guide. */
+/** Parameters for checking a scale that already holds an edge on a guide. */
 interface RetainedGuideScalingCandidateParams {
   target: CropFrame
   transform?: Transform | null
@@ -64,20 +64,20 @@ interface RetainedGuideScalingCandidateParams {
   snapGuards: ScalingStepSnapGuard[]
 }
 
-/** Лучшие кандидаты для режима с приоритетом положения внутри guide. */
+/** Best candidates for the mode that prioritizes staying inside the guides. */
 interface InsideFirstScalingCandidateSelection {
   insideCandidate: ScalingStepCandidate | null
   onGuideCandidate: ScalingStepCandidate | null
 }
 
-/** Результат проверки одного кандидата относительно активных guide. */
+/** Result of checking one candidate against the active guides. */
 interface ScalingStepCandidateMatchResult {
   candidate: ScalingStepCandidate
   snapMatch: ScalingStepCandidateSnapMatch
 }
 
 /**
- * Возвращает ближайший scale, который не переносит удерживаемую грань за guide.
+ * Returns the nearest scale that does not move the held edge past the guide.
  */
 export function resolveCropGuardedScalingStep({
   target,
@@ -131,7 +131,7 @@ export function resolveCropGuardedScalingStep({
 }
 
 /**
- * Возвращает scale, если текущий resize уже удерживает нужную грань на guide.
+ * Returns the scale if the current resize already holds the required edge on the guide.
  */
 function resolveRetainedGuideScalingCandidate({
   target,
@@ -175,8 +175,8 @@ function resolveRetainedGuideScalingCandidate({
 }
 
 /**
- * Возвращает текущий scale, если resize-план уже поставил crop frame на внутренний guide.
- * Для внешней границы исходника текущий scale не подходит: там приоритет у кандидата точно на guide.
+ * Returns the current scale if the resize plan has already placed the crop frame on an internal guide.
+ * At the outer source boundary, the current scale is unsuitable: a candidate exactly on the guide takes priority.
  */
 function resolveSourceScaledRawGuideCandidate({
   target,
@@ -222,7 +222,7 @@ function resolveSourceScaledRawGuideCandidate({
 }
 
 /**
- * Возвращает scale со старта Fabric transform, если crop frame уже удерживался у внутреннего source guide.
+ * Returns the scale from the start of the Fabric transform if the crop frame was already held near an internal source guide.
  */
 function resolveSourceScaledGuideHoldCandidate({
   target,
@@ -273,7 +273,7 @@ function resolveSourceScaledGuideHoldCandidate({
 }
 
 /**
- * Проверяет, что кандидат остаётся около guide, от которого уже удерживался scale.
+ * Checks that the candidate stays near the guide where the scale was already held.
  */
 function isScalingCandidateNearSnapGuards({
   target,
@@ -307,7 +307,7 @@ function isScalingCandidateNearSnapGuards({
 }
 
 /**
- * Проверяет, что удерживаемый размер не выходит за часть исходника по внутреннюю сторону guide.
+ * Checks that the held size does not exceed the part of the source on the inner side of the guide.
  */
 function isScalingCandidateInsideSourceGuideDisplayLimits({
   target,
@@ -333,7 +333,7 @@ function isScalingCandidateInsideSourceGuideDisplayLimits({
 }
 
 /**
- * Проверяет, что округлённый размер около guide не больше округлённой части исходника.
+ * Checks that the rounded size near the guide does not exceed the rounded portion of the source.
  */
 function isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
   target,
@@ -359,7 +359,7 @@ function isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
 }
 
 /**
- * Проверяет размер кандидата по каждой оси, которую удерживает guide.
+ * Checks the candidate size along each axis held by a guide.
  */
 function isScalingCandidateInsideSourceGuideLimits({
   target,
@@ -402,7 +402,7 @@ function isScalingCandidateInsideSourceGuideLimits({
 }
 
 /**
- * Возвращает размер кандидата по оси, которую удерживает guide.
+ * Returns the candidate size along the axis held by the guide.
  */
 function getCandidateDisplaySizeForSnapGuard({
   candidate,
@@ -421,7 +421,7 @@ function getCandidateDisplaySizeForSnapGuard({
 }
 
 /**
- * Возвращает размер текущего движения по оси, которую удерживает guide.
+ * Returns the size for the current movement along the axis held by the guide.
  */
 function getRawDisplaySizeForSnapGuard({
   rawScaleX,
@@ -442,7 +442,7 @@ function getRawDisplaySizeForSnapGuard({
 }
 
 /**
- * Проверяет округлённый размер относительно части исходника по внутреннюю сторону guide.
+ * Checks the rounded size against the part of the source on the inner side of the guide.
  */
 function isInsideRoundedSourceGuideDisplayLimit({
   target,
@@ -465,7 +465,7 @@ function isInsideRoundedSourceGuideDisplayLimit({
 }
 
 /**
- * Выбирает кандидата, который остаётся внутри активных guide.
+ * Selects a candidate that stays inside the active guides.
  */
 function selectGuardedScalingCandidate({
   target,
@@ -514,7 +514,7 @@ function selectGuardedScalingCandidate({
 }
 
 /**
- * Лучшие кандидаты для режима, где положение внутри guide предпочтительнее точного попадания на guide.
+ * Best candidates for the mode that favors staying inside the guides over landing exactly on them.
  */
 function selectInsideFirstScalingCandidates({
   target,
@@ -541,7 +541,7 @@ function selectInsideFirstScalingCandidates({
 }
 
 /**
- * Возвращает первого кандидата, который стоит точно на всех guide.
+ * Returns the first candidate that lies exactly on all guides.
  */
 function findFirstOnGuideScalingCandidate({
   matches
@@ -556,7 +556,7 @@ function findFirstOnGuideScalingCandidate({
 }
 
 /**
- * Возвращает ближайшего кандидата, который остаётся внутри всех guide.
+ * Returns the nearest candidate that stays inside all guides.
  */
 function findClosestInsideScalingCandidate({
   matches
@@ -578,7 +578,7 @@ function findClosestInsideScalingCandidate({
 }
 
 /**
- * Оставляет кандидата на guide, если активные оси уже попали в целый пиксель исходника.
+ * Keeps the candidate on the guide if the active axes already align to whole source pixels.
  */
 function shouldKeepOnGuideScalingCandidate({
   target,
@@ -613,7 +613,7 @@ function shouldKeepOnGuideScalingCandidate({
 }
 
 /**
- * Проверяет один guide для кандидата, который стоит точно на guide.
+ * Checks one guide for a candidate that lies exactly on the guide.
  */
 function shouldKeepOnGuideSnapGuardCandidate({
   target,
@@ -660,7 +660,7 @@ function shouldKeepOnGuideSnapGuardCandidate({
 }
 
 /**
- * Проверяет, что размер уже совпадает с целым пикселем.
+ * Checks that the size already matches a whole-pixel value.
  */
 function isIntegerDisplaySize({ displaySize }: { displaySize: number }): boolean {
   const integerSize = Math.round(displaySize)
@@ -669,7 +669,7 @@ function isIntegerDisplaySize({ displaySize }: { displaySize: number }): boolean
 }
 
 /**
- * Проверяет, что кандидат на guide не увеличивает размер, а только убирает float-дрейф.
+ * Checks that the candidate on the guide only removes floating-point drift without increasing the size.
  */
 function isSameSnappedDisplaySize({
   displaySize,
@@ -682,7 +682,7 @@ function isSameSnappedDisplaySize({
 }
 
 /**
- * Проверяет, что кандидат на guide не стал больше части исходника, внутри которой удерживается crop frame.
+ * Checks that the candidate on the guide does not exceed the part of the source containing the crop frame.
  */
 function isInsideSourceGuideDisplayLimit({
   target,
@@ -703,7 +703,7 @@ function isInsideSourceGuideDisplayLimit({
 }
 
 /**
- * Возвращает размер части исходника по внутреннюю сторону guide.
+ * Returns the size of the part of the source on the inner side of the guide.
  */
 function resolveSourceGuideDisplayLimit({
   target,
@@ -722,7 +722,7 @@ function resolveSourceGuideDisplayLimit({
 }
 
 /**
- * Возвращает длину части исходника по внутреннюю сторону guide.
+ * Returns the length of the part of the source on the inner side of the guide.
  */
 function resolveSourceGuideDisplayLength({
   target,
@@ -752,7 +752,7 @@ function resolveSourceGuideDisplayLength({
 }
 
 /**
- * Возвращает длину на canvas между внутренним guide и внешней границей исходника.
+ * Returns the canvas distance between the internal guide and the outer source boundary.
  */
 function getSourceGuideSceneLength({
   sourceBounds,
@@ -771,8 +771,8 @@ function getSourceGuideSceneLength({
 }
 
 /**
- * Возвращает true, если размер в пикселях исходника нужно удерживать внутри guide при округлении.
- * Для внешней границы исходника приоритет остаётся у кандидата на guide, чтобы snap не съедал 1px.
+ * Returns true if the size in source pixels must stay inside the guide when rounding.
+ * At the outer source boundary, the candidate on the guide retains priority so that snapping does not lose 1px.
  */
 function shouldPreferInsideScalingCandidate({
   target,
@@ -787,7 +787,7 @@ function shouldPreferInsideScalingCandidate({
 }
 
 /**
- * Возвращает true, если активная ось guide показывает размер в пикселях исходника с отдельным scale.
+ * Returns true if the active guide axis represents a size in source pixels with a separate scale.
  */
 function usesScaledDisplaySizeForSnapGuards({
   target,
@@ -811,7 +811,7 @@ function usesScaledDisplaySizeForSnapGuards({
 }
 
 /**
- * Возвращает true, если хотя бы один активный guide приклеен к внешней границе исходника.
+ * Returns true if at least one active guide is snapped to the outer source boundary.
  */
 function usesSourceBoundarySnapGuards({
   target,
@@ -835,7 +835,7 @@ function usesSourceBoundarySnapGuards({
 }
 
 /**
- * Проверяет, совпадает ли guide с соответствующей внешней границей исходника.
+ * Checks whether the guide coincides with the corresponding outer source boundary.
  */
 function isSnapGuardAtSourceBoundary({
   snapGuard,
@@ -858,7 +858,7 @@ function isSnapGuardAtSourceBoundary({
 }
 
 /**
- * Сравнивает guide с границей исходника в координатах canvas.
+ * Compares the guide with the source boundary in canvas coordinates.
  */
 function isCloseToSourceBoundary({
   position,
@@ -871,7 +871,7 @@ function isCloseToSourceBoundary({
 }
 
 /**
- * Возвращает true, если ось размера совпадает с пиксельной осью canvas.
+ * Returns true if the size axis coincides with the canvas pixel axis.
  */
 function isSceneDisplayScale({ scale }: { scale?: number }): boolean {
   const safeScale = Math.abs(scale ?? 1)

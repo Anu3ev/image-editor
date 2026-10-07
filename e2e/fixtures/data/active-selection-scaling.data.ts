@@ -1,9 +1,9 @@
 import type { SelectionControlKey } from '../../types'
 
-/** Грань общего выделения, которая может совпасть с опорной направляющей. */
+/** Active-selection edge that can align with a reference guide. */
 export type ActiveSelectionScaleEdge = 'bottom' | 'left' | 'right' | 'top'
 
-/** Одна стандартная ручка и ожидаемые подвижные и неподвижные грани. */
+/** One standard handle and the expected moving and fixed edges. */
 export type ActiveSelectionScaleControlCase = Readonly<{
   changesHeight: boolean
   changesWidth: boolean
@@ -17,7 +17,7 @@ export type ActiveSelectionScaleControlCase = Readonly<{
   verticalGuide?: Extract<ActiveSelectionScaleEdge, 'bottom' | 'top'>
 }>
 
-/** Все восемь стандартных ручек общего выделения. */
+/** All eight standard active-selection handles. */
 export const ACTIVE_SELECTION_SCALE_CONTROL_CASES: readonly ActiveSelectionScaleControlCase[] = Object.freeze([
   {
     changesHeight: false,
@@ -113,14 +113,14 @@ export const ACTIVE_SELECTION_SCALE_CONTROL_CASES: readonly ActiveSelectionScale
   }
 ])
 
-/** Шесть ручек, доступных общему выделению, геометрию которого задают отдельные тексты. */
+/** Six handles available to an active selection whose geometry is determined by standalone text objects. */
 export const ACTIVE_SELECTION_TEXT_SCALE_CONTROL_CASES = Object.freeze(
   ACTIVE_SELECTION_SCALE_CONTROL_CASES.filter(({ control }) => {
     return control !== 'mt' && control !== 'mb'
   })
 )
 
-/** Два текста с разной геометрией для проверки общего скейлинга. */
+/** Two text objects with different geometry for testing collective scaling. */
 export const ACTIVE_SELECTION_TEXT_SCALE_SEEDS = Object.freeze([
   Object.freeze({
     leftOffset: 95,
@@ -154,12 +154,12 @@ export const ACTIVE_SELECTION_TEXT_SCALE_SEEDS = Object.freeze([
   })
 ])
 
-/** Видимые ручки смешанного выделения с текстом. */
+/** Visible handles of a mixed selection containing text. */
 export const MIXED_SELECTION_SCALE_CONTROL_CASES = Object.freeze(
   ACTIVE_SELECTION_SCALE_CONTROL_CASES.filter(({ control }) => {
     return control !== 'mr' && control !== 'mt' && control !== 'mb'
   })
 )
 
-/** Допуск на округление координат реального указателя. */
+/** Tolerance for rounding real pointer coordinates. */
 export const ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE = 1

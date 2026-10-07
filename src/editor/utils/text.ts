@@ -6,7 +6,7 @@ export type TextSelectionRange = {
 }
 
 /**
- * Возвращает выделение текста, если оно непустое.
+ * Returns the text selection if it is nonempty.
  */
 export const getSelectionRange = ({ textbox }: { textbox: Textbox }): TextSelectionRange | null => {
   if (!textbox.isEditing) return null
@@ -22,7 +22,7 @@ export const getSelectionRange = ({ textbox }: { textbox: Textbox }): TextSelect
 }
 
 /**
- * Возвращает диапазон полного текста.
+ * Returns the range covering the entire text.
  */
 export const getFullTextRange = ({ textbox }: { textbox: Textbox }): TextSelectionRange | null => {
   const length = textbox.text?.length ?? 0
@@ -32,7 +32,7 @@ export const getFullTextRange = ({ textbox }: { textbox: Textbox }): TextSelecti
 }
 
 /**
- * Проверяет, охватывает ли выделение весь текст.
+ * Checks whether the selection spans the entire text.
  */
 export const isFullTextSelection = (
   { textbox, range }: { textbox: Textbox; range: TextSelectionRange | null }
@@ -46,7 +46,7 @@ export const isFullTextSelection = (
 }
 
 /**
- * Применяет стили к указанному диапазону текста.
+ * Applies styles to the specified text range.
  */
 export const applyStylesToRange = ({
   textbox,
@@ -66,7 +66,7 @@ export const applyStylesToRange = ({
 }
 
 /**
- * Возвращает стиль выделенного диапазона.
+ * Returns the style of the selected range.
  */
 export const getSelectionStyleValue = <T extends keyof TextboxProps>({
   textbox,
@@ -90,7 +90,7 @@ export const getSelectionStyleValue = <T extends keyof TextboxProps>({
 }
 
 /**
- * Возвращает цвет обводки, если ширина больше нуля.
+ * Returns the stroke color if the width is greater than zero.
  */
 export const resolveStrokeColor = (
   { strokeColor, width }: { strokeColor?: string; width: number }
@@ -101,7 +101,7 @@ export const resolveStrokeColor = (
 }
 
 /**
- * Нормализует ширину обводки в неотрицательное значение.
+ * Normalizes the stroke width to a nonnegative value.
  */
 export const resolveStrokeWidth = ({ width = 0 }: { width?: number }): number => {
   if (!width) return 0
@@ -110,7 +110,7 @@ export const resolveStrokeWidth = ({ width = 0 }: { width?: number }): number =>
 }
 
 /**
- * Безопасно переводит строку в верхний регистр.
+ * Safely converts a string to uppercase.
  */
 export const toUpperCaseSafe = ({ value }: { value: string }): string => (
   typeof value === 'string' ? value.toLocaleUpperCase() : ''

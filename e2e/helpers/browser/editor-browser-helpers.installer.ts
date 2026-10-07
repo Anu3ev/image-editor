@@ -19,27 +19,27 @@ import type {
   NullableBoundsInfo
 } from './editor-browser-helpers.types'
 
-/** Client-точка, полученная из browser-side control координат. */
+/** Client point obtained from browser-side control coordinates. */
 type BrowserControlPoint = {
   x: number
   y: number
 }
 
-/** Browser-side payload события editor:objects-delete-skipped. */
+/** Browser-side payload of the editor:objects-delete-skipped event. */
 type BrowserDeleteSkippedEventPayload = {
   requestedObjects?: unknown[]
   skippedObjects?: unknown[]
   withoutSave?: boolean
 }
 
-/** Window на момент установки helpers: editor может появиться после init приложения. */
+/** Window when installing helpers: the editor may appear after application initialization. */
 type BrowserEditorWindowInstallerTarget = Window & {
   editor?: BrowserEditorWindow['editor']
   __editorHelpers?: BrowserEditorHelpers
 }
 
 /**
- * Устанавливает browser-side хелперы на window редактора.
+ * Installs browser-side helpers on the editor window.
  */
 export function installEditorBrowserHelpers(): void {
   const browserWindow: BrowserEditorWindowInstallerTarget = window
@@ -47,7 +47,7 @@ export function installEditorBrowserHelpers(): void {
   let deleteSkippedEventHandler: ((event: BrowserDeleteSkippedEventPayload) => void) | null = null
 
   /**
-   * Возвращает editor runtime после завершения init приложения.
+   * Returns the editor runtime after application initialization completes.
    */
   function getEditorRuntime(): BrowserEditorWindow['editor'] {
     const { editor } = browserWindow
@@ -60,7 +60,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Безопасно приводит unknown-значение к plain-object.
+   * Safely converts an unknown value to a plain object.
    */
   function toBrowserObject({ value }: { value: unknown }): BrowserObject {
     if (typeof value !== 'object') {
@@ -75,7 +75,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает тип shape-ноды или пустую строку.
+   * Returns the shape-node type or an empty string.
    */
   function resolveShapeNodeType({ value }: { value: unknown }): string {
     const shapeNode = toBrowserObject({ value }) as BrowserShapeNodeObject
@@ -84,7 +84,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает число или defaultValue.
+   * Returns a number or defaultValue.
    */
   function resolveNumber({ value, defaultValue }: { value: unknown, defaultValue: number }): number {
     if (typeof value === 'number') return value
@@ -93,7 +93,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает конечную control-точку или null, если browser-side объект неполный.
+   * Returns a finite control point or null if the browser-side object is incomplete.
    */
   function resolveControlPoint({ value }: { value: BrowserObject }): BrowserControlPoint | null {
     const { x, y } = value
@@ -108,7 +108,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает число или null.
+   * Returns a number or null.
    */
   function resolveNullableNumber({ value }: { value: unknown }): number | null {
     if (typeof value === 'number') return value
@@ -117,7 +117,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает boolean-значение или null.
+   * Returns a boolean value or null.
    */
   function resolveNullableBoolean({ value }: { value: unknown }): boolean | null {
     if (typeof value === 'boolean') return value
@@ -126,7 +126,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает строку или null.
+   * Returns a string or null.
    */
   function resolveNullableString({ value }: { value: unknown }): string | null {
     if (typeof value === 'string') return value
@@ -135,7 +135,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает id объекта для компактной записи события.
+   * Returns the object ID for a compact event record.
    */
   function resolveObjectId({ value }: { value: unknown }): string | null {
     const object = toBrowserObject({ value })
@@ -146,7 +146,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Создаёт сериализуемую запись события отказа удаления.
+   * Creates a serializable record of a deletion-rejection event.
    */
   function createDeleteSkippedEventRecord({
     payload
@@ -166,7 +166,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Начинает запись событий отказа удаления для текущего editor runtime.
+   * Starts recording deletion-rejection events for the current editor runtime.
    */
   function startDeleteSkippedEventRecording(): void {
     const { canvas } = getEditorRuntime()
@@ -186,14 +186,14 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает записанные события отказа удаления.
+   * Returns recorded deletion-rejection events.
    */
   function getDeleteSkippedEventRecords(): BrowserDeleteSkippedEventRecord[] {
     return [...deleteSkippedEventRecords]
   }
 
   /**
-   * Возвращает количество визуальных строк textbox.
+   * Returns the textbox's visual line count.
    */
   function resolveTextLineCount({ value }: { value: unknown }): number {
     if (!Array.isArray(value)) return 0
@@ -202,7 +202,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает визуальные строки textbox в текстовом виде.
+   * Returns the textbox's visual lines as text.
    */
   function resolveTextLines({ value }: { value: unknown }): string[] {
     if (!Array.isArray(value)) return []
@@ -229,7 +229,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает дочерние canvas-объекты группы.
+   * Returns the group's child canvas objects.
    */
   function getGroupObjects({ group }: { group: unknown }): BrowserObject[] {
     const groupNode = toBrowserObject({ value: group }) as BrowserGroupObject
@@ -248,7 +248,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает boundingRect объекта.
+   * Returns the object's boundingRect.
    */
   function getBoundingRect({ target }: { target: unknown }): BrowserObject | null {
     const canvasObject = toBrowserObject({ value: target }) as BrowserBoundedObject
@@ -263,7 +263,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Преобразует bounds в набор числовых значений (с fallback в 0).
+   * Converts bounds to a set of numeric values (falling back to 0).
    */
   function createBoundsInfo({ bounds }: { bounds: BrowserObject | null }): BoundsInfo {
     const left = resolveNumber({
@@ -294,7 +294,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает смещение внутри text-area для заданного origin.
+   * Returns the offset within the text area for the specified origin.
    */
   function resolveOriginOffset({
     origin,
@@ -315,7 +315,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает scene point внутренней text-area без учёта фоновой оболочки.
+   * Returns a scene point of the internal text area, excluding the background shell.
    */
   function createTextAreaPointInfo({
     target,
@@ -387,7 +387,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Преобразует bounds в nullable-набор для shape-ноды.
+   * Converts bounds to nullable numeric fields for a shape node.
    */
   function createNullableBoundsInfo({ bounds }: { bounds: BrowserObject | null }): NullableBoundsInfo {
     const left = resolveNullableNumber({ value: bounds?.left })
@@ -404,7 +404,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Преобразует point-like объект в набор координат с fallback в 0.
+   * Converts a point-like object to coordinates, falling back to 0.
    */
   function createPointInfo({ point }: { point: unknown }): { x: number, y: number } {
     const pointObject = toBrowserObject({ value: point })
@@ -422,7 +422,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает список обычных направляющих SnappingManager в сериализованном виде.
+   * Returns a serialized list of regular SnappingManager guides.
    */
   function resolveSnappingGuides(): Array<{
     type: 'vertical' | 'horizontal'
@@ -455,7 +455,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает список направляющих равноудалённости SnappingManager в сериализованном виде.
+   * Returns a serialized list of SnappingManager equal-spacing guides.
    */
   function resolveSnappingSpacingGuides(): Array<{
     type: 'vertical' | 'horizontal'
@@ -517,7 +517,7 @@ export function installEditorBrowserHelpers(): void {
     return guides
   }
 
-  /** Сериализует одну направляющую MeasurementManager с проверкой runtime-контракта. */
+  /** Serializes one MeasurementManager guide while checking the runtime contract. */
   function resolveMeasurementGuide({
     value,
     index
@@ -543,7 +543,7 @@ export function installEditorBrowserHelpers(): void {
     return { type, axis, start, end, distance }
   }
 
-  /** Возвращает точные направляющие и состояние текущего Alt-измерения. */
+  /** Returns exact guides and the current Alt-measurement state. */
   function resolveMeasurementGuideState(): BrowserMeasurementGuideState {
     const editorObject = toBrowserObject({ value: getEditorRuntime() })
     const measurementManager = toBrowserObject({ value: editorObject.measurementManager })
@@ -563,7 +563,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Складывает два nullable-числа. Если хотя бы одно null — возвращает null.
+   * Adds two nullable numbers. Returns null if either is null.
    */
   function sumNullableNumbers({ first, second }: { first: number | null, second: number | null }): number | null {
     if (first === null || second === null) return null
@@ -572,7 +572,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Выбирает shape-ноду внутри композитной группы.
+   * Selects the shape node inside a composite group.
    */
   function resolveShapeNode({ group }: { group: unknown }): BrowserObject | null {
     const objects = getGroupObjects({ group })
@@ -598,7 +598,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Выбирает текстовый узел внутри композитной группы.
+   * Selects the text node inside a composite group.
    */
   function resolveTextNode({ group }: { group: unknown }): BrowserObject | null {
     const objects = getGroupObjects({ group })
@@ -616,7 +616,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает id или объект canvas по индексу.
+   * Returns the supplied ID, or the canvas object at the supplied index.
    */
   function resolveTarget({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
     if (id !== undefined) return id
@@ -630,7 +630,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает canvas-объект по индексу или id.
+   * Returns the canvas object by index or ID.
    */
   function resolveCanvasObject({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
     const objects = getEditorRuntime().canvasManager.getObjects()
@@ -651,7 +651,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает canvas-объект по индексу или id, а при их отсутствии — target текущего transform или active object.
+   * Returns a canvas object by index or ID, or otherwise the current transform target or active object.
    */
   function resolveCanvasObjectOrActive({ objectIndex, id }: { objectIndex?: number, id?: string }): unknown {
     const target = resolveCanvasObject({ objectIndex, id })
@@ -665,7 +665,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует общий editor-объект.
+   * Serializes a generic editor object.
    */
   const serializeEditorObject: BrowserSerializer = (obj: unknown) => {
     const editorObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
@@ -693,7 +693,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует background-объект редактора вместе с bounding box.
+   * Serializes the editor's background object with its bounding box.
    */
   const serializeBackgroundObject: BrowserSerializer = (obj: unknown) => {
     const backgroundObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
@@ -725,7 +725,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует shape-объект.
+   * Serializes a shape object.
    */
   const serializeShapeObject: BrowserSerializer = (obj: unknown) => {
     const shapeObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
@@ -770,7 +770,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует текстовый узел внутри shape-группы.
+   * Serializes the text node inside a shape group.
    */
   const serializeShapeTextObject: BrowserSerializer = (obj: unknown) => {
     const textObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
@@ -799,7 +799,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует standalone text-объект.
+   * Serializes a standalone text object.
    */
   const serializeTextObject: BrowserSerializer = (obj: unknown) => {
     const textObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
@@ -869,7 +869,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает текстовый узел внутри shape-группы по target-параметрам.
+   * Returns the text node inside a shape group using target parameters.
    */
   function resolveShapeTextNode({
     objectIndex,
@@ -881,7 +881,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает текстовый объект canvas по target-параметрам.
+   * Returns the canvas text object using target parameters.
    */
   function resolveCanvasTextNode({
     objectIndex,
@@ -894,7 +894,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает диапазон выделения текста: явный или текущий в textbox.
+   * Returns the text selection range: explicit or current in the textbox.
    */
   function resolveTextSelectionRange({
     textNode,
@@ -929,7 +929,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует первый стиль выделенного диапазона текста в plain-object для e2e assertion.
+   * Serializes the first style of the selected text range to a plain object for e2e assertions.
    */
   function serializeTextSelectionStyle({
     style
@@ -950,7 +950,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает сериализованный стиль выделенного диапазона отдельного текстового объекта.
+   * Returns the serialized style of a standalone text object's selected range.
    */
   function getTextSelectionStyles({
     objectIndex,
@@ -978,7 +978,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает сериализованный стиль выделенного диапазона текста внутри shape.
+   * Returns the serialized style of the selected text range inside a shape.
    */
   function getShapeTextSelectionStyles({
     objectIndex,
@@ -1006,7 +1006,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует snapshot масштабирования shape-группы.
+   * Serializes a shape-group scaling snapshot.
    */
   const serializeShapeScaleSnapshot: BrowserSerializer = (obj: unknown) => {
     const groupObject = toBrowserObject({ value: obj }) as BrowserSerializableObject
@@ -1068,7 +1068,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует объект canvas вместе с актуальным bounding box для snapping-assertions.
+   * Serializes a canvas object with its current bounding box for snapping assertions.
    */
   const serializeSnappingObjectSnapshot: BrowserSerializer = (obj: unknown) => {
     const bounds = createBoundsInfo({
@@ -1089,8 +1089,8 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Выполняет один шаг scale для текущего ActiveSelection через указанный control.
-   * Может как начать drag-сессию, так и продолжить уже активную.
+   * Performs one scaling step on the current ActiveSelection using the specified control.
+   * Can start a drag session or continue an active one.
    */
   const scaleSelectionFromControl = ({
     startControl: startControlName,
@@ -1188,7 +1188,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Возвращает сериализованное состояние interaction blocker и маски блокировки.
+   * Returns the serialized state of the interaction blocker and lock mask.
    */
   function getInteractionBlockerState(): Record<string, unknown> {
     const { interactionBlocker, canvas } = getEditorRuntime()
@@ -1227,7 +1227,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Сериализует snapshot standalone text-объекта во время/после horizontal resize.
+   * Serializes a standalone text-object snapshot during/after horizontal resize.
    */
   const serializeTextResizeSnapshot: BrowserSerializer = (obj: unknown) => {
     const textObject = toBrowserObject({ value: obj }) as BrowserOriginPointObject
@@ -1281,7 +1281,7 @@ export function installEditorBrowserHelpers(): void {
   }
 
   /**
-   * Регистрирует browser-side хелперы на window для вызова из page.evaluate().
+   * Registers browser-side helpers on window for calls from page.evaluate().
    */
   function installBrowserHelpers(): void {
     const editorHelpers: BrowserEditorHelpers = {

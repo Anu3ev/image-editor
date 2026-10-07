@@ -2,7 +2,7 @@ import { Buffer } from 'node:buffer'
 import type { CanvasFullState } from '../../../src/editor/history-manager'
 import type { TemplateDefinition } from '../../types'
 
-/** Описание source-кейса для e2e-проверки восстановления картинки. */
+/** Source-case description for the e2e image-restoration test. */
 type ImageSourceRestoreCase = {
   historyForbiddenPayloads: readonly string[]
   initialState: CanvasFullState
@@ -14,20 +14,20 @@ type ImageSourceRestoreCase = {
   templateTestName: string
 }
 
-/** Mock ответа для картинки, загружаемой по ссылке в e2e. */
+/** Mock response for an image loaded by URL in e2e tests. */
 type ImageSourceRestoreRouteMock = {
   body: string
   contentType: string
   url: string
 }
 
-/** Размер тестовой картинки для всех source-кейсов. */
+/** Test-image dimensions for all source cases. */
 export const IMAGE_SOURCE_RESTORE_SOURCE_SIZE = {
   width: 160,
   height: 120
 } as const
 
-/** SVG-разметка тестовой картинки для всех source-кейсов. */
+/** Test-image SVG markup for all source cases. */
 const IMAGE_SOURCE_RESTORE_MARKUP = [
   '<svg xmlns="http://www.w3.org/2000/svg"',
   ` width="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.width}" height="${IMAGE_SOURCE_RESTORE_SOURCE_SIZE.height}">`,
@@ -39,13 +39,13 @@ const IMAGE_SOURCE_RESTORE_MARKUP = [
   '</svg>'
 ].join('')
 
-/** Разрешение монтажной области для source restore сценариев. */
+/** Artboard resolution for source-restoration scenarios. */
 export const IMAGE_SOURCE_RESTORE_RESOLUTION = {
   width: 400,
   height: 300
 } as const
 
-/** Общие serialized-поля картинки, которые не зависят от lifecycle path. */
+/** Shared serialized image fields that do not depend on the lifecycle path. */
 const IMAGE_SOURCE_RESTORE_BASE_OBJECT = {
   cropX: 0,
   cropY: 0,
@@ -76,7 +76,7 @@ const IMAGE_SOURCE_RESTORE_BASE_OBJECT = {
   filters: []
 } as const
 
-/** Служебная монтажная область для initialState fixture. */
+/** Auxiliary artboard for the initialState fixture. */
 const IMAGE_SOURCE_RESTORE_MONTAGE_OBJECT = {
   id: 'montage-area',
   type: 'Rect',
@@ -98,23 +98,23 @@ const IMAGE_SOURCE_RESTORE_MONTAGE_OBJECT = {
   noScaleCache: true
 } as const
 
-/** Base64 source тестовой SVG-картинки. */
+/** Base64 source of the test SVG image. */
 const IMAGE_SOURCE_RESTORE_BASE64_SOURCE = `data:image/svg+xml;base64,${Buffer
   .from(IMAGE_SOURCE_RESTORE_MARKUP)
   .toString('base64')}`
 
-/** Data URL без base64 для тестовой SVG-картинки. */
+/** Non-base64 data URL for the test SVG image. */
 const IMAGE_SOURCE_RESTORE_DATA_URL_SOURCE = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
   IMAGE_SOURCE_RESTORE_MARKUP
 )}`
 
-/** CDN-like ссылка, которая в e2e всегда закрывается route mock-ом. */
+/** CDN-like URL always intercepted by a route mock in e2e tests. */
 const IMAGE_SOURCE_RESTORE_REMOTE_SOURCE = 'https://static.insales-cdn.com/e2e/image-source-restore.svg'
 
-/** Количество объектов, ожидаемое после восстановления одного image source. */
+/** Expected object count after restoring one image source. */
 export const IMAGE_SOURCE_RESTORE_OBJECT_COUNT = 1
 
-/** Route mock для картинки по ссылке. */
+/** Route mock for an image loaded by URL. */
 export const IMAGE_SOURCE_RESTORE_ROUTE_MOCK: ImageSourceRestoreRouteMock = {
   body: IMAGE_SOURCE_RESTORE_MARKUP,
   contentType: 'image/svg+xml',
@@ -122,7 +122,7 @@ export const IMAGE_SOURCE_RESTORE_ROUTE_MOCK: ImageSourceRestoreRouteMock = {
 }
 
 /**
- * Создаёт шаблон с одним image-объектом и заданным src.
+ * Creates a template with one image object and the specified src.
  */
 function createTemplateWithImageSource({
   id,
@@ -151,7 +151,7 @@ function createTemplateWithImageSource({
 }
 
 /**
- * Создаёт initialState с одним image-объектом и заданным src.
+ * Creates an initialState with one image object and the specified src.
  */
 function createInitialStateWithImageSource({
   id,
@@ -178,7 +178,7 @@ function createInitialStateWithImageSource({
   }
 }
 
-/** Кейсы image src, которые должны одинаково работать для шаблонов и initialState. */
+/** Image src cases that should work identically for templates and initialState. */
 export const IMAGE_SOURCE_RESTORE_CASES: ImageSourceRestoreCase[] = [
   {
     initialStateImageId: 'initial-state-image-source-base64-image',

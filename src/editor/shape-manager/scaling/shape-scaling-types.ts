@@ -8,7 +8,7 @@ import type {
 } from './shape-scaling-layout'
 
 /**
- * Fabric event payload для live scaling shape-группы.
+ * Fabric-event payload for live shape-group scaling.
  */
 export type ShapeScalingEvent = {
   target?: FabricObject | null
@@ -17,7 +17,7 @@ export type ShapeScalingEvent = {
 }
 
 /**
- * Fabric event payload для commit шага после изменения shape-группы.
+ * Fabric-event payload for the commit step after a shape-group change.
  */
 export type ShapeModifiedEvent = {
   target?: FabricObject | null
@@ -26,7 +26,7 @@ export type ShapeModifiedEvent = {
 }
 
 /**
- * Решение live scaling после проверки ограничений текста и размеров.
+ * Live-scaling decision after checking text and dimension constraints.
  */
 export type ShapeScalingDecision = {
   appliedScaleX: number
@@ -37,12 +37,12 @@ export type ShapeScalingDecision = {
 }
 
 /**
- * Направление скейлинга по оси относительно начальной точки transform.
+ * Scaling direction along an axis relative to the transform origin.
  */
 export type ShapeScaleDirection = -1 | 1
 
 /**
- * Fabric canvas с текущим transform, который хранится во время live interaction.
+ * Fabric canvas with the current transform stored during live interaction.
  */
 export type CanvasWithCurrentTransform = Canvas & {
   _currentTransform?: Transform | null

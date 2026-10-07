@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный контракт расположен перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- The public contract precedes the internal checks. */
 import {
   FabricImage,
   Textbox,
@@ -13,7 +13,7 @@ import type {
   RectangularScaleMultipliers
 } from '../../snapping-manager/scaling/rectangular-scale-gesture-projection'
 
-/** Локальные свойства изображения, которые не должно изменять общее преобразование выделения. */
+/** Local image properties that must not be changed by the overall selection transform. */
 type ProtectedSelectionImageState = Readonly<{
   angle: number
   cropX: number
@@ -34,7 +34,7 @@ type ProtectedSelectionImageState = Readonly<{
   width: number
 }>
 
-/** Свойства шейпа, которые не должна менять компоновка во время общего скейлинга. */
+/** Shape properties that layout must not change during shared scaling. */
 type ProtectedSelectionShapeState = Readonly<{
   angle: number
   flipX: boolean
@@ -49,7 +49,7 @@ type ProtectedSelectionShapeState = Readonly<{
   target: FabricObject
 }>
 
-/** Свойства текста, которые не должно изменять применение рассчитанного размера общего выделения. */
+/** Text properties that must not be changed when applying the calculated active selection size. */
 type ProtectedSelectionTextState = Readonly<{
   angle: number
   flipX: boolean
@@ -63,18 +63,18 @@ type ProtectedSelectionTextState = Readonly<{
   text: string
 }>
 
-/** Защищённое состояние ребёнка выделения, геометрию которого определяют тексты. */
+/** Protected state of a child in a selection whose geometry is determined by text. */
 type ProtectedSelectionTextCompositionChildState =
   | ProtectedSelectionImageState
   | ProtectedSelectionTextState
 
-/** Защищённое состояние ребёнка полного смешанного состава. */
+/** Protected state of a child in a full mixed composition. */
 type ProtectedSelectionMixedChildState =
   | ProtectedSelectionImageState
   | ProtectedSelectionShapeState
   | ProtectedSelectionTextState
 
-/** Состав выделения и свойства детей, которые должны сохраниться во время общего скейлинга. */
+/** Selection composition and child properties that must be preserved during shared scaling. */
 export type ActiveSelectionScaleComposition = Readonly<{
   children: readonly ProtectedSelectionImageState[]
   kind: 'images'
@@ -89,7 +89,7 @@ export type ActiveSelectionScaleComposition = Readonly<{
   kind: 'mixed'
 }>
 
-/** Свойства выделения и преобразования Fabric, которые должны сохраниться во время жеста. */
+/** Selection and Fabric transform properties that must be preserved during the gesture. */
 export type ActiveSelectionScaleProtectedState = Readonly<{
   action: Transform['action']
   angle: number
@@ -108,10 +108,10 @@ export type ActiveSelectionScaleProtectedState = Readonly<{
   width: number
 }>
 
-/** Допуск сравнения защищённых числовых свойств выделения. */
+/** Comparison tolerance for protected numeric selection properties. */
 const ACTIVE_SELECTION_SCALE_STATE_EPSILON = 0.000000001
 
-/** Возвращает поддерживаемый состав общего выделения. */
+/** Returns the supported active selection composition. */
 export function resolveActiveSelectionScaleCompositionKind({
   editor,
   target
@@ -127,7 +127,7 @@ export function resolveActiveSelectionScaleCompositionKind({
   return null
 }
 
-/** Проверяет общую геометрию выделения до определения его доменного состава. */
+/** Validates the selection's overall geometry before determining its domain composition. */
 export function isSupportedActiveSelectionScaleGeometry({
   target
 }: {
@@ -157,7 +157,7 @@ export function isSupportedActiveSelectionScaleGeometry({
     && Math.abs(target.skewY ?? 0) <= ACTIVE_SELECTION_SCALE_STATE_EPSILON
 }
 
-/** Сохраняет свойства выделения и защищённое состояние его дочерних объектов. */
+/** Saves selection properties and the protected state of its child objects. */
 export function captureActiveSelectionScaleProtectedState({
   compositionKind,
   target,
@@ -186,7 +186,7 @@ export function captureActiveSelectionScaleProtectedState({
   })
 }
 
-/** Проверяет, что Fabric не переключил активный жест на другое преобразование. */
+/** Checks that Fabric has not switched the active gesture to another transform. */
 export function isActiveSelectionScaleGesturePreserved({
   protectedState,
   target,
@@ -207,7 +207,7 @@ export function isActiveSelectionScaleGesturePreserved({
     && Boolean(target.flipY) === protectedState.flipY
 }
 
-/** Проверяет свойства выделения, детей и неактивные степени свободы. */
+/** Checks selection properties, children, and inactive degrees of freedom. */
 export function isActiveSelectionScaleProtectedStatePreserved({
   mode,
   multipliers,
@@ -231,7 +231,7 @@ export function isActiveSelectionScaleProtectedStatePreserved({
   return true
 }
 
-/** Сравнивает конечные значения скейлинга в пределах допуска защищённого состояния. */
+/** Compares finite scaling values within the protected state tolerance. */
 export function areActiveSelectionScaleValuesNear({
   first,
   second
@@ -244,7 +244,7 @@ export function areActiveSelectionScaleValuesNear({
     && Math.abs(first - second) <= ACTIVE_SELECTION_SCALE_STATE_EPSILON
 }
 
-/** Проверяет состав выделения только из прямых изображений. */
+/** Checks a selection composed only of direct image children. */
 function isSupportedImageSelection({ target }: { target: ActiveSelection }): boolean {
   const objects = target.getObjects()
   if (objects.length < 2) return false
@@ -253,7 +253,7 @@ function isSupportedImageSelection({ target }: { target: ActiveSelection }): boo
   return true
 }
 
-/** Проверяет полный состав минимум из изображения, шейпа и отдельного текста. */
+/** Checks a full composition containing at least an image, a shape, and standalone text. */
 function isSupportedMixedSelection({
   editor,
   target
@@ -271,7 +271,7 @@ function isSupportedMixedSelection({
   })
 }
 
-/** Сохраняет защищённые свойства дочерних объектов с учётом состава выделения. */
+/** Saves protected child properties according to the selection composition. */
 function captureProtectedSelectionComposition({
   compositionKind,
   target
@@ -321,7 +321,7 @@ function captureProtectedSelectionComposition({
   })
 }
 
-/** Сохраняет локальные свойства одного изображения внутри общего выделения. */
+/** Saves the local properties of one image within an active selection. */
 function captureProtectedSelectionImageState({
   target
 }: {
@@ -348,7 +348,7 @@ function captureProtectedSelectionImageState({
   })
 }
 
-/** Сохраняет свойства одного шейпа, которые не зависят от текущей компоновки. */
+/** Saves the properties of one shape that do not depend on the current layout. */
 function captureProtectedSelectionShapeState({
   target
 }: {
@@ -369,7 +369,7 @@ function captureProtectedSelectionShapeState({
   })
 }
 
-/** Сохраняет свойства текста, которые не зависят от канонического изменения размера. */
+/** Saves text properties that do not depend on canonical resizing. */
 function captureProtectedSelectionTextState({
   target
 }: {
@@ -393,7 +393,7 @@ function captureProtectedSelectionTextState({
   })
 }
 
-/** Проверяет общие свойства выделения и защищённые свойства его состава. */
+/** Checks shared selection properties and the protected properties of its composition. */
 function isCanonicalActiveSelectionStatePreserved({
   protectedState,
   target,
@@ -416,7 +416,7 @@ function isCanonicalActiveSelectionStatePreserved({
     && isProtectedSelectionCompositionPreserved({ children, composition })
 }
 
-/** Проверяет неизменяемые свойства изображений, шейпов и текстов внутри выделения. */
+/** Checks immutable image, shape, and text properties within the selection. */
 function isProtectedSelectionCompositionPreserved({
   children,
   composition
@@ -446,7 +446,7 @@ function isProtectedSelectionCompositionPreserved({
   })
 }
 
-/** Проверяет локальные свойства одного изображения после общего преобразования выделения. */
+/** Checks the local properties of one image after the overall selection transform. */
 function isProtectedSelectionImageStatePreserved({
   state
 }: {
@@ -461,7 +461,7 @@ function isProtectedSelectionImageStatePreserved({
     && isProtectedSelectionImageContentStatePreserved({ state })
 }
 
-/** Проверяет свойства изображения, которые не должны меняться при пересчёте компоновки. */
+/** Checks image properties that must not change when layout is recalculated. */
 function isProtectedSelectionImageContentStatePreserved({
   state
 }: {
@@ -482,7 +482,7 @@ function isProtectedSelectionImageContentStatePreserved({
     && target.originY === state.originY
 }
 
-/** Проверяет свойства шейпа, которые компоновка во время жеста не должна менять. */
+/** Checks shape properties that layout must not change during the gesture. */
 function isProtectedSelectionShapeStatePreserved({
   state
 }: {
@@ -495,7 +495,7 @@ function isProtectedSelectionShapeStatePreserved({
     && isProtectedSelectionAffineStatePreserved({ state })
 }
 
-/** Проверяет свойства текста, которые не должно изменять применение рассчитанного размера. */
+/** Checks text properties that must not change when applying the calculated size. */
 function isProtectedSelectionTextStatePreserved({
   state
 }: {
@@ -507,7 +507,7 @@ function isProtectedSelectionTextStatePreserved({
     && (target.text ?? '') === state.text
 }
 
-/** Проверяет общие защищённые свойства шейпа или текста. */
+/** Checks shared protected shape or text properties. */
 function isProtectedSelectionAffineStatePreserved({
   state
 }: {

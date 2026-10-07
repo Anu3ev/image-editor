@@ -56,10 +56,10 @@ import type {
   ShapeUpdateOptions
 } from './types'
 
-/** Допуск проверки канонического состояния шейпов в общем выделении. */
+/** Tolerance for checking the canonical state of shapes in a selection. */
 const ACTIVE_SELECTION_SHAPE_STATE_EPSILON = 0.000000001
 
-/** Проверяет состояния шейпа, которые пока остаются на прежнем пути скейлинга. */
+/** Checks shape states that still use the previous scaling path. */
 function hasUnsupportedActiveSelectionShapeState({
   group
 }: {
@@ -96,7 +96,7 @@ function hasUnsupportedActiveSelectionShapeState({
     || Math.abs(group.skewY ?? 0) > ACTIVE_SELECTION_SHAPE_STATE_EPSILON
 }
 
-/** Возвращает все поддерживаемые шейпы из прямых детей общего выделения. */
+/** Returns all supported shapes among the selection's direct children. */
 function resolveSupportedActiveSelectionShapeChildren({
   selection
 }: {
@@ -118,7 +118,7 @@ function resolveSupportedActiveSelectionShapeChildren({
   return groups.length > 0 ? groups : null
 }
 
-/** Возвращает шейпы только для полностью поддерживаемого однородного состава. */
+/** Returns shapes only for a fully supported, homogeneous selection. */
 function resolveSupportedActiveSelectionShapes({
   selection
 }: {
@@ -132,7 +132,7 @@ function resolveSupportedActiveSelectionShapes({
     : null
 }
 
-/** Проверяет результат компоновки перед возвратом общему владельцу жеста. */
+/** Validates the layout result before returning it to the shared gesture owner. */
 function isPositiveFiniteScale({
   scaleX,
   scaleY
@@ -144,61 +144,61 @@ function isPositiveFiniteScale({
 }
 
 /**
- * Менеджер фигур и композитных объектов "фигура + текст".
+ * Manager for shapes and composite "shape + text" objects.
  */
 export default class ShapeManager {
   /**
-   * Ссылка на редактор.
+   * Reference to the editor.
    */
   public editor: ImageEditor
 
   /**
-   * Контроллер масштабирования shape-групп.
+   * Shape-group scaling controller.
    */
   private scalingController: ShapeScalingController
 
   /**
-   * Контроллер редактирования текста в shape-группах.
+   * Controller for editing text in shape groups.
    */
   private editingController: ShapeEditingController
 
   /**
-   * Placement shape-групп на время редактирования текста.
+   * Shape-group placement during text editing.
    */
   private editingPlacements: WeakMap<ShapeGroup, ObjectPlacement>
 
   /**
-   * Контроллер lifecycle-событий shape-композиций.
+   * Lifecycle-event controller for shape compositions.
    */
   private lifecycleController: ShapeLifecycleController
 
   /**
-   * Контроллер layout- и размерной логики shape-композиций.
+   * Controller for shape-composition layout and dimension logic.
    */
   private layoutController: ShapeLayoutController
 
   /**
-   * Контроллер публичных мутаций shape-композиций.
+   * Public-mutation controller for shape compositions.
    */
   private mutationController: ShapeMutationController
 
   /**
-   * Контроллер canvas-событий и editing/scaling lifecycle для shape-композиций.
+   * Controller for canvas events and the editing/scaling lifecycle of shape compositions.
    */
   private eventController: ShapeEventController
 
   /**
-   * Адаптер TextManager для текстовых узлов внутри shape-групп.
+   * TextManager adapter for text nodes inside shape groups.
    */
   private textNodeController: ShapeTextNodeController
 
   /**
-   * Factory полностью materialized off-canvas shape-групп для add().
+   * Factory for fully materialized, off-canvas shape groups used by add().
    */
   private groupFactory: ShapeGroupFactory
 
   /**
-   * Инициализирует manager и связывает фасад с lifecycle/layout/mutation контроллерами.
+   * Initializes the manager and connects the facade to the lifecycle/layout/mutation controllers.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -250,18 +250,18 @@ export default class ShapeManager {
   }
 
   /**
-   * Добавляет shape-композицию (фигура + текст) по presetKey.
-   * По умолчанию width/height трактуются как точный итоговый размер фигуры
-   * и могут растянуть preset относительно его исходных пропорций.
-   * `preserveAspectRatio=true` переключает add-path в режим fit по пропорциям preset:
-   * одна переданная ось остаётся точной, а вторая вычисляется из aspect ratio;
-   * если переданы обе оси, фигура вписывается в этот box с сохранением пропорций.
-   * Если при этом включен shapeTextAutoExpand и тексту нужно больше места,
-   * финальный размер может вырасти относительно переданного box.
-   * При shapeTextAutoExpand=true ручная базовая ширина остается нижней границей,
-   * но текущий размер может стать больше неё, если этого требует текст.
-   * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
-   * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
+   * Adds a shape composition (shape + text) by presetKey.
+   * By default, width/height are treated as the shape's exact final dimensions
+   * and may stretch the preset beyond its original proportions.
+   * `preserveAspectRatio=true` switches the add path to fitting the preset's proportions:
+   * a single supplied dimension stays exact, and the other is calculated from the aspect ratio;
+   * if both dimensions are supplied, the shape fits inside that box while preserving its proportions.
+   * If shapeTextAutoExpand is also enabled and the text needs more space,
+   * the final dimensions may exceed the supplied box.
+   * With shapeTextAutoExpand=true, the manual base width remains the lower bound,
+   * but the current width may exceed it if the text requires it.
+   * If `left/top` are omitted, the object is visually centered in the artboard.
+   * If coordinates are supplied, placement is interpreted through `left/top + originX/originY`.
    * @fires editor:shape-added
    */
   public async add({
@@ -337,18 +337,18 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет пресет фигуры у существующей shape-группы с сохранением текста и трансформаций.
-   * При shapeTextAutoExpand=true явная width обновляет ручную базовую ширину,
-   * а текущая ширина сразу пересчитывается по тексту относительно этой базы.
-   * При replace с новым presetKey по умолчанию не сохраняет текущий aspect ratio группы:
-   * новая фигура вписывается в текущий replacement box и дальше получает итоговый размер
-   * через общий layout с пропорциями своего пресета. При выключенном
-   * shapeTextAutoExpand текст может переноситься, но итоговый размер всё равно
-   * сохраняет эти пропорции. Этот итоговый размер становится новой базой фигуры
-   * для последующих text-layout перерасчётов.
-   * `preserveCurrentAspectRatio=true` оставляет текущее поведение без такого пересчета.
-   * Если переданы `left/top/originX/originY`, они становятся новым placement-контрактом группы.
-   * Сохраняет тот же instance группы и при необходимости заменяет только внутренний shape-узел.
+   * Updates the shape preset of an existing shape group, preserving text and transforms.
+   * With shapeTextAutoExpand=true, an explicit width updates the manual base width,
+   * and the current width is immediately recalculated from the text relative to that base.
+   * Replacing with a new presetKey does not preserve the group's current aspect ratio by default:
+   * the new shape fits in the current replacement box, then receives its final dimensions
+   * through the shared layout using its preset's proportions. With
+   * shapeTextAutoExpand disabled, text may wrap, but the final dimensions still
+   * preserve those proportions. These final dimensions become the shape's new base
+   * for subsequent text-layout recalculations.
+   * `preserveCurrentAspectRatio=true` retains the current behavior without that recalculation.
+   * If `left/top/originX/originY` are supplied, they become the group's new placement contract.
+   * Preserves the same group instance, replacing only the inner shape node when necessary.
    * @fires editor:before:shape-updated
    * @fires editor:shape-updated
    */
@@ -369,7 +369,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Удаляет shape-группу, если target существует и не заблокирован.
+   * Removes the shape group if the target exists and is not locked.
    */
   public remove({
     target,
@@ -385,7 +385,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет заливку shape-узла у выбранной группы.
+   * Updates the shape-node fill in the selected group.
    */
   public setFill({
     target,
@@ -404,7 +404,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет stroke-параметры фигуры у выбранной группы.
+   * Updates the shape's stroke parameters in the selected group.
    */
   public setStroke({
     target,
@@ -425,7 +425,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет opacity фигуры и, при необходимости, вложенного текста.
+   * Updates the shape's opacity and, if needed, that of its nested text.
    */
   public setOpacity({
     target,
@@ -447,7 +447,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает текстовый узел выбранной shape-группы.
+   * Returns the selected shape group's text node.
    */
   public getTextNode({
     target
@@ -467,7 +467,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет стиль текста внутри shape-группы без смены shape-параметров.
+   * Updates text style inside a shape group without changing shape parameters.
    */
   public updateTextStyle({
     target,
@@ -486,7 +486,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Обновляет горизонтальное и вертикальное выравнивание текста внутри фигуры.
+   * Updates horizontal and vertical text alignment within the shape.
    */
   public setTextAlign({
     target,
@@ -505,7 +505,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Нормализует rounding и делегирует изменение в общий update path.
+   * Normalizes rounding and delegates the change to the shared update path.
    */
   public async setRounding({
     target,
@@ -524,7 +524,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Материализует rehydrated shape-группу и пересчитывает auto-expand только для изменённых входов.
+   * Materializes a rehydrated shape group and recalculates auto-expansion only for changed inputs.
    */
   public commitRehydratedShapeLayout({
     target,
@@ -543,8 +543,8 @@ export default class ShapeManager {
   }
 
   /**
-   * Проверяет, что временное выделение целиком состоит из шейпов,
-   * которые ShapeManager может безопасно пересчитать во время общего скейлинга.
+   * Checks that the temporary selection consists entirely of shapes
+   * that ShapeManager can safely recalculate during selection-wide scaling.
    */
   public supportsActiveSelectionScaling({
     selection
@@ -554,7 +554,7 @@ export default class ShapeManager {
     return resolveSupportedActiveSelectionShapes({ selection }) !== null
   }
 
-  /** Возвращает поддерживаемые шейпы смешанного выделения без принятия остальных типов объектов. */
+  /** Returns supported shapes from a mixed selection without accepting other object types. */
   public resolveSupportedActiveSelectionShapeChildren({
     selection
   }: {
@@ -563,7 +563,7 @@ export default class ShapeManager {
     return resolveSupportedActiveSelectionShapeChildren({ selection })
   }
 
-  /** Создаёт источник фактической геометрии шейпов для общей смешанной сессии. */
+  /** Creates a source of actual shape geometry for a shared mixed-object session. */
   public createActiveSelectionScaleDomainSource({
     selection,
     transform
@@ -589,8 +589,8 @@ export default class ShapeManager {
   }
 
   /**
-   * Возвращает режим угловой ручки уже проверенного общего выделения с шейпами.
-   * Повторная проверка дочерних объектов здесь запрещена: временная компоновка меняет их масштаб.
+   * Returns the corner-handle mode of an already validated selection containing shapes.
+   * Rechecking child objects here is forbidden: temporary layout changes their scale.
    */
   public resolveActiveSelectionScaleControlMode({
     selection,
@@ -610,8 +610,8 @@ export default class ShapeManager {
   }
 
   /**
-   * Один раз применяет ограничения и компоновку шейпов во время движения ручки
-   * к уже рассчитанному масштабу временного выделения.
+   * Applies shape constraints and layout once during handle movement
+   * to the already calculated scale of the temporary selection.
    */
   public applyActiveSelectionScalePreview({
     selection,
@@ -646,7 +646,7 @@ export default class ShapeManager {
     return appliedScale
   }
 
-  /** Очищает оставшееся временное состояние скейлинга общего выделения. */
+  /** Clears residual temporary state from selection scaling. */
   public clearActiveSelectionScalePreviewState({
     selection,
     children
@@ -677,7 +677,7 @@ export default class ShapeManager {
   }
 
   /**
-   * Переносит масштаб шейпов в канонические размеры без завершения общей транзакции.
+   * Transfers shape scale into canonical dimensions without finalizing the shared transaction.
    */
   public prepareActiveSelectionScaleCommit({
     children,
@@ -709,14 +709,14 @@ export default class ShapeManager {
       try {
         restoreShapeScalingSnapshots({ snapshots: beforeSnapshots })
       } catch {
-        // Ошибка фиксации остаётся основной после попытки восстановить каждый шейп.
+        // The commit error remains primary after attempting to restore each shape.
       }
 
       throw error
     }
   }
 
-  /** Очищает временное состояние и публикует подготовленные изменения шейпов. */
+  /** Clears temporary state and publishes prepared shape changes. */
   public finishActiveSelectionScaleCommit({
     commit
   }: {
@@ -747,7 +747,7 @@ export default class ShapeManager {
     if (failures.length > 0) throw firstFailure
   }
 
-  /** Фиксирует каноническую геометрию всех шейпов, сохраняя состояние общей сессии. */
+  /** Commits canonical geometry for all shapes, preserving the shared session state. */
   private _materializeActiveSelectionShapeGroups({
     groups,
     scaleX,
@@ -775,21 +775,21 @@ export default class ShapeManager {
   }
 
   /**
-   * Снимает подписки ShapeManager на canvas-события.
+   * Unsubscribes ShapeManager from canvas events.
    */
   public destroy(): void {
     this.eventController.destroy()
   }
 
   /**
-   * Начинает мутацию canvas с временным отключением history.
+   * Begins a canvas mutation with history temporarily disabled.
    */
   private _beginMutation(): void {
     this.editor.historyManager.suspendHistory()
   }
 
   /**
-   * Завершает мутацию canvas и при необходимости сохраняет state.
+   * Ends the canvas mutation and saves state if needed.
    */
   private _endMutation({ withoutSave }: { withoutSave?: boolean }): void {
     this.editor.historyManager.resumeHistory()

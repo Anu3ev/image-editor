@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные операции расположены перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- Public operations appear before internal calculations. */
 import {
   Point,
   type Canvas,
@@ -23,25 +23,25 @@ import type {
   ScaleSnapPlan
 } from './scale-snapping-resolver'
 
-/** Источник множителей одного шага прямоугольного скейлинга. */
+/** Source of factors for one rectangular scaling step. */
 export type RectangularScaleIntentSource = 'fabric-preview' | 'pointer-projection'
 
-/** Данные события, общие для скейлинга изображения и общего выделения. */
+/** Event data shared by image and active selection scaling. */
 type RectangularScaleStepEvent = Readonly<{
   e?: TPointerEvent | null
   scenePoint?: RectangularScalePoint
 }>
 
-/** Проверенные исходные данные одного шага прямоугольного скейлинга. */
+/** Validated inputs for one rectangular scaling step. */
 type RectangularScaleStepInput = Readonly<{
   intent: ScaleRawIntent
   mode: RectangularScaleGestureMode
 }>
 
-/** Допуск при сравнении множителей пропорционального скейлинга. */
+/** Tolerance for comparing proportional scale factors. */
 const RECTANGULAR_SCALE_INTERACTION_EPSILON = 0.000000001
 
-/** Выбирает режим и возвращает проверенные исходные данные текущего шага. */
+/** Selects a mode and returns validated inputs for the current step. */
 export function resolveRectangularScaleStepInput({
   canvas,
   event,
@@ -70,7 +70,7 @@ export function resolveRectangularScaleStepInput({
   })
 }
 
-/** Применяет рассчитанный план к Fabric-объекту относительно неподвижной точки жеста. */
+/** Applies the calculated plan to a Fabric object relative to the gesture's fixed point. */
 export function applyRectangularScalePlan({
   plan,
   projection,
@@ -104,7 +104,7 @@ export function applyRectangularScalePlan({
   target.setCoords()
 }
 
-/** Возвращает положительные множители, фактически применённые к Fabric-объекту. */
+/** Returns positive factors actually applied to the Fabric object. */
 export function readAppliedRectangularScaleMultipliers({
   projection,
   target
@@ -120,7 +120,7 @@ export function readAppliedRectangularScaleMultipliers({
   return multipliers
 }
 
-/** Читает итоговую геометрию после однократного применения плана. */
+/** Reads final geometry after applying the plan exactly once. */
 export function readFinalRectangularScaleGeometry({
   mode,
   multipliers,
@@ -161,7 +161,7 @@ export function readFinalRectangularScaleGeometry({
   })
 }
 
-/** Выбирает способ изменения размера по ручке и настройкам Fabric. */
+/** Selects the resizing mode from the control and Fabric settings. */
 export function resolveRectangularScaleGestureMode({
   canvas,
   pointerEvent,
@@ -183,7 +183,7 @@ export function resolveRectangularScaleGestureMode({
   return usesUniformScale ? 'uniform' : 'free'
 }
 
-/** Читает множители из предварительного результата Fabric или положения указателя. */
+/** Reads factors from Fabric's preliminary result or the pointer position. */
 function resolveRawMultipliers({
   event,
   intentSource,
@@ -217,7 +217,7 @@ function resolveRawMultipliers({
   return multipliers
 }
 
-/** Читает текущие множители относительно неизменяемого начала жеста. */
+/** Reads current factors relative to the immutable gesture start state. */
 function readRectangularScaleMultipliers({
   projection,
   target
@@ -232,7 +232,7 @@ function readRectangularScaleMultipliers({
   return Object.freeze({ x, y })
 }
 
-/** Формирует канонические исходные данные общего расчёта прилипания. */
+/** Builds canonical inputs for the shared snapping calculation. */
 export function createRectangularScaleIntent({
   mode,
   multipliers,
@@ -252,7 +252,7 @@ export function createRectangularScaleIntent({
   })
 }
 
-/** Проверяет достижение выбранной направляющей по одной оси. */
+/** Checks whether the selected guide was reached on one axis. */
 function didReachScaleConstraint({
   bounds,
   constraint,
@@ -267,7 +267,7 @@ function didReachScaleConstraint({
   return Math.abs(bounds[constraint.candidate.edge] - constraint.expectedPosition) <= epsilon
 }
 
-/** Копирует конечную точку в независимую геометрию скейлинга. */
+/** Copies a finite point into independent scaling geometry. */
 function createScaleScenePoint({
   point
 }: {
@@ -280,7 +280,7 @@ function createScaleScenePoint({
   return Object.freeze({ x: point.x, y: point.y })
 }
 
-/** Сравнивает конечные множители в пределах допуска. */
+/** Compares finite factors within tolerance. */
 function areNumbersNear({
   first,
   second

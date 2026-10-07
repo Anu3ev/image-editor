@@ -28,7 +28,7 @@ import {
   type RectangularScaleProjectionFixture
 } from './rectangular-scale-gesture-projection'
 
-/** Параметры тестового скейлинга изображения. */
+/** Parameters for test image scaling. */
 export type ImageScaleSnappingHarnessOptions = Readonly<{
   angle?: number
   centered?: boolean
@@ -41,7 +41,7 @@ export type ImageScaleSnappingHarnessOptions = Readonly<{
   width?: number
 }>
 
-/** Наблюдаемые зависимости и исходная геометрия одного скейлинга изображения. */
+/** Observable dependencies and initial geometry for one image-scaling gesture. */
 export type ImageScaleSnappingHarness = Readonly<{
   baselineBounds: ObjectBounds
   captureEnvironmentMock: jest.MockedFunction<
@@ -60,14 +60,14 @@ export type ImageScaleSnappingHarness = Readonly<{
   resolvePointer: (multipliers: RectangularScaleMultipliers) => Point
 }>
 
-/** Редактор и наблюдаемое окружение контроллера скейлинга изображения. */
+/** Editor and observable environment for the image-scaling controller. */
 type ImageScaleControllerDependencies = Readonly<{
   captureEnvironmentMock: ImageScaleSnappingHarness['captureEnvironmentMock']
   editor: ImageEditor
   endCurrentTransformMock: ImageScaleSnappingHarness['endCurrentTransformMock']
 }>
 
-/** Создаёт FabricImage с управляемой исходной геометрией. */
+/** Creates a FabricImage with controllable initial geometry. */
 function createImageScaleTarget({
   angle,
   height,
@@ -114,7 +114,7 @@ function createImageScaleTarget({
   return target
 }
 
-/** Имитирует минимальный положительный масштаб, который Fabric применяет внутри `set`. */
+/** Simulates the minimum positive scale that Fabric applies inside `set`. */
 function installImageMinimumScaleContract({
   minScaleLimit,
   target
@@ -150,7 +150,7 @@ function installImageMinimumScaleContract({
   })
 }
 
-/** Создаёт полное описание преобразования Fabric для выбранной ручки. */
+/** Creates a full Fabric transform description for the selected handle. */
 function createImageScaleTransform({
   fixture,
   target
@@ -197,7 +197,7 @@ function createImageScaleTransform({
   }
 }
 
-/** Создаёт зависимости контроллера без запуска полного жизненного цикла ImageEditor. */
+/** Creates controller dependencies without starting the full ImageEditor lifecycle. */
 function createImageScaleControllerDependencies({
   target,
   uniformScaling
@@ -231,7 +231,7 @@ function createImageScaleControllerDependencies({
   })
 }
 
-/** Возвращает точные границы тестового изображения или завершает тест с ошибкой. */
+/** Returns the exact bounds of the test image or fails the test. */
 export function getRequiredImageScaleBounds({
   target
 }: {
@@ -246,7 +246,7 @@ export function getRequiredImageScaleBounds({
   return bounds
 }
 
-/** Проверяет оба множителя, используемых тестовой инфраструктурой. */
+/** Checks both factors used by the test infrastructure. */
 function assertFiniteMultipliers({
   multipliers
 }: {
@@ -256,7 +256,7 @@ function assertFiniteMultipliers({
   if (!Number.isFinite(multipliers.y)) throw new Error('Множитель Y тестового изображения должен быть конечным')
 }
 
-/** Рассчитывает положение указателя по общей модели прямоугольного скейлинга. */
+/** Calculates the pointer position using the shared rectangular-scaling model. */
 function createPointerResolver({
   fixture
 }: {
@@ -270,7 +270,7 @@ function createPointerResolver({
   }
 }
 
-/** Создаёт контроллер скейлинга изображения с рабочей логикой и наблюдаемым окружением. */
+/** Creates an image-scaling controller with working logic and an observable environment. */
 export function createImageScaleSnappingHarness({
   angle = 0,
   centered = false,
@@ -331,7 +331,7 @@ export function createImageScaleSnappingHarness({
   })
 }
 
-/** Создаёт `mouse:down` с преобразованием Fabric для выбранной ручки. */
+/** Creates a `mouse:down` with the Fabric transform for the selected handle. */
 export function createImageScaleStartEvent({
   harness
 }: {
@@ -354,7 +354,7 @@ export function createImageScaleStartEvent({
   }) as ImageScaleStartEvent
 }
 
-/** Преобразует одно значение из теста в множители выбранной ручки. */
+/** Converts one value from the test into factors for the selected handle. */
 function resolveScaleStepMultipliers({
   controlKey,
   multiplier
@@ -372,7 +372,7 @@ function resolveScaleStepMultipliers({
   return Object.freeze({ x: multiplier, y: multiplier })
 }
 
-/** Имитирует предварительный результат Fabric и создаёт событие `object:scaling`. */
+/** Simulates Fabric's preliminary result and creates an `object:scaling` event. */
 export function createImageScaleStepEvent({
   harness,
   marker,
@@ -399,7 +399,7 @@ export function createImageScaleStepEvent({
   }) as ImageScaleTransformEvent
 }
 
-/** Создаёт резервное событие `mouse:move` без предварительного изменения изображения. */
+/** Creates a fallback `mouse:move` event without a preliminary change to the image. */
 export function createImageScaleMouseMoveEvent({
   harness,
   marker,

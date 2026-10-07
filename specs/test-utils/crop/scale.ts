@@ -4,7 +4,7 @@ import { CropFrameInteraction } from '../../../src/editor/crop-manager/interacti
 import { createCropInteractionFrame } from './frame'
 import { createCropGestureHarness } from './interaction'
 
-/** Создаёт наблюдаемое окружение общего resolver для скейлинга crop. */
+/** Creates an observable environment for the shared crop-scaling resolver. */
 function createSnapping() {
   const snapping: SnappingManager = Object.create(SnappingManager.prototype)
   const capture: jest.MockedFunction<SnappingManager['captureScaleSnapEnvironment']> = jest.fn(({ targetEdges }) => ({
@@ -27,7 +27,7 @@ function createSnapping() {
   return { snapping, capture, publish, markHandled }
 }
 
-/** Собирает владельца crop-скейлинга с настоящим resolver и наблюдаемой границей Fabric. */
+/** Builds the crop-scaling owner with a real resolver and an observable Fabric boundary. */
 export function createCropScaleHarness({ allowFrameOverflow = false } = {}) {
   const frame = createCropInteractionFrame({ allowFrameOverflow })
   const gesture = createCropGestureHarness({ frame, action: 'scale' })
@@ -35,7 +35,7 @@ export function createCropScaleHarness({ allowFrameOverflow = false } = {}) {
   const originalControls = frame.controls
   const controller = new CropFrameInteraction({ canvas: gesture.canvas, frame, snapping: environment.snapping })
 
-  /** Вызывает action ручки с новым или повторно доставленным native-событием. */
+  /** Invokes the handle action with a new or redelivered native event. */
   const step = ({ x, y, event = new MouseEvent('mousemove') }: { x: number; y: number; event?: MouseEvent }) => {
     const action = frame.controls.tr.actionHandler
     if (!action) throw new Error('Нет обработчика правой верхней ручки crop')

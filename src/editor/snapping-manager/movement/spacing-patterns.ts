@@ -1,12 +1,12 @@
 import type { Bounds, SpacingPattern } from '../types'
 
-/** Именованный объект, участвующий в поиске соседних интервалов. */
+/** Named object participating in the adjacent interval search. */
 export type SpacingPatternSource = Readonly<{
   id: string
   bounds: Bounds
 }>
 
-/** Точный интервал вместе с идентификаторами ограничивающих его объектов. */
+/** Exact interval with identifiers of its bounding objects. */
 export type SpacingPatternEntry = Readonly<{
   pattern: SpacingPattern
   beforeId: string
@@ -15,7 +15,7 @@ export type SpacingPatternEntry = Readonly<{
   crossEnd: number
 }>
 
-/** Результат поиска ближайшего следующего объекта и положения общей направляющей. */
+/** Search result containing the nearest next object and common guide position. */
 type FollowingSpacingSource = Readonly<{
   source: SpacingPatternSource
   distance: number
@@ -23,7 +23,7 @@ type FollowingSpacingSource = Readonly<{
   crossEnd: number
 }>
 
-/** Ищет ближайший непересекающийся объект с пересечением по второй оси. */
+/** Finds the nearest non-overlapping object that overlaps on the other axis. */
 function findFollowingSpacingSource({
   sources,
   sourceIndex,
@@ -59,7 +59,7 @@ function findFollowingSpacingSource({
   return closest
 }
 
-/** Создаёт точные соседние интервалы одной оси с идентификаторами объектов. */
+/** Creates exact adjacent intervals on one axis with object identifiers. */
 export function buildAxisSpacingPatternEntries({
   sources,
   type,
@@ -105,7 +105,7 @@ export function buildAxisSpacingPatternEntries({
   return entries
 }
 
-/** Формирует интервалы между всеми соседними объектами по вертикали и горизонтали. */
+/** Builds intervals between all adjacent objects vertically and horizontally. */
 export function buildSpacingPatterns({
   bounds
 }: {

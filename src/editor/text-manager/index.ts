@@ -68,14 +68,14 @@ import {
 export type { TextStyleOptions } from './types'
 
 /**
- * Базовый event-контракт TextManager для событий с текстовым target.
+ * Base TextManager event contract for events with a text target.
  */
 type TextManagerTargetEvent = {
   target?: EditorTextbox | FabricObject | null
 }
 
 /**
- * Transform-event Fabric, расширенный target-контрактом TextManager.
+ * Fabric transform event extended with TextManager's target contract.
  */
 type TextManagerTransformEvent = BasicTransformEvent<TPointerEvent> & TextManagerTargetEvent & {
   e?: TPointerEvent | null
@@ -84,68 +84,68 @@ type TextManagerTransformEvent = BasicTransformEvent<TPointerEvent> & TextManage
   transform?: Transform | null
 }
 
-/** Событие Fabric с возможным активным преобразованием. */
+/** Fabric event with a possible active transform. */
 type TextManagerPointerEvent = TPointerEventInfo<TPointerEvent> & TextManagerTargetEvent & {
   pointer?: Readonly<{ x: number; y: number }>
   scenePoint?: Readonly<{ x: number; y: number }>
   transform?: Transform | null
 }
 
-/** Финальное событие изменения текстового объекта. */
+/** Final text-object modification event. */
 type TextManagerModifiedEvent = ModifiedEvent<TPointerEvent> & TextManagerTargetEvent
 
 /**
- * Менеджер текста для редактора.
- * Управляет добавлением и обновлением текстовых объектов, а также синхронизацией размера шрифта при трансформациях.
+ * Text manager for the editor.
+ * Manages text-object creation and updates, and synchronizes font size during transforms.
  */
 export default class TextManager {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageEditor
 
   /**
-   * Ссылка на Canvas fabric.
+   * Reference to the Fabric Canvas.
    */
   private canvas: Canvas
 
   /**
-   * Список доступных шрифтов, переданных при инициализации редактора.
+   * Available fonts supplied when initializing the editor.
    */
   public fonts: EditorFontDefinition[]
 
   /**
-   * Контроллер масштабирования standalone-textbox.
+   * Standalone-textbox scaling controller.
    */
   private scalingController: TextScalingController
 
-  /** Управляет скейлингом общего выделения, геометрию которого определяют отдельные тексты. */
+  /** Manages scaling of a selection whose geometry is defined by standalone text objects. */
   private activeSelectionScalingController: TextActiveSelectionScalingController
 
-  /** Контроллер углового скейлинга отдельного текста с общей логикой прилипания. */
+  /** Standalone-text corner-scaling controller using shared snapping logic. */
   private cornerScaleInteractionController: TextCornerScaleInteractionController
 
-  /** Контроллер изменения ширины отдельного текста с общей логикой прилипания. */
+  /** Standalone-text width-resize controller using shared snapping logic. */
   private widthResizeInteractionController: TextWidthResizeInteractionController
 
   /**
-   * Контроллер программного обновления standalone-textbox.
+   * Standalone-textbox programmatic-update controller.
    */
   private updateController: TextUpdateController
 
   /**
-   * Placement текстового объекта на момент входа в редактирование.
+   * Text-object placement when entering editing mode.
    */
   private editingPlacementState?: WeakMap<EditorTextbox, ObjectPlacement>
 
   /**
-   * Флаг, указывающий что текст находится в режиме редактирования или недавно вышел из него.
-   * Используется для предотвращения сохранения состояния с временными lock-свойствами.
+   * Flag indicating that the text is in editing mode or has recently left it.
+   * Used to prevent saving state with temporary lock properties.
    */
   public isTextEditingActive: boolean
 
   /**
-   * Инициализирует manager и связывает фасад с text update/scaling контроллерами.
+   * Initializes the manager and connects the facade to the text update/scaling controllers.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -192,13 +192,13 @@ export default class TextManager {
   }
 
   /**
-   * Добавляет новый текстовый объект на канвас.
-   * Если `left/top` не переданы, объект визуально центрируется в монтажной области.
-   * Если координаты переданы, placement трактуется через `left/top + originX/originY`.
-   * `emitLifecycleEvents=false` отключает editor-level lifecycle события
-   * для внутренних materialization-path без изменения самого create-контракта.
-   * @param options — настройки текста
-   * @param flags — флаги поведения
+   * Adds a new text object to the canvas.
+   * If `left/top` are omitted, the object is visually centered in the artboard.
+   * If coordinates are supplied, placement is interpreted through `left/top + originX/originY`.
+   * `emitLifecycleEvents=false` disables editor-level lifecycle events
+   * for internal materialization paths without changing the creation contract itself.
+   * @param options — text settings
+   * @param flags — behavior flags
    */
   public addText(
     {
@@ -286,7 +286,7 @@ export default class TextManager {
     textbox.autoExpand = isAutoExpandEnabled
     const hasExplicitPlacement = rest.left !== undefined || rest.top !== undefined
 
-    // textCaseRaw хранит исходную строку без применения uppercase
+    // textCaseRaw stores the original string without applying uppercase
     textbox.textCaseRaw = textbox.text ?? ''
 
     if (uppercase) {
@@ -373,18 +373,18 @@ export default class TextManager {
   }
 
   /**
-   * Обновляет текстовый объект.
-   * @param options — настройки обновления
-   * @param options.target — объект, его id или активный объект (если не передан)
-   * @param options.style — стиль, который нужно применить
-   * `style.left/top/originX/originY` трактуются как placement-контракт объекта в scene coordinates.
-   * @param options.withoutSave — не сохранять состояние в историю
-   * @param options.skipRender — не вызывать перерисовку канваса
-   * @param options.selectionRange — внешний диапазон выделения для применения стилей
-   * @param options.emitLifecycleEvents — отключает editor-level lifecycle события
-   * для внутренних materialization-path без изменения update-контракта.
-   * @param options.syncLineStylesWithText — синхронизирует lineFontDefaults и runtime styles
-   * с новым текстом при программном обновлении. По умолчанию включён.
+   * Updates a text object.
+   * @param options — update settings
+   * @param options.target — the object, its id, or the active object (if omitted)
+   * @param options.style — style to apply
+   * `style.left/top/originX/originY` are treated as the object's placement contract in scene coordinates.
+   * @param options.withoutSave — do not save state to history
+   * @param options.skipRender — do not trigger a canvas render
+   * @param options.selectionRange — external selection range for applying styles
+   * @param options.emitLifecycleEvents — when false, disables editor-level lifecycle events
+   * for internal materialization paths without changing the update contract.
+   * @param options.syncLineStylesWithText — synchronizes lineFontDefaults and runtime styles
+   * with the new text during a programmatic update. Enabled by default.
    * @fires editor:before:text-updated
    * @fires editor:text-updated
    */
@@ -409,7 +409,7 @@ export default class TextManager {
   }
 
   /**
-   * Преобразует стили из массивного формата Fabric в объектный.
+   * Converts styles from Fabric's array format to object format.
    */
   // eslint-disable-next-line class-methods-use-this
   public stylesFromArray(
@@ -420,8 +420,8 @@ export default class TextManager {
   }
 
   /**
-   * Возвращает объект, который владеет активным редактируемым текстом.
-   * Для самостоятельного текста это сам текстовый объект, для текста внутри фигуры — группа фигуры.
+   * Returns the object that owns the text currently being edited.
+   * For standalone text, this is the text object itself; for text inside a shape, it is the shape group.
    */
   public getActiveTextEditingOwner(): FabricObject | null {
     const activeObject = this.canvas.getActiveObject()
@@ -434,9 +434,9 @@ export default class TextManager {
   }
 
   /**
-   * Завершает активное редактирование текста перед внешним прерывающим действием.
-   * Используется там, где следующее действие должно зафиксировать введённый текст
-   * отдельным history-шагом до собственной мутации.
+   * Ends active text editing before an external interrupting action.
+   * Used when the next action must commit the entered text
+   * as a separate history step before performing its own mutation.
    */
   public exitActiveTextEditing(): boolean {
     const activeObject = this.canvas.getActiveObject()
@@ -452,7 +452,7 @@ export default class TextManager {
   }
 
   /**
-   * Уничтожает менеджер и снимает слушатели.
+   * Destroys the manager and removes listeners.
    */
   public destroy(): void {
     const { canvas } = this
@@ -479,8 +479,8 @@ export default class TextManager {
   }
 
   /**
-   * Переносит текущий scale отдельного текста в его геометрию и возвращает объект к scale 1.
-   * По умолчанию размеры округляются. Для точного восстановления округление отключается явно.
+   * Transfers a standalone text object's current scale into its geometry and resets the object to scale 1.
+   * Dimensions are rounded by default. Rounding is explicitly disabled for exact restoration.
    */
   public commitStandaloneTextScale(
     {
@@ -520,7 +520,7 @@ export default class TextManager {
     return scaleCommitted
   }
 
-  /** Проверяет состав из поддерживаемых отдельных текстов, изображений и явно переданных доменных объектов. */
+  /** Checks a selection containing supported standalone text, images, and explicitly supplied domain objects. */
   public supportsActiveSelectionScaling({
     domainTargets,
     selection
@@ -531,7 +531,7 @@ export default class TextManager {
     return this.activeSelectionScalingController.supportsScaling({ domainTargets, selection })
   }
 
-  /** Фиксирует исходную геометрию поддерживаемого выделения с текстами до первого изменения. */
+  /** Captures the original geometry of a supported selection containing text before the first change. */
   public beginActiveSelectionScaling({
     domainSource,
     projection,
@@ -551,7 +551,7 @@ export default class TextManager {
     })
   }
 
-  /** Измеряет точную каноническую геометрию выделения для текущих множителей. */
+  /** Measures the selection's exact canonical geometry for the current multipliers. */
   public measureActiveSelectionScale({
     mode,
     multipliers,
@@ -568,7 +568,7 @@ export default class TextManager {
     })
   }
 
-  /** Уточняет план прилипания по переносу строк и фактическим границам всех детей. */
+  /** Refines the snapping plan using line wrapping and the actual bounds of all children. */
   public resolveActiveSelectionScaleStep({
     mode,
     plan,
@@ -588,7 +588,7 @@ export default class TextManager {
     })
   }
 
-  /** Применяет одно измеренное состояние к дочерним объектам и общей рамке. */
+  /** Applies one measured state to the child objects and the shared frame. */
   public applyActiveSelectionScalePreview({
     measurement,
     selection
@@ -602,12 +602,12 @@ export default class TextManager {
     })
   }
 
-  /** Подтверждает применённый шаг только после общей проверки фактической геометрии. */
+  /** Confirms the applied step only after the shared validation of actual geometry. */
   public confirmActiveSelectionScalePreview({ selection }: { selection: ActiveSelection }): boolean {
     return this.activeSelectionScalingController.confirmScalePreview({ selection })
   }
 
-  /** Проверяет рассчитанные свойства детей и сохраняет снимок до завершения общей фиксации. */
+  /** Checks calculated child properties and retains a snapshot until the overall commit is complete. */
   public commitActiveSelectionScaling({
     selection
   }: {
@@ -616,31 +616,31 @@ export default class TextManager {
     return this.activeSelectionScalingController.commitScaling({ selection })
   }
 
-  /** Очищает измерительное состояние завершённой или прерванной текстовой сессии. */
+  /** Clears measurement state for a completed or interrupted text session. */
   public clearActiveSelectionScaling({ selection }: { selection: ActiveSelection }): boolean {
     return this.activeSelectionScalingController.clearScaling({ selection })
   }
 
-  /** Проверяет, что общая текстовая сессия уже подтвердила хотя бы один рассчитанный шаг. */
+  /** Checks that the shared text session has confirmed at least one calculated step. */
   public hasConfirmedActiveSelectionScale({ selection }: { selection: ActiveSelection }): boolean {
     return this.activeSelectionScalingController.hasConfirmedScalePreview({ selection })
   }
 
-  /** Восстанавливает последнее подтверждённое или исходное состояние текущего преобразования. */
+  /** Restores the last confirmed or initial state of the current transform. */
   public restoreActiveSelectionScalePreview({ selection }: { selection: ActiveSelection }): boolean {
     return this.activeSelectionScalingController.restoreScalePreview({ selection })
   }
 
   /**
-   * Пытается обработать угловой скейлинг отдельного текста через общую логику прилипания.
-   * Возвращает true, если прежнюю обработку запускать не нужно.
+   * Attempts to handle standalone-text corner scaling through shared snapping logic.
+   * Returns true if the previous handling path should not run.
    */
   public handleStandaloneTextCornerScaling(event: TextManagerTransformEvent): boolean {
     return this.cornerScaleInteractionController.handleObjectScaling(event)
   }
 
   /**
-   * Возвращает активный текст или ищет по id.
+   * Returns the active text or searches by id.
    */
   private _resolveTextObject(reference: TextReference): EditorTextbox | null {
     if (reference instanceof Textbox) return reference
@@ -663,16 +663,16 @@ export default class TextManager {
   }
 
   /**
-   * Проверяет, является ли объект текстовым блоком редактора.
+   * Checks whether the object is an editor text block.
    */
   private static _isTextbox(object?: FabricObject | null): object is EditorTextbox {
     return Boolean(object) && object instanceof Textbox
   }
 
   /**
-   * Возвращает true для текстового узла, чей layout и placement принадлежат shape-композиции.
-   * Для таких textbox TextManager должен сохранять текстовые семантики,
-   * но не применять standalone geometry/placement-логику поверх ShapeManager.
+   * Returns true for a text node whose layout and placement are owned by a shape composition.
+   * For these textboxes, TextManager must preserve text semantics
+   * without applying standalone geometry/placement logic on top of ShapeManager.
    */
   private static _isShapeOwnedTextbox(object?: FabricObject | null): boolean {
     if (!TextManager._isTextbox(object)) return false
@@ -685,8 +685,8 @@ export default class TextManager {
   }
 
   /**
-   * Возвращает true, если textbox уже на create-path получил лишние переносы
-   * относительно явных `\n` и должен сразу получить autoExpand-ширину.
+   * Returns true if a textbox already gained extra line breaks during creation
+   * beyond explicit `\n` characters and should immediately receive an autoExpand width.
    */
   private static _hasWrappedLinesBeyondExplicitBreaks(textbox: EditorTextbox): boolean {
     const textValue = typeof textbox.text === 'string' ? textbox.text : ''
@@ -702,10 +702,10 @@ export default class TextManager {
   }
 
   /**
-   * Нормализует standalone-геометрию текстового объекта после layout-изменений.
-   * При включённом autoExpand пересчитывает ширину по фактической ширине текста.
-   * При shouldRefreshDimensions сначала сбрасывает кэш измерений Fabric через initDimensions.
-   * Округление сохраняется по умолчанию и отключается только общим угловым скейлингом.
+   * Normalizes standalone text-object geometry after layout changes.
+   * With autoExpand enabled, recalculates width from the actual text width.
+   * With shouldRefreshDimensions, first resets Fabric's measurement cache through initDimensions.
+   * Rounding is retained by default and disabled only by shared corner scaling.
    */
   private _normalizeTextboxAfterContentChange(
     {
@@ -763,7 +763,7 @@ export default class TextManager {
     return geometryAdjusted || dimensionsRecalculated || dimensionsRounded
   }
 
-  /** Пересчитывает размеры текста и сообщает, изменилась ли его геометрия. */
+  /** Recalculates text dimensions and reports whether its geometry changed. */
   private _recalculateTextboxDimensions({ textbox }: { textbox: EditorTextbox }): boolean {
     const previousWidth = textbox.width ?? 0
     const previousHeight = textbox.height ?? 0
@@ -775,8 +775,8 @@ export default class TextManager {
   }
 
   /**
-   * Восстанавливает scene placement внутренней text-area после обновления padding.
-   * Это удерживает сам текст на месте, пока меняется только его визуальная оболочка.
+   * Restores scene placement of the inner text area after updating padding.
+   * This keeps the text itself in place while only its visual shell changes.
    */
   private _restoreTextboxContentPlacement(
     {
@@ -823,7 +823,7 @@ export default class TextManager {
   }
 
   /**
-   * Вешает обработчики событий Fabric для работы с текстом.
+   * Attaches Fabric-event handlers for text operations.
    */
   private _bindEvents(): void {
     const { canvas } = this
@@ -846,19 +846,19 @@ export default class TextManager {
     window.addEventListener('blur', this._handleWindowBlur)
   }
 
-  /** Фиксирует исходную геометрию изменения ширины и углового скейлинга текста. */
+  /** Captures the original geometry for text width resizing and corner scaling. */
   private _handleMouseDown = (event: TextManagerPointerEvent): void => {
     this.cornerScaleInteractionController.beginGesture(event)
     this.widthResizeInteractionController.beginGesture(event)
   }
 
-  /** Завершает временное состояние изменения размера текста. */
+  /** Ends temporary text-resize state. */
   private _handleScaleInteractionFinished = (): void => {
     this.cornerScaleInteractionController.finishGesture()
     this.widthResizeInteractionController.finishGesture()
   }
 
-  /** Завершает изменение размера, если соответствующий текст удалён с холста. */
+  /** Ends resizing if the corresponding text was removed from the canvas. */
   private _handleObjectRemoved = (event: TextManagerTargetEvent): void => {
     const { target } = event
     if (!target) return
@@ -867,19 +867,19 @@ export default class TextManager {
     this.widthResizeInteractionController.finishGestureForTarget({ target })
   }
 
-  /** Прерывает изменение размера после отмены события указателя. */
+  /** Interrupts resizing after a pointer event is canceled. */
   private _handlePointerCancel = (event: PointerEvent | TouchEvent): void => {
     this.cornerScaleInteractionController.interruptGesture({ event })
     this.widthResizeInteractionController.interruptGesture({ event })
   }
 
-  /** Прерывает изменение размера при потере фокуса окном. */
+  /** Interrupts resizing when the window loses focus. */
   private _handleWindowBlur = (): void => {
     this.cornerScaleInteractionController.interruptGesture()
     this.widthResizeInteractionController.interruptGesture()
   }
 
-  /** Фиксирует итог скейлинга и очищает временное состояние изменения размера текста. */
+  /** Commits the scaling result and clears temporary text-resize state. */
   private _handleObjectModified = (event: TextManagerModifiedEvent): void => {
     this.widthResizeInteractionController.finishGesture()
 
@@ -899,14 +899,14 @@ export default class TextManager {
     this.cornerScaleInteractionController.finishGesture()
   }
 
-  /** Применяет угловой скейлинг через общую логику прилипания или сохраняет прежнюю обработку. */
+  /** Applies corner scaling through shared snapping logic or retains the previous handling path. */
   private _handleObjectScaling = (event: TextManagerTransformEvent): void => {
     if (this.cornerScaleInteractionController.handleObjectScaling(event)) return
 
     this.scalingController.handleObjectScaling(event)
   }
 
-  /** Продолжает угловой скейлинг между событиями Fabric или передаёт жест прежней логике. */
+  /** Continues corner scaling between Fabric events or hands the gesture to the previous logic. */
   private _handleCanvasMouseMove = (event: TextManagerPointerEvent): void => {
     if (this.cornerScaleInteractionController.handleCanvasMouseMove(event)) return
 
@@ -914,9 +914,9 @@ export default class TextManager {
   }
 
   /**
-   * Обработчик входа в режим редактирования текста.
-   * Для текста внутри shape-композиций action истории сохраняется,
-   * но placement-снимок не создаётся: layout такого узла принадлежит ShapeManager.
+   * Handler for entering text-editing mode.
+   * For text inside shape compositions, the history action is preserved,
+   * but no placement snapshot is created: ShapeManager owns that node's layout.
    */
   private _handleTextEditingEntered = (event: TextManagerTargetEvent): void => {
     this.isTextEditingActive = true
@@ -936,10 +936,10 @@ export default class TextManager {
   }
 
   /**
-   * Реагирует на изменение текста в режиме редактирования.
-   * Для standalone-textbox дополнительно удерживает geometry/placement.
-   * Для текста внутри shape-композиций ограничивается текстовыми семантиками,
-   * не вмешиваясь в layout, которым владеет ShapeManager.
+   * Responds to text changes in editing mode.
+   * For standalone textboxes, also maintains geometry/placement.
+   * For text inside shape compositions, handles only text semantics,
+   * without interfering with the layout owned by ShapeManager.
    */
   private _handleTextChanged = (event: TextManagerTargetEvent): void => {
     const { target } = event
@@ -976,8 +976,8 @@ export default class TextManager {
       return
     }
 
-    // Пустая строка должна получить свои line defaults до layout-измерения,
-    // иначе Fabric измеряет её через object-level fontSize.
+    // An empty line must receive its line defaults before layout measurement,
+    // otherwise Fabric measures it using the object-level fontSize.
     this.syncLineStylesWithText({ textbox: target })
 
     this._normalizeTextboxAfterContentChange({
@@ -990,7 +990,7 @@ export default class TextManager {
   }
 
   /**
-   * Синхронизирует lineFontDefaults и runtime styles после изменения текста.
+   * Synchronizes lineFontDefaults and runtime styles after a text change.
    */
   public syncLineStylesWithText({
     textbox,
@@ -1023,10 +1023,10 @@ export default class TextManager {
   }
 
   /**
-   * Автоматически увеличивает ширину текстового объекта до ширины текста,
-   * но не шире монтажной области. При переданном placement дополнительно
-   * восстанавливает placement-контракт и при необходимости удерживает объект
-   * в пределах монтажной области.
+   * Automatically expands the text object's width to fit its text,
+   * up to the artboard width. If placement is supplied, also
+   * restores the placement contract and, when needed, keeps the object
+   * within the artboard.
    */
   private _autoExpandTextboxWidth(
     textbox: EditorTextbox,
@@ -1118,9 +1118,9 @@ export default class TextManager {
   }
 
   /**
-   * Обработчик выхода из режима редактирования текста.
-   * Для текста внутри shape-композиций завершает history-action,
-   * но не применяет standalone geometry cleanup поверх shape-layout.
+   * Handler for leaving text-editing mode.
+   * For text inside shape compositions, completes the history action
+   * without applying standalone geometry cleanup on top of shape layout.
    */
   private _handleTextEditingExited = (event: TextManagerTargetEvent): void => {
     const { target } = event
@@ -1129,17 +1129,17 @@ export default class TextManager {
     this.editingPlacementState?.delete(target)
     delete target.__lineDefaultsPrevText
 
-    // Обновляем textCaseRaw после редактирования, чтобы сохранить актуальное содержимое
+    // Update textCaseRaw after editing to preserve the current content
     const currentText = target.text ?? ''
     const isUppercase = Boolean(target.uppercase)
 
     if (isUppercase) {
-      // Если uppercase включен, пытаемся восстановить оригинальный регистр
-      // Используем предыдущий textCaseRaw если он есть, иначе переводим в нижний регистр
+      // If uppercase is enabled, try to restore the original case
+      // Use the previous textCaseRaw if available; otherwise, convert to lowercase
       const previousRaw = target.textCaseRaw ?? currentText.toLocaleLowerCase()
       target.textCaseRaw = previousRaw
     } else {
-      // Если uppercase выключен, сохраняем текст как есть
+      // If uppercase is disabled, save the text as is
       target.textCaseRaw = currentText
     }
 
@@ -1153,7 +1153,7 @@ export default class TextManager {
         this.canvas.requestRenderAll()
       }
 
-      // Сбрасываем lock-свойства после выхода из режима редактирования
+      // Reset lock properties after leaving editing mode
       if (!target.locked) {
         target.set({
           lockMovementX: false,
@@ -1167,7 +1167,7 @@ export default class TextManager {
     historyManager.endAction({ reason: 'text-edit' })
     historyManager.stageCurrentStateForPendingSave({ reason: 'text-edit' })
 
-    // Сохраняем состояние с небольшой задержкой, чтобы Fabric успел завершить все внутренние операции
+    // Save state after a short delay so Fabric can finish all internal operations
     historyManager.scheduleSaveState({
       delayMs: TEXT_EDITING_DEBOUNCE_MS,
       reason: 'text-edit'
@@ -1175,11 +1175,11 @@ export default class TextManager {
   }
 
   /**
-   * Обрабатывает изменение ширины текстового объекта (resizing).
-   * Корректирует ширину, вычитая паддинги, так как Fabric при изменении ширины
-   * устанавливает значение, включающее визуальные отступы.
-   * Также корректирует позицию при ресайзе слева, чтобы компенсировать смещение.
-   * Любой ручной horizontal resize переводит textbox в fixed-width режим.
+   * Handles text-object width changes (resizing).
+   * Adjusts width by subtracting padding, because Fabric sets
+   * a value that includes visual padding when resizing width.
+   * Also adjusts position when resizing from the left to compensate for the offset.
+   * Any manual horizontal resize switches the textbox to fixed-width mode.
    */
   private _handleObjectResizing = (event: TextManagerTransformEvent): void => {
     if (this.widthResizeInteractionController.handleObjectResizing(event)) return
@@ -1203,10 +1203,10 @@ export default class TextManager {
       const anchorOriginY = transform?.originY ?? target.originY ?? 'top'
       const anchorPoint = target.getPointByOrigin(anchorOriginX, anchorOriginY)
 
-      // Fabric рассчитывает новую ширину на основе положения курсора.
-      // Так как контролы отрисовываются с учетом паддингов (через _getTransformedDimensions),
-      // рассчитанная ширина включает в себя паддинги.
-      // Нам нужно сохранить "чистую" ширину текста.
+      // Fabric calculates the new width based on the pointer position.
+      // Since controls are rendered with padding included (through _getTransformedDimensions),
+      // the calculated width includes padding.
+      // We need to preserve the "pure" text width.
       const nextWidth = Math.max(0, previousWidth - totalPadding)
 
       if (previousWidth !== nextWidth) {
@@ -1229,7 +1229,7 @@ export default class TextManager {
   }
 
   /**
-   * Возвращает хранилище placement-состояния на время редактирования.
+   * Returns the placement-state storage used during editing.
    */
   private _ensureEditingPlacementState(): WeakMap<EditorTextbox, ObjectPlacement> {
     if (!this.editingPlacementState) {
@@ -1240,7 +1240,7 @@ export default class TextManager {
   }
 
   /**
-   * Формирует снимок текущих свойств текстового объекта для истории и событий.
+   * Builds a snapshot of current text-object properties for history and events.
    */
   private static _getSnapshot(textbox: EditorTextbox): TextboxSnapshot {
     const addIfPresent = (
@@ -1341,7 +1341,7 @@ export default class TextManager {
   }
 
   /**
-   * Возвращает первый доступный шрифт или дефолтный Arial.
+   * Returns the first available font, or Arial by default.
    */
   private _getDefaultFontFamily(): string {
     return this.fonts[0]?.family ?? 'Arial'

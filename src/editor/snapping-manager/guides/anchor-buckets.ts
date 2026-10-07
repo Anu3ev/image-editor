@@ -1,7 +1,7 @@
 import type { AnchorBuckets, Bounds } from '../types'
 
 /**
- * Добавляет линии для прилипания, рассчитанные из границ объекта.
+ * Adds snapping lines calculated from an object's bounds.
  */
 export const pushBoundsToAnchors = ({
   anchors,

@@ -1,19 +1,19 @@
-/** Проверяет, что src уже является локальным blob URL и не требует подготовки. */
+/** Checks whether src is already a local blob URL and needs no preparation. */
 function isBlobUrl({ src }: { src: string }): boolean {
   return src.startsWith('blob:')
 }
 
-/** Проверяет, что src является data URL и требует локальной подготовки. */
+/** Checks whether src is a data URL and needs local preparation. */
 function isDataUrl({ src }: { src: string }): boolean {
   return src.toLowerCase().startsWith('data:')
 }
 
-/** Проверяет, что data URL заявлен как image. */
+/** Checks whether the data URL declares an image type. */
 function isImageDataUrl({ src }: { src: string }): boolean {
   return src.toLowerCase().startsWith('data:image/')
 }
 
-/** Проверяет, что browser API не смог прочитать image src и можно оставить исходный src. */
+/** Checks whether the browser API failed to read the image src and the original src can be kept. */
 function isRecoverableImageReadError({ error }: { error: unknown }): boolean {
   if (error instanceof TypeError) return true
   if (typeof DOMException !== 'undefined' && error instanceof DOMException) return true
@@ -22,16 +22,16 @@ function isRecoverableImageReadError({ error }: { error: unknown }): boolean {
 }
 
 /**
- * Хранит blob URL, созданные ImageManager, и освобождает их при destroy.
+ * Tracks blob URLs created by ImageManager and releases them on destroy.
  */
 export default class BlobUrlRegistry {
   /**
-   * Blob URL, которые нужно освободить через URL.revokeObjectURL.
+   * Blob URLs to release through URL.revokeObjectURL.
    */
   private urls: string[] = []
 
   /**
-   * Создаёт blob URL для локального Blob/File и запоминает его для последующего revoke.
+   * Creates a blob URL for a local Blob/File and tracks it for later revocation.
    */
   public createObjectUrl({ source }: { source: Blob | MediaSource }): string {
     const blobUrl = URL.createObjectURL(source)
@@ -41,7 +41,7 @@ export default class BlobUrlRegistry {
   }
 
   /**
-   * Возвращает blob URL как есть или создаёт blob URL для data/remote src с кешированием.
+   * Returns a blob URL unchanged or creates a cached blob URL for a data/remote src.
    */
   public async getOrCreateForSource({
     src,
@@ -73,7 +73,7 @@ export default class BlobUrlRegistry {
   }
 
   /**
-   * Создаёт blob URL для image data URL. Если browser API не смог прочитать src, возвращает null.
+   * Creates a blob URL for an image data URL. Returns null if the browser API cannot read src.
    */
   public async createObjectUrlFromDataUrl({ src }: { src: string }): Promise<string | null> {
     if (!isImageDataUrl({ src })) return null
@@ -85,7 +85,7 @@ export default class BlobUrlRegistry {
   }
 
   /**
-   * Читает image data URL через browser fetch/blob API.
+   * Reads an image data URL through the browser fetch/blob API.
    */
   private async fetchImageDataUrlAsBlob({ src }: { src: string }): Promise<Blob | null> {
     try {
@@ -104,7 +104,7 @@ export default class BlobUrlRegistry {
   }
 
   /**
-   * Загружает изображение по URL и возвращает blob URL. Если browser API не смог прочитать src, возвращает null.
+   * Loads an image by URL and returns a blob URL. Returns null if the browser API cannot read src.
    */
   public async fetchAsBlobUrl({ src }: { src: string }): Promise<string | null> {
     try {
@@ -124,7 +124,7 @@ export default class BlobUrlRegistry {
   }
 
   /**
-   * Освобождает все blob URL, созданные этим registry.
+   * Releases all blob URLs created by this registry.
    */
   public revokeAll(): void {
     this.urls.forEach((url) => URL.revokeObjectURL(url))

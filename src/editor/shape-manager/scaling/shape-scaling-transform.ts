@@ -16,7 +16,7 @@ type ShapeTransformOriginalNumberKey = 'left' | 'top' | 'scaleX' | 'scaleY'
 
 type ShapeScalingPointerEvent = Event | MouseEvent | PointerEvent | TouchEvent
 
-/** Преобразует числовой знак в направление скейлинга. */
+/** Converts a numeric sign into a scaling direction. */
 export function resolveShapeScaleDirection({
   value
 }: {
@@ -28,7 +28,7 @@ export function resolveShapeScaleDirection({
 }
 
 /**
- * Возвращает числовое значение из transform.original, если оно доступно.
+ * Returns a numeric value from transform.original, if available.
  */
 export const resolveShapeTransformOriginalNumber = ({
   transform,
@@ -47,7 +47,7 @@ export const resolveShapeTransformOriginalNumber = ({
 }
 
 /**
- * Нормализует horizontal origin-значение transform.
+ * Normalizes the transform's horizontal origin value.
  */
 export const resolveShapeTransformOriginXValue = ({
   value
@@ -64,7 +64,7 @@ export const resolveShapeTransformOriginXValue = ({
 }
 
 /**
- * Нормализует vertical origin-значение transform.
+ * Normalizes the transform's vertical origin value.
  */
 export const resolveShapeTransformOriginYValue = ({
   value
@@ -81,7 +81,7 @@ export const resolveShapeTransformOriginYValue = ({
 }
 
 /**
- * Возвращает, какие оси реально участвуют в текущем scale-transform.
+ * Returns which axes actually participate in the current scale transform.
  */
 export const resolveShapeScaleActionAxes = ({
   transform
@@ -116,7 +116,7 @@ export const resolveShapeScaleActionAxes = ({
 }
 
 /**
- * Пересчитывает pointer из canvas-события в локальные координаты активного scale-transform.
+ * Converts the pointer from a canvas event into the active scale transform's local coordinates.
  */
 export const resolveScaleLocalPointerForTransform = ({
   event,
@@ -170,7 +170,7 @@ export const resolveScaleLocalPointerForTransform = ({
 }
 
 /**
- * Возвращает anchor-точку активного transform в координатах canvas.
+ * Returns the active transform's anchor point in canvas coordinates.
  */
 export const resolveShapeScalingAnchorPoint = ({
   group,
@@ -203,7 +203,7 @@ export const resolveShapeScalingAnchorPoint = ({
 }
 
 /**
- * Возвращает true, если transform origin изменился относительно старта текущего drag.
+ * Returns true if the transform origin changed relative to the start of the current drag.
  */
 export const isShapeTransformOriginChanged = ({
   state,
@@ -226,7 +226,7 @@ export const isShapeTransformOriginChanged = ({
 }
 
 /**
- * Возвращает true, если active corner изменился относительно старта текущего drag.
+ * Returns true if the active corner changed relative to the start of the current drag.
  */
 export const isShapeTransformCornerChanged = ({
   state,

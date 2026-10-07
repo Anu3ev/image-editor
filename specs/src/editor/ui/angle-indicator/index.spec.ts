@@ -14,7 +14,7 @@ describe('AngleIndicatorManager', () => {
     mockCanvas = mocks.mockCanvas
     mockEditor = mocks.mockEditor
 
-    // Убеждаемся что showRotationAngle включен
+    // Ensure showRotationAngle is enabled
     mockEditor.options.showRotationAngle = true
 
     angleIndicatorManager = new AngleIndicatorManager({ editor: mockEditor })
@@ -74,7 +74,7 @@ describe('AngleIndicatorManager', () => {
         } as MouseEvent
       }
 
-      // Мокаем getBoundingClientRect
+      // Mock getBoundingClientRect
       jest.spyOn(mockCanvas.wrapperEl, 'getBoundingClientRect').mockReturnValue({
         left: 100,
         top: 50,
@@ -140,31 +140,31 @@ describe('AngleIndicatorManager', () => {
     })
 
     it('смещает индикатор влево при выходе за правую границу', () => {
-      // Ставим курсор близко к правому краю
-      mockEvent.e.clientX = 850 // 850 - 100 + 16 + 50 > 800 (ширина canvas)
+      // Place the cursor near the right edge
+      mockEvent.e.clientX = 850 // 850 - 100 + 16 + 50 > 800 (canvas width)
 
       const handlers = mockCanvas.__handlers['object:rotating']
       handlers[0](mockEvent)
 
-      // Должен сместиться влево: 850 - 100 - 50 - 16 = 684
+      // Should shift left: 850 - 100 - 50 - 16 = 684
       expect(angleIndicatorManager.el.style.left).toBe('684px')
     })
 
     it('смещает индикатор вверх при выходе за нижнюю границу', () => {
-      // Ставим курсор близко к нижнему краю
-      mockEvent.e.clientY = 650 // 650 - 50 + 16 + 30 > 600 (высота canvas)
+      // Place the cursor near the bottom edge
+      mockEvent.e.clientY = 650 // 650 - 50 + 16 + 30 > 600 (canvas height)
 
       const handlers = mockCanvas.__handlers['object:rotating']
       handlers[0](mockEvent)
 
-      // Должен сместиться вверх: 650 - 50 - 30 - 16 = 554
+      // Should shift up: 650 - 50 - 30 - 16 = 554
       expect(angleIndicatorManager.el.style.top).toBe('554px')
     })
   })
 
   describe('Обработка события mouse:up', () => {
     it('скрывает индикатор при отпускании кнопки мыши', () => {
-      // Сначала показываем индикатор
+      // Show the indicator first
       angleIndicatorManager.el.style.display = 'block'
 
       const handlers = mockCanvas.__handlers['mouse:up']
@@ -371,7 +371,7 @@ describe('AngleIndicatorManager', () => {
     let freshManager: AngleIndicatorManager
 
     beforeEach(() => {
-      // Создаем новый экземпляр для тестов destroy
+      // Create a new instance for destroy tests
       const mocks = createManagerTestMocks()
       mocks.mockEditor.options.showRotationAngle = true
       freshManager = new AngleIndicatorManager({ editor: mocks.mockEditor })

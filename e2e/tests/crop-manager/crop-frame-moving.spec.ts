@@ -7,13 +7,13 @@ import {
   BLOCKED_CROP_SCALE_CASES
 } from '../../fixtures/data/crop-frame-guides.data'
 
-/** Размер уменьшенной crop-области для одновременной проверки source-bound clamp и центрального guide. */
+/** Reduced crop-area size for testing the source-boundary clamp and center guide together. */
 const CENTER_GUIDE_CROP_FRAME_SIZE = {
   width: 100,
   height: 100
 } as const
 
-/** Смещение crop-области от центра source перед контрольным диагональным drag. */
+/** Crop-area offset from the source center before the verification diagonal drag. */
 const CENTER_GUIDE_CROP_OFFSET_Y = 20
 
 test.describe('Направляющие при ограничении crop-области изображения', () => {

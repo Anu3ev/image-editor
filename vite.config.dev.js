@@ -3,12 +3,12 @@ import path from 'path'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
 /**
- * Конфигурация для разработки и сборки проекта.
- * Если это dev-сервер, то используется src/demo как корень.
- * Если это сборка, то собирается только библиотека в dev-build.
+ * Configuration for developing and building the project.
+ * The development server uses src/demo as its root.
+ * Build mode outputs only the library to dev-build.
  */
 export default defineConfig(({ command, mode }) => {
-  // Базовая конфигурация
+  // Base configuration
   const baseConfig = {
     base: './',
     mode: 'development',
@@ -23,27 +23,27 @@ export default defineConfig(({ command, mode }) => {
     ]
   }
 
-  // Если это dev-сервер (npm run dev)
+  // For the development server (npm run dev)
   if (command === 'serve') {
     return {
       ...baseConfig,
       server: {
-        host: '0.0.0.0', // Разрешаем подключения с любых IP
+        host: '0.0.0.0', // Allow connections from any IP address
         port: 5173,
         strictPort: true,
         allowedHosts: [
           'localhost',
           '127.0.0.1',
           '0.0.0.0',
-          'www.localhost.com', // Для BrowserStack
-          '.browserstack.com', // Все поддомены BrowserStack
+          'www.localhost.com', // For BrowserStack
+          '.browserstack.com', // All BrowserStack subdomains
           '.bs-local.com' // BrowserStack Local
         ]
       }
     }
   }
 
-  // Если это сборка (npm run dev:build)
+  // For a build (npm run dev:build)
   return {
     ...baseConfig,
     build: {

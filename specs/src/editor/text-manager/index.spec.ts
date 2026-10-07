@@ -10,7 +10,7 @@ import * as textGeometry from '../../../../src/editor/text-manager/geometry'
 jest.mock('nanoid')
 
 /**
- * Возвращает только lifecycle-события updateText из общего списка canvas.fire вызовов.
+ * Returns only updateText lifecycle events from the full list of canvas.fire calls.
  */
 const getTextUpdateEventCalls = (
   fireMock: jest.Mock<void, [string, unknown]>
@@ -42,7 +42,7 @@ describe('TextManager', () => {
 
       const textbox = textManager.addText({ text: 'Привет' })
 
-      // Проверяем вызов saveState через подсчет изменений в истории
+      // Check the saveState call by counting changes in history
       expect(canvas.add).toHaveBeenCalledWith(textbox)
       expect(editor.canvasManager.centerObjectToMontageArea).toHaveBeenCalledWith({ object: textbox })
       expect(canvas.setActiveObject).toHaveBeenCalledWith(textbox)
@@ -57,7 +57,7 @@ describe('TextManager', () => {
         options: expect.objectContaining({ text: 'Привет' })
       }))
 
-      // Проверяем что состояние сохранено (через object:added событие)
+      // Check that the state was saved (through the object:added event)
       expect(historyManager.totalChangesCount).toBe(1)
       expect(historyManager.currentIndex).toBe(1)
       expect(getObjects()).toHaveLength(1)
@@ -341,7 +341,7 @@ describe('TextManager', () => {
       expect(canvas.requestRenderAll).toHaveBeenCalledTimes(1)
       expect(textbox.dirty).toBe(true)
 
-      // Базовые свойства объекта не меняются от частичного декоративного стиля.
+      // The object's base properties are not changed by a partial decoration style.
       expect(textbox.fontFamily).toBe('Arial')
       expect(textbox.fontSize).toBe(32)
       expect(textbox.fill).toBe('#222222')

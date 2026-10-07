@@ -5,28 +5,28 @@ type MontageCenterGuideAlignment = {
   verticalEdge: 'top' | 'bottom'
 }
 
-/** Размер исходного изображения для proportional crop regression у центральных guide. */
+/** Source-image dimensions for the proportional-crop regression at the center guides. */
 export const PROPORTIONAL_CENTER_GUIDE_IMAGE_SIZE = {
   width: 1000,
   height: 667
 } as const
 
-/** Размер crop-области перед переносом к центральным guide монтажной области. */
+/** Crop-area dimensions before moving to the artboard's center guides. */
 export const PROPORTIONAL_CENTER_GUIDE_CROP_SIZE = {
   width: 430,
   height: 287
 } as const
 
-/** Небольшой drag в source-пикселях, который должен остаться внутри snap-порога. */
+/** Small drag in source pixels that should remain within the snapping threshold. */
 export const PROPORTIONAL_CENTER_GUIDE_HOLD_DRAG_PIXELS = 4
 
-/** Drag в source-пикселях, который должен довести crop-область до source-границы. */
+/** Drag in source pixels that should bring the crop area to the source boundary. */
 export const PROPORTIONAL_CENTER_GUIDE_BOUNDARY_DRAG_PIXELS = 180
 
-/** Число live-шагов медленного drag к source-границе. */
+/** Number of live steps in a slow drag toward the source boundary. */
 export const PROPORTIONAL_CENTER_GUIDE_SLOW_BOUNDARY_STEPS = 80
 
-/** Углы proportional crop, которые не должны менять размер у центральных guide монтажной области. */
+/** Proportional-crop corners that should not change size at the artboard's center guides. */
 export const PROPORTIONAL_CENTER_GUIDE_HOLD_CASES = [
   {
     title: 'при малом скейлинге из левого верхнего угла у левой и верхней направляющей оставляет прежний размер',

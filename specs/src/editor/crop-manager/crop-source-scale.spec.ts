@@ -4,7 +4,7 @@ import {
   resolveCropSourceAxisScaleLimit
 } from '../../../../src/editor/crop-manager/domain/crop-source-scale'
 
-/** Реальные Fabric origins и неподвижные стороны для всех ручек crop-области. */
+/** Actual Fabric origins and fixed edges for every crop-area handle. */
 const CROP_CONTROL_ANCHOR_CASES = [
   {
     title: 'левой верхней ручки',

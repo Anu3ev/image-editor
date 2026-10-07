@@ -15,12 +15,12 @@ export class Point {
     return new Point(this.x + value, this.y + value)
   }
 
-  /** Возвращает разницу точек, не изменяя исходную точку. */
+  /** Returns the difference between two points without modifying the original point. */
   subtract(point: Point): Point {
     return new Point(this.x - point.x, this.y - point.y)
   }
 
-  /** Применяет 2D affine matrix так же, как Point.transform в Fabric. */
+  /** Applies a 2D affine matrix in the same way as Fabric's Point.transform. */
   transform(matrix: [number, number, number, number, number, number], ignoreOffset = false): Point {
     const [a, b, c, d, e, f] = matrix
 
@@ -153,12 +153,12 @@ export class Rect {
     return new Point(x, y)
   }
 
-  /** Возвращает положение точки привязки по актуальному контракту FabricObject. */
+  /** Returns the anchor point position using the current FabricObject contract. */
   getPositionByOrigin(originX: 'left' | 'center' | 'right', originY: 'top' | 'center' | 'bottom') {
     return this.getPointByOrigin(originX, originY)
   }
 
-  /** Возвращает углы видимой рамки прямоугольника в координатах canvas. */
+  /** Returns the corners of the rectangle's visible bounds in canvas coordinates. */
   getCoords() {
     return [
       this.getPointByOrigin('left', 'top'),
@@ -216,12 +216,12 @@ export class Control {
     Object.assign(this, options)
   }
 
-  /** Возвращает активный handler так же, как стандартный Fabric Control. */
+  /** Returns the active handler in the same way as a standard Fabric Control. */
   getActionHandler() {
     return this.actionHandler
   }
 
-  /** Возвращает противоположную точку scale или явно заданный anchor. */
+  /** Returns the opposite scaling point or an explicitly specified anchor. */
   getTransformAnchorPoint() {
     return this.transformAnchorPoint ?? {
       x: -this.x + 0.5,
@@ -229,7 +229,7 @@ export class Control {
     }
   }
 
-  /** Рассчитывает положение control из относительных координат и affine matrix. */
+  /** Calculates the control position from relative coordinates and an affine matrix. */
   positionHandler(
     dim: Point,
     finalMatrix: [number, number, number, number, number, number]
@@ -264,7 +264,7 @@ export class ActiveSelection {
     return this.objects
   }
 
-  /** Добавляет объекты в тестовое выделение и восстанавливает их принадлежность рамке. */
+  /** Adds objects to the test selection and restores their membership in the selection frame. */
   add(...objects: any[]) {
     objects.forEach((object) => {
       if (!object || typeof object !== 'object') return
@@ -279,7 +279,7 @@ export class ActiveSelection {
     return this.objects.length
   }
 
-  /** Снимает тестовую рамку и возвращает её объекты в верхний уровень холста. */
+  /** Removes the test selection frame and returns its objects to the top level of the canvas. */
   removeAll() {
     const objects = [...this.objects]
     this.objects = []
@@ -294,12 +294,12 @@ export class ActiveSelection {
     this.objects.forEach(callback)
   }
 
-  /** Возвращает матрицу самого тестового выделения. */
+  /** Returns the test selection's own matrix. */
   calcOwnMatrix() {
     return [1, 0, 0, 1, this.left, this.top]
   }
 
-  /** Возвращает полную матрицу верхнеуровневого тестового выделения. */
+  /** Returns the full matrix of the top-level test selection. */
   calcTransformMatrix() {
     return this.calcOwnMatrix()
   }
@@ -312,12 +312,12 @@ export class ActiveSelection {
     Object.assign(this, key)
   }
 
-  /** Возвращает центр тестового общего выделения. */
+  /** Returns the center of the test multi-object selection. */
   getCenterPoint() {
     return new Point(this.left, this.top)
   }
 
-  /** Возвращает точку привязки относительно центра тестового выделения. */
+  /** Returns the anchor point relative to the center of the test selection. */
   getPointByOrigin(
     originX: 'left' | 'center' | 'right' | number,
     originY: 'top' | 'center' | 'bottom' | number
@@ -334,7 +334,7 @@ export class ActiveSelection {
     return new Point(this.left + (width * xFactor), this.top + (height * yFactor))
   }
 
-  /** Возвращает положение точки привязки через установленную геометрию тестового выделения. */
+  /** Returns the anchor point position using the test selection's configured geometry. */
   getPositionByOrigin(
     originX: 'left' | 'center' | 'right' | number,
     originY: 'top' | 'center' | 'bottom' | number
@@ -342,7 +342,7 @@ export class ActiveSelection {
     return this.getPointByOrigin(originX, originY)
   }
 
-  /** Устанавливает положение тестового общего выделения относительно переданного origin. */
+  /** Positions the test multi-object selection relative to the supplied origin. */
   setPositionByOrigin(point: Point) {
     this.left = point.x
     this.top = point.y
@@ -350,11 +350,11 @@ export class ActiveSelection {
     return this
   }
 
-  /** Имитирует обновление координат Fabric без дополнительной геометрии. */
+  /** Simulates Fabric coordinate updates without additional geometry. */
   setCoords() {}
 
   async clone() {
-    // Глубокое копирование objects и options для избежания shared references
+    // Deep-copy objects and options to avoid shared references
     const clonedObjects = this.objects.map((obj) => ({ ...obj }))
     const clonedOptions = { ...this.options }
 
@@ -523,12 +523,12 @@ export class Group {
     return new Point(x, y)
   }
 
-  /** Возвращает положение точки привязки по актуальному контракту FabricObject. */
+  /** Returns the anchor point position using the current FabricObject contract. */
   getPositionByOrigin(originX: 'left' | 'center' | 'right', originY: 'top' | 'center' | 'bottom') {
     return this.getPointByOrigin(originX, originY)
   }
 
-  /** Возвращает углы видимой рамки группы в координатах canvas. */
+  /** Returns the corners of the group's visible bounds in canvas coordinates. */
   getCoords() {
     return [
       this.getPointByOrigin('left', 'top'),
@@ -580,9 +580,9 @@ export class FabricObject {
     Object.assign(this, options)
   }
 
-  /** Освобождает ресурсы объекта в тестах так же, как FabricObject. */
+  /** Releases object resources in tests in the same way as FabricObject. */
   public dispose() {
-    // Упрощённый объект не создаёт ресурсов, требующих очистки.
+    // The simplified object creates no resources that require cleanup.
   }
 
   transformMatrixKey() {
@@ -612,7 +612,7 @@ export class FabricObject {
   }
 
   /**
-   * Возвращает относительную точку центра объекта.
+   * Returns the object's relative center point.
    */
   public getRelativeCenterPoint() {
     const {
@@ -630,7 +630,7 @@ export class FabricObject {
   }
 
   /**
-   * Переводит точку из центра в координаты origin объекта.
+   * Converts a point from the center to the object's origin coordinates.
    */
   public translateToOriginPoint(
     point: { x: number; y: number },
@@ -699,7 +699,7 @@ export class FabricObject {
     return new Point(x, y)
   }
 
-  /** Возвращает положение точки привязки по актуальному контракту FabricObject. */
+  /** Returns the anchor point position using the current FabricObject contract. */
   public getPositionByOrigin(
     originX: 'left' | 'center' | 'right',
     originY: 'top' | 'center' | 'bottom'
@@ -707,7 +707,7 @@ export class FabricObject {
     return this.getPointByOrigin(originX, originY)
   }
 
-  /** Возвращает углы видимой рамки объекта в координатах canvas. */
+  /** Returns the corners of the object's visible bounds in canvas coordinates. */
   public getCoords() {
     return [
       this.getPointByOrigin('left', 'top'),
@@ -718,7 +718,7 @@ export class FabricObject {
   }
 
   /**
-   * Устанавливает позицию объекта по заданному origin.
+   * Positions the object using the specified origin.
    */
   public setPositionByOrigin(
     point: { x: number; y: number },
@@ -763,7 +763,7 @@ export class FabricObject {
   }
 }
 
-/** Сохраняет геометрический контракт FabricObject для изображений в unit-тестах. */
+/** Preserves the FabricObject geometry contract for images in unit tests. */
 export class FabricImage extends FabricObject {
   type = 'image'
 
@@ -777,7 +777,7 @@ export class FabricImage extends FabricObject {
     if (hasElement) this.element = elementOrOptions
   }
 
-  /** Возвращает исходный элемент изображения или создаёт его из src. */
+  /** Returns the original image element or creates one from src. */
   public getElement(): HTMLImageElement | HTMLCanvasElement {
     if (this.element) return this.element
 
@@ -788,7 +788,7 @@ export class FabricImage extends FabricObject {
     return image
   }
 
-  /** Создаёт тестовое изображение по тому же асинхронному контракту, что и Fabric. */
+  /** Creates a test image using the same asynchronous contract as Fabric. */
   public static fromURL(url: string, options?: any): Promise<FabricImage> {
     return Promise.resolve(new FabricImage({
       src: url,
@@ -817,7 +817,7 @@ export class Textbox extends FabricObject {
 
   public id?: string
 
-  /** Минимальная ширина строки, рассчитанная Textbox. */
+  /** Minimum line width calculated by Textbox. */
   public dynamicMinWidth: number
 
   public controls: Record<string, any> = {}
@@ -865,7 +865,7 @@ export class Textbox extends FabricObject {
   }
 
   /**
-   * Восстанавливает Textbox тем же статическим путём, который использует Fabric.
+   * Restores a Textbox through the same static path used by Fabric.
    */
   static async fromObject(object: Record<string, any>): Promise<Textbox> {
     const normalizedObject: Record<string, any> = {
@@ -946,7 +946,7 @@ export class Textbox extends FabricObject {
   }
 
   /**
-   * Пересчитывает размеры и строки текста в мок-окружении.
+   * Recalculates text dimensions and lines in the mock environment.
    */
   initDimensions() {
     const { text = '' } = this
@@ -965,7 +965,7 @@ export class Textbox extends FabricObject {
   }
 
   /**
-   * Возвращает приблизительную высоту текста для мок-рендера.
+   * Returns an approximate text height for mock rendering.
    */
   calcTextHeight() {
     const {
@@ -1048,8 +1048,8 @@ const areMockStylesEqual = ({
   return true
 }
 
-// Fabric сериализует runtime styles в массив диапазонов и обратно.
-// Для unit-моков нам достаточно стабильного round-trip без полного паритета с библиотекой.
+// Fabric serializes runtime styles into an array of ranges and back.
+// Unit mocks only need a stable round trip, without full parity with the library.
 const stylesToArray = (styles: MockTextStyles = {}, text = ''): MockTextStyleRange[] => {
   const lines = text.split('\n')
   const ranges: MockTextStyleRange[] = []
@@ -1128,19 +1128,19 @@ const stylesFromArray = (styles: MockTextStyleRange[] | MockTextStyles | undefin
   return stylesObject
 }
 
-/** Стандартный handler горизонтального scale или вертикального skew. */
+/** Standard handler for horizontal scaling or vertical skewing. */
 const DEFAULT_HORIZONTAL_SCALE_HANDLER = jest.fn(() => true)
 
-/** Стандартный handler вертикального scale или горизонтального skew. */
+/** Standard handler for vertical scaling or horizontal skewing. */
 const DEFAULT_VERTICAL_SCALE_HANDLER = jest.fn(() => true)
 
-/** Стандартный handler пропорционального scale за угол. */
+/** Standard handler for proportional corner scaling. */
 const DEFAULT_CORNER_SCALE_HANDLER = jest.fn(() => true)
 
-/** Стандартный handler вращения. */
+/** Standard rotation handler. */
 const DEFAULT_ROTATION_HANDLER = jest.fn(() => true)
 
-/** Создаёт независимый набор стандартных object controls Fabric. */
+/** Creates an independent set of standard Fabric object controls. */
 function createObjectDefaultControls() {
   return {
     ml: new Control({ x: -0.5, y: 0, actionHandler: DEFAULT_HORIZONTAL_SCALE_HANDLER }),
@@ -1231,7 +1231,7 @@ export const classRegistry = {
   }
 }
 
-/** Применяет перенос тестовой матрицы; отдельные тесты могут переопределить остальные компоненты. */
+/** Applies the test matrix's translation; individual tests can override the other components. */
 const addTransformToObjectMock = jest.fn((target: any, matrix: number[]) => {
   const offsetX = matrix[4] ?? 0
   const offsetY = matrix[5] ?? 0
@@ -1242,7 +1242,7 @@ const addTransformToObjectMock = jest.fn((target: any, matrix: number[]) => {
   })
 })
 
-/** Возвращает те же свойства преобразования, которые сохраняет Fabric. */
+/** Returns the same transform properties that Fabric saves. */
 const saveObjectTransformMock = jest.fn((target: any) => ({
   angle: target.angle,
   flipX: target.flipX,

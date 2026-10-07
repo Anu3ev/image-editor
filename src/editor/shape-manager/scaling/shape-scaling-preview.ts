@@ -13,7 +13,7 @@ import type {
 } from '../types'
 
 /**
- * Параметры полного preview layout для shape-группы во время live scaling.
+ * Parameters for the full shape-group preview layout during live scaling.
  */
 type ShapeScalingPreviewOptions = {
   group: ShapeGroup
@@ -28,7 +28,7 @@ type ShapeScalingPreviewOptions = {
 }
 
 /**
- * Параметры preview геометрии shape-узла без text layout.
+ * Parameters for shape-node geometry preview without text layout.
  */
 type ShapeScalingShapeGeometryOptions = {
   group: ShapeGroup
@@ -42,7 +42,7 @@ type ShapeScalingShapeGeometryOptions = {
 }
 
 /**
- * Параметры preview layout text node внутри shape-группы.
+ * Parameters for previewing text-node layout inside a shape group.
  */
 type ShapeScalingTextLayoutOptions = {
   text: ShapeTextNode
@@ -54,7 +54,7 @@ type ShapeScalingTextLayoutOptions = {
 }
 
 /**
- * Возвращает локальный размер shape-ноды для live-preview с фиксированным stroke.
+ * Returns the shape node's local dimensions for a live preview with a fixed stroke.
  */
 function resolveShapeScalingPreviewOuterSize({
   size,
@@ -81,7 +81,7 @@ function resolveShapeScalingPreviewOuterSize({
 }
 
 /**
- * Компенсирует геометрию shape-ноды во время drag для strokeUniform.
+ * Compensates for shape-node geometry during dragging for strokeUniform.
  */
 function applyShapeScalingPreviewGeometry({
   group,
@@ -119,7 +119,7 @@ function applyShapeScalingPreviewGeometry({
 }
 
 /**
- * Применяет live-layout текста при масштабировании, чтобы перенос и выравнивание обновлялись в процессе drag.
+ * Applies live text layout during scaling so wrapping and alignment update throughout the drag.
  */
 function applyShapeScalingPreviewTextLayout({
   text,
@@ -151,7 +151,7 @@ function applyShapeScalingPreviewTextLayout({
 }
 
 /**
- * Применяет live-preview shape-композиции во время drag.
+ * Applies the shape composition's live preview during dragging.
  */
 export const applyShapeScalingPreviewLayout = ({
   group,

@@ -1,6 +1,6 @@
 import { test, expect } from '../../../fixtures/image-scaling.fixture'
 
-/** Геометрия, которая должна полностью восстановиться через undo и redo. */
+/** Geometry that should be fully restored through undo and redo. */
 const IMAGE_SCALE_HISTORY_FIELDS = [
   'boundsLeft',
   'boundsTop',

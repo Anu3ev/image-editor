@@ -10,19 +10,19 @@ import type {
   TextScaleHandleCase
 } from '../../types'
 
-/** Горизонтальная граница, которой управляет угловая ручка текста. */
+/** Boundary along the horizontal axis controlled by the text's corner handle. */
 type TextCornerScaleHorizontalEdge = 'boundsLeft' | 'boundsRight'
 
-/** Вертикальная граница, которой управляет угловая ручка текста. */
+/** Boundary along the vertical axis controlled by the text's corner handle. */
 type TextCornerScaleVerticalEdge = 'boundsTop' | 'boundsBottom'
 
-/** Координата неподвижного угла текста во время скейлинга. */
+/** Coordinate of the text's fixed corner during scaling. */
 type TextCornerScaleFixedPoint = Readonly<{
   x: 'leftTopX' | 'leftBottomX' | 'rightTopX' | 'rightBottomX'
   y: 'leftTopY' | 'leftBottomY' | 'rightTopY' | 'rightBottomY'
 }>
 
-/** Наблюдаемый контракт одной угловой ручки отдельного текста. */
+/** Observable contract of one standalone-text corner handle. */
 export type TextCornerScaleControlCase = Readonly<{
   corner: TextCornerScaleHandle
   fixedPoint: TextCornerScaleFixedPoint
@@ -35,7 +35,7 @@ export type TextCornerScaleControlCase = Readonly<{
   title: string
 }>
 
-/** Все угловые ручки отдельного текста и противоположные неподвижные точки. */
+/** All standalone-text corner handles and their opposite fixed points. */
 export const TEXT_CORNER_SCALE_CONTROL_CASES = [
   {
     corner: 'tl',
@@ -71,13 +71,13 @@ export const TEXT_CORNER_SCALE_CONTROL_CASES = [
   }
 ] as const satisfies readonly TextCornerScaleControlCase[]
 
-/** Множитель, который отличает целевое прилипание от исходного размера текста. */
+/** Factor that distinguishes the target snap from the initial text size. */
 export const TEXT_CORNER_SCALE_TARGET_MULTIPLIER = 1.25
 
-/** Допустимое расхождение итоговой грани текста и выбранной направляющей в координатах сцены. */
+/** Allowed difference between the final text edge and the selected guide in scene coordinates. */
 export const TEXT_CORNER_SCALE_GUIDE_TOLERANCE = 0.1
 
-/** Канонические свойства, которые пропорционально увеличиваются при скейлинге текста. */
+/** Canonical properties that grow proportionally during text scaling. */
 export const TEXT_CORNER_SCALE_GROWING_FIELDS = [
   'width',
   'height',
@@ -92,17 +92,17 @@ export const TEXT_CORNER_SCALE_GROWING_FIELDS = [
   'radiusBottomLeft'
 ] as const
 
-/** Последовательные движения указателя внутри зоны удержания углового скейлинга. */
+/** Successive pointer movements within the corner-scaling snap-hold zone. */
 export const TEXT_CORNER_SCALE_HOLD_STEPS = [
   { deltaX: 0, deltaY: 0 },
   { deltaX: 1, deltaY: 1 },
   { deltaX: -1, deltaY: -1 }
 ] as const
 
-/** Смещение за пределы исходных и противоположных граней опорной фигуры. */
+/** Offset beyond the initial and opposite edges of the reference shape. */
 export const TEXT_CORNER_SCALE_RELEASE_DELTA = 72
 
-/** Свойства текста, которые не должны меняться внутри одного удержания. */
+/** Text properties that must not change within a single snap hold. */
 export const TEXT_CORNER_SCALE_STABLE_FIELDS = [
   'boundsLeft',
   'boundsTop',
@@ -124,7 +124,7 @@ export const TEXT_CORNER_SCALE_STABLE_FIELDS = [
   'lineCount'
 ] as const
 
-/** Один браузерный сценарий боковой ручки и направляющей в координатах сцены. */
+/** One browser scenario for a side handle and a guide in scene coordinates. */
 export type TextSideResizeControlCase = Readonly<{
   angle: number
   axis: TextResizeGuideAxis
@@ -133,7 +133,7 @@ export type TextSideResizeControlCase = Readonly<{
   title: string
 }>
 
-/** Обе боковые ручки без поворота и после поворота на 90 градусов. */
+/** Both side handles without rotation and after a 90-degree rotation. */
 export const TEXT_SIDE_RESIZE_CONTROL_CASES: readonly TextSideResizeControlCase[] = Object.freeze([
   {
     angle: 0,
@@ -165,29 +165,29 @@ export const TEXT_SIDE_RESIZE_CONTROL_CASES: readonly TextSideResizeControlCase[
   }
 ])
 
-/** Микродвижения указателя внутри зоны удержания повёрнутого текста. */
+/** Pointer micro-movements within the rotated text's snap-hold zone. */
 export const TEXT_SIDE_RESIZE_HOLD_STEPS = Object.freeze([
   Object.freeze({ deltaX: 1, deltaY: 0 }),
   Object.freeze({ deltaX: 1, deltaY: 0 }),
   Object.freeze({ deltaX: 1, deltaY: 0 })
 ])
 
-/** Допуски проверок изменения ширины отдельного текста. */
+/** Tolerances for standalone-text width-change checks. */
 export const TEXT_RESIZING_TOLERANCE = {
   anchor: 1.5,
   mouseupJump: 1.5
 }
 
-/** Целевая внутренняя ширина текста для сценариев с переносом строк. */
+/** Target internal text width for line-wrapping scenarios. */
 export const TEXT_RESIZING_REGRESSION_WIDTH = 125
 
-/** Ширина меньше самой длинной строки для проверки упора боковой ручки. */
+/** Width smaller than the longest line for testing the side-handle limit. */
 export const TEXT_RESIZING_MINIMUM_WIDTH_PROBE = 20
 
-/** Дальнейшее движение боковой ручки после упора в минимальную ширину. */
+/** Further side-handle movement after reaching the minimum width. */
 export const TEXT_RESIZING_MINIMUM_WIDTH_HOLD_DELTA = 8
 
-/** Настройки текста из сценария с упором боковой ручки в минимальную ширину строки. */
+/** Text settings from the scenario where the side handle reaches the minimum line width. */
 export const TEXT_RESIZING_MINIMUM_WIDTH_ADD_OPTIONS: TextAddParams = {
   text: 'Новый текст',
   autoExpand: false,
@@ -199,29 +199,29 @@ export const TEXT_RESIZING_MINIMUM_WIDTH_ADD_OPTIONS: TextAddParams = {
   top: 352
 }
 
-/** Целевая внутренняя ширина текста для сценариев со скейлингом после ручного сужения. */
+/** Target internal text width for scaling scenarios after manual narrowing. */
 export const TEXT_SCALING_REGRESSION_WIDTH = 180
 
-/** Коэффициент вертикального скейлинга для проверки сохранения ручной ширины. */
+/** Vertical scale factor for testing manual-width preservation. */
 export const TEXT_VERTICAL_SCALING_FACTOR = 1.6
 
-/** Коэффициенты диагонального скейлинга для проверки новой базовой ширины. */
+/** Diagonal scale factors for testing the new base width. */
 export const TEXT_DIAGONAL_SCALING_FACTORS = {
   scaleX: 1.35,
   scaleY: 1.35
 }
 
-/** Коэффициент горизонтального скейлинга для проверки текущей базовой ширины. */
+/** Horizontal scale factor for testing the current base width. */
 export const TEXT_HORIZONTAL_SCALING_FACTOR = 1.35
 
-/** Последовательность сужения текста скейлингом для проверки промежуточных состояний. */
+/** Sequence of text-narrowing scale operations for testing intermediate states. */
 export const TEXT_HORIZONTAL_SCALING_NARROW_STEPS = [
   0.92,
   0.62,
   0.42
 ]
 
-/** Создаёт последовательность движений указателя для сужения текста за угловую ручку. */
+/** Creates a pointer-movement sequence for narrowing text with a corner handle. */
 const createTextScaleDragSteps = ({
   deltaX,
   deltaY,
@@ -244,7 +244,7 @@ const createTextScaleDragSteps = ({
   return steps
 }
 
-/** Сценарии сужения текста настоящей мышью для проверки переносов строк на каждом движении. */
+/** Real-mouse text-narrowing scenarios for checking line wrapping on every movement. */
 export const TEXT_DIAGONAL_SCALING_NARROW_DRAG_CASES = [
   {
     title: 'правый верхний угол',
@@ -284,22 +284,22 @@ export const TEXT_DIAGONAL_SCALING_NARROW_DRAG_CASES = [
   }
 ] satisfies TextScaleHandleCase[]
 
-/** Минимальный размер шрифта при скейлинге отдельного текста. */
+/** Minimum font size when scaling standalone text. */
 export const TEXT_SCALING_MINIMUM_FONT_SIZE = 8
 
-/** Коэффициент для проверки дальнейшего сужения после упора в минимум без отпускания ручки. */
+/** Factor for testing further narrowing after reaching the minimum without releasing the handle. */
 export const TEXT_DIAGONAL_MINIMUM_PROBE_SCALING_FACTOR = 0.05
 
-/** Положение указателя ниже минимального размера для проверки нового углового скейлинга. */
+/** Pointer position below the minimum size for testing a new corner-scaling gesture. */
 export const TEXT_CORNER_SCALE_BELOW_MINIMUM_MULTIPLIER = 0.5
 
-/** Коэффициент для возврата текста назад без завершения текущего диагонального скейлинга. */
+/** Factor for restoring the text without ending the current diagonal-scaling gesture. */
 export const TEXT_DIAGONAL_RECOVERY_SCALING_FACTOR = 1.35
 
-/** Коэффициент для повторного увеличения текста после фиксации минимального размера. */
+/** Factor for enlarging text again after committing the minimum size. */
 export const TEXT_DIAGONAL_REEXPAND_SCALING_FACTOR = 1.5
 
-/** Конфигурация однострочного текста для проверки упора в минимум при диагональном скейлинге. */
+/** Single-line text configuration for testing the minimum limit during diagonal scaling. */
 export const TEXT_MINIMUM_SCALING_ADD_OPTIONS: TextAddParams = {
   text: 'TEST',
   autoExpand: false,
@@ -324,7 +324,7 @@ export const TEXT_MINIMUM_SCALING_ADD_OPTIONS: TextAddParams = {
   top: 352
 }
 
-/** Настройки отдельного текста, воспроизводящие ошибку переноса строк при сужении. */
+/** Standalone-text settings that reproduce the line-wrapping error during narrowing. */
 export const TEXT_RESIZING_REGRESSION_ADD_OPTIONS: TextAddParams = {
   text: '69\nЧасов музыки',
   autoExpand: false,
@@ -349,7 +349,7 @@ export const TEXT_RESIZING_REGRESSION_ADD_OPTIONS: TextAddParams = {
   top: 352
 }
 
-/** Inline-стиль второй строки regression text-объекта. */
+/** Inline style of the regression text object's second line. */
 export const TEXT_RESIZING_REGRESSION_SECOND_LINE_STYLE: TextInlineStyle = {
   fontFamily: 'Open Sans',
   fontSize: 24,
@@ -357,7 +357,7 @@ export const TEXT_RESIZING_REGRESSION_SECOND_LINE_STYLE: TextInlineStyle = {
   fontWeight: 'normal'
 }
 
-/** Дефолтные стили строки для regression text-объекта. */
+/** Default line styles for the regression text object. */
 export const TEXT_RESIZING_REGRESSION_LINE_DEFAULTS: TextLineDefaults = {
   1: {
     fontFamily: 'Open Sans',
@@ -365,13 +365,13 @@ export const TEXT_RESIZING_REGRESSION_LINE_DEFAULTS: TextLineDefaults = {
   }
 }
 
-/** Диапазон второй строки regression text-объекта для проверки inline-стилей. */
+/** Second-line range of the regression text object for testing inline styles. */
 export const TEXT_RESIZING_REGRESSION_SECOND_LINE_SELECTION = {
   start: 3,
   end: 15
 }
 
-/** JSON шаблона с отдельным текстом из сценария с переносом строк при сужении. */
+/** Template JSON with standalone text from the line-wrapping-during-narrowing scenario. */
 export const TEXT_RESIZING_REGRESSION_TEMPLATE: TemplateDefinition = {
   id: 'template-tpKVnnCeBLwc7PcNTWW21',
   meta: {
@@ -496,7 +496,7 @@ export const TEXT_RESIZING_REGRESSION_TEMPLATE: TemplateDefinition = {
   ]
 }
 
-/** JSON шаблона из сценария, где отдельный текст дрожит при сужении за правый верхний угол. */
+/** Template JSON from the scenario where standalone text jitters when narrowed from the top-right corner. */
 export const TEXT_TOP_RIGHT_SCALING_REGRESSION_TEMPLATE: TemplateDefinition = {
   id: 'template-li-6iWreVuR-zClIK1_iN',
   meta: {

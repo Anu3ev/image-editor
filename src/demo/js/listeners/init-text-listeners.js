@@ -18,7 +18,7 @@ import {
 } from './shared-ui.js'
 
 /**
- * Инициализирует listeners и синхронизацию для текстовых объектов.
+ * Initializes listeners and synchronization for text objects.
  */
 export default ({ editorInstance, controls }) => {
   const {
@@ -60,7 +60,7 @@ export default ({ editorInstance, controls }) => {
   let textStrokeButtons = []
 
   /**
-   * Возвращает ширину обводки текста из input.
+   * Returns the text stroke width from the input.
    */
   const getStrokeWidthFromInput = () => {
     const rawWidth = Number(textStrokeWidthInput.value)
@@ -68,7 +68,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Переключает доступность фоновых контролов текста.
+   * Toggles the availability of text background controls.
    */
   const setBackgroundControlsEnabled = ({ enabled }) => {
     textBackgroundColorInput.disabled = !enabled
@@ -84,7 +84,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Переключает доступность контролов stroke текста.
+   * Toggles the availability of text stroke controls.
    */
   const setStrokeControlsEnabled = ({ enabled }) => {
     textStrokeColorInput.disabled = !enabled
@@ -95,7 +95,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Обновляет UI ширины stroke текста.
+   * Updates the text stroke width UI.
    */
   const setStrokeWidthUI = ({ width }) => {
     const normalized = Math.max(0, Math.round(width))
@@ -105,7 +105,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Обновляет UI кнопки выравнивания текста.
+   * Updates the text alignment button UI.
    */
   const updateAlignButtonDisplay = ({ align }) => {
     const normalized = ALIGN_SEQUENCE.includes(align) ? align : 'left'
@@ -115,7 +115,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Добавляет option шрифта в select, если его там еще нет.
+   * Adds a font option to the select if it is not already present.
    */
   const ensureFontOption = ({ family }) => {
     if (!family) return
@@ -134,13 +134,13 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Проверяет, является ли объект текстовым.
+   * Checks whether the object is a text object.
    */
   const isTextboxObject = (object) => Boolean(object)
     && (object.type === 'textbox' || object.type === 'background-textbox')
 
   /**
-   * Возвращает активный текстовый объект.
+   * Returns the active text object.
    */
   const getActiveText = () => {
     const object = editorInstance.canvas.getActiveObject()
@@ -150,7 +150,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает текстовый target для UI: обычный textbox или текст внутри активного shape.
+   * Returns the UI text target: a regular textbox or text inside the active shape.
    */
   const getActiveTextTarget = () => {
     const activeText = getActiveText()
@@ -160,8 +160,8 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Синхронизирует standalone-only control autoExpand.
-   * Для текста внутри shape этот режим должен управляться только через shape API.
+   * Synchronizes the standalone-only autoExpand control.
+   * For text inside a shape, this mode must be controlled only through the shape API.
    */
   const syncTextAutoExpandControl = ({ textbox = null } = {}) => {
     const activeText = getActiveText()
@@ -180,7 +180,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Проверяет, считается ли значение жирным начертанием.
+   * Checks whether the value represents bold text.
    */
   const isBoldValue = (value) => {
     if (value === 'bold') return true
@@ -193,7 +193,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает информацию о выделении текста внутри textbox.
+   * Returns information about the text selection inside the textbox.
    */
   const getTextboxSelectionInfo = (textbox) => {
     if (!textbox?.isEditing) return null
@@ -213,7 +213,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает общее значение свойства для всего выделения текста.
+   * Returns the shared property value across the entire text selection.
    */
   const getSelectionUniformValue = ({ selectionInfo, extractor }) => {
     if (!selectionInfo || !selectionInfo.styles.length) return undefined
@@ -232,7 +232,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Синхронизирует содержимое и типографику текста с UI.
+   * Synchronizes text content and typography with the UI.
    */
   const syncTextTypographyControls = ({ textbox, selectionInfo }) => {
     const fallbackText = textbox.text ?? ''
@@ -271,7 +271,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Синхронизирует toggle-кнопки текста с UI.
+   * Synchronizes text toggle buttons with the UI.
    */
   const syncTextToggleControls = ({ textbox, selectionInfo }) => {
     const selectionBold = getSelectionUniformValue({
@@ -316,7 +316,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Синхронизирует fill, stroke и opacity текста с UI.
+   * Synchronizes text fill, stroke, and opacity with the UI.
    */
   const syncTextAppearanceControls = ({ textbox, selectionInfo }) => {
     const selectionFillColor = getSelectionUniformValue({
@@ -371,7 +371,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Синхронизирует фоновые параметры текста с UI.
+   * Synchronizes text background settings with the UI.
    */
   const syncTextBackgroundControls = ({ textbox }) => {
     const {
@@ -441,7 +441,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Полностью синхронизирует текстовые контролы с активным объектом.
+   * Fully synchronizes text controls with the active object.
    */
   const syncTextControls = (textbox) => {
     syncTextAutoExpandControl({ textbox })
@@ -459,7 +459,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет style к активному текстовому объекту.
+   * Applies a style to the active text object.
    */
   const applyTextStyle = ({ style, options = {} }) => {
     if (isSyncingControls) return
@@ -492,8 +492,8 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет autoExpand только к активному standalone text-объекту.
-   * Текст внутри shape должен управляться отдельным shape-level режимом.
+   * Applies autoExpand only to the active standalone text object.
+   * Text inside a shape must be controlled by a separate shape-level mode.
    */
   const applyStandaloneTextAutoExpand = ({ autoExpand }) => {
     if (isSyncingControls) return
@@ -511,7 +511,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет горизонтальное выравнивание к активному тексту или тексту внутри активного shape.
+   * Applies horizontal alignment to the active text or text inside the active shape.
    */
   const applyTextAlign = ({ align }) => {
     const activeText = getActiveText()
@@ -534,7 +534,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Собирает стиль фона текста из текущих input'ов.
+   * Builds the text background style from the current inputs.
    */
   const getBackgroundStyleFromInputs = () => {
     const backgroundOpacityPercent = parseNumberInput({
@@ -572,7 +572,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Собирает опции для создания нового текста из контролов.
+   * Builds options for creating new text from the controls.
    */
   const getTextCreateOptions = () => {
     const text = textContentInput.value?.length ? textContentInput.value : DEFAULT_TEXT_VALUE
@@ -642,7 +642,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Инициализирует список доступных шрифтов.
+   * Initializes the list of available fonts.
    */
   const initFontOptions = () => {
     const customFonts = (editorInstance.options.fonts ?? [])
@@ -660,7 +660,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Инициализирует палитры текста и стартовое состояние UI.
+   * Initializes text palettes and the initial UI state.
    */
   const initTextControls = () => {
     textColorButtons = renderPalette({
@@ -700,7 +700,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает палитры текста на изменение цветов.
+   * Registers color change listeners for the text palettes.
    */
   const initTextPaletteListeners = () => {
     const fillButtons = textColorButtons
@@ -742,7 +742,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает базовые текстовые контролы на изменения.
+   * Registers change listeners for the basic text controls.
    */
   const initTextInputListeners = () => {
     addTextBtn.addEventListener('click', () => {
@@ -792,7 +792,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает toggle-контролы текста.
+   * Registers listeners for text toggle controls.
    */
   const initTextToggleListeners = () => {
     const toggleHandlers = [
@@ -826,7 +826,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает контролы цвета, stroke и opacity текста.
+   * Registers listeners for text color, stroke, and opacity controls.
    */
   const initTextAppearanceListeners = () => {
     textColorInput.addEventListener('input', (event) => {
@@ -927,7 +927,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает контролы фона текста.
+   * Registers listeners for text background controls.
    */
   const initTextBackgroundListeners = () => {
     textBackgroundEnabledCheckbox.addEventListener('change', () => {
@@ -988,7 +988,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает padding-контролы текста.
+   * Registers listeners for text padding controls.
    */
   const initTextPaddingListeners = () => {
     const paddingInputs = [
@@ -1021,7 +1021,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает контролы радиусов текста.
+   * Registers listeners for text corner radius controls.
    */
   const initTextRadiusListeners = () => {
     const radiusInputs = [

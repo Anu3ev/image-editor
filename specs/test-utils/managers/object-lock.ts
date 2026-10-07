@@ -32,7 +32,7 @@ export type NestedLockGroupTarget = {
 }
 
 /**
- * Создаёт минимальный setup для unit-тестов ObjectLockManager.
+ * Creates a minimal setup for ObjectLockManager unit tests.
  */
 export const createObjectLockManagerSetup = (): ObjectLockManagerTestSetup => {
   const {
@@ -50,7 +50,7 @@ export const createObjectLockManagerSetup = (): ObjectLockManagerTestSetup => {
 }
 
 /**
- * Создаёт shape-group с внутренним shape-узлом и textbox для lock-сценариев.
+ * Creates a shape group with an internal shape node and textbox for lock scenarios.
  */
 export const createShapeGroupLockTarget = (): ShapeGroupLockTarget => {
   const shape = createMockShapeNode()
@@ -70,7 +70,7 @@ export const createShapeGroupLockTarget = (): ShapeGroupLockTarget => {
 }
 
 /**
- * Создаёт обычную вложенную group-структуру для проверки рекурсивного lock/unlock.
+ * Creates a standard nested group structure for testing recursive lock/unlock.
  */
 export const createNestedLockGroupTarget = (): NestedLockGroupTarget => {
   const innerLeaf = createMockFabricObject({

@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные функции держим выше private helpers. */
+/* eslint-disable no-use-before-define -- Keep public functions above private helpers. */
 import type { FabricImage } from 'fabric'
 
 import {
@@ -12,11 +12,11 @@ import type {
   CropSize
 } from '../types'
 
-/** Допуск округления crop-result на границе .5 после floating-point вычислений. */
+/** Rounding tolerance for crop results near the .5 boundary after floating-point calculations. */
 const CROP_RESULT_ROUNDING_EPSILON = 0.000001
 
 /**
- * Возвращает crop rect в координатах результата текущей session.
+ * Returns the crop rect in the coordinate system of the current session result.
  */
 export function getCropSessionResultRect({ session }: { session: CropSession }): CropRect {
   if (session.mode === 'canvas') {
@@ -30,7 +30,7 @@ export function getCropSessionResultRect({ session }: { session: CropSession }):
 }
 
 /**
- * Возвращает pixel-rect без отрицательных размеров.
+ * Returns a pixel rect without negative dimensions.
  */
 export function getRoundedCropRect({
   rect,
@@ -59,14 +59,14 @@ export function getRoundedCropRect({
 }
 
 /**
- * Округляет crop-координату или размер с микродопуском к погрешности double arithmetic.
+ * Rounds a crop coordinate or dimension with a small tolerance for double-precision arithmetic errors.
  */
 function roundCropValue({ value }: { value: number }): number {
   return Math.round(value + CROP_RESULT_ROUNDING_EPSILON)
 }
 
 /**
- * Возвращает округлённую start-координату, не выпуская rect за source при известной source-size.
+ * Returns the rounded start coordinate, keeping the rect within the source when the source size is known.
  */
 function resolveRoundedCropStart({
   start,
@@ -87,14 +87,14 @@ function resolveRoundedCropStart({
 }
 
 /**
- * Проверяет минимальную валидность crop rect.
+ * Checks the basic validity of the crop rect.
  */
 export function isValidCropRect({ rect }: { rect: CropRect }): boolean {
   return rect.width >= MIN_CROP_FRAME_SIZE && rect.height >= MIN_CROP_FRAME_SIZE
 }
 
 /**
- * Возвращает rect canvas crop от top-left монтажной области.
+ * Returns the canvas crop rect relative to the top-left corner of the artboard.
  */
 function getCanvasCropResultRect({ session }: { session: CropSession }): CropRect {
   const rect = getCropRectInSource({
@@ -112,7 +112,7 @@ function getCanvasCropResultRect({ session }: { session: CropSession }): CropRec
 }
 
 /**
- * Возвращает rect image crop от top-left текущей видимой области изображения.
+ * Returns the image crop rect relative to the top-left corner of the currently visible image area.
  */
 function getImageCropResultRect({
   target,

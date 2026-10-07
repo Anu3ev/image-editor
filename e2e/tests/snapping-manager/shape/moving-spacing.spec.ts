@@ -2,7 +2,7 @@ import { test, expect } from '../../../fixtures/editor.fixture'
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Геометрия трёх шейпов для проверки равноудалённости. */
+/** Geometry of three shapes for testing equal spacing. */
 type ShapeSpacingSetup = {
   activeShapeId: string
   active: SnappingObjectSnapshot

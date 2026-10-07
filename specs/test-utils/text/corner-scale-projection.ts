@@ -8,7 +8,7 @@ import { createTextCornerScaleStepProjection } from '../../../src/editor/text-ma
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 import { createTextCornerScaleInteractionHarness } from './corner-scale-interaction'
 
-/** Исходные и измеренные данные одного шага углового скейлинга текста. */
+/** Initial and measured data for one text corner-scaling step. */
 type MeasuredTextCornerScaleProjectionSetup = Readonly<{
   measuredBounds: ObjectBounds
   originalProjection: ScaleProjection
@@ -18,7 +18,7 @@ type MeasuredTextCornerScaleProjectionSetup = Readonly<{
   step: ScaleStepProjectionInput
 }>
 
-/** Создаёт исходную и локальную проекции для проверки измеренного шага текста. */
+/** Creates initial and local projections for testing the measured text step. */
 export function createMeasuredTextCornerScaleProjectionSetup(): MeasuredTextCornerScaleProjectionSetup {
   const { baselineBounds, fixedAnchor, gesture } = createTextCornerScaleInteractionHarness()
   const scale = 1.25

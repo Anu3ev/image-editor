@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Public CropDimmingOverlay держим выше private drawing helpers. */
+/* eslint-disable no-use-before-define -- Keep the public CropDimmingOverlay above the private drawing helpers. */
 import {
   Point,
   Rect,
@@ -7,16 +7,16 @@ import {
   type FabricObject
 } from 'fabric'
 
-/** Цвет затемнения вне активной crop-области. */
+/** Dimming color outside the active crop area. */
 const CROP_DIMMING_OVERLAY_FILL = '#000000'
 
-/** Непрозрачность затемнения вне активной crop-области. */
+/** Dimming opacity outside the active crop area. */
 const CROP_DIMMING_OVERLAY_OPACITY = 0.25
 
-/** Минимальный размер Fabric-объекта, который служит viewport-якорем overlay. */
+/** Minimum size of the Fabric object used as the viewport anchor for the overlay. */
 const CROP_DIMMING_OVERLAY_ANCHOR_SIZE = 1
 
-/** Runtime-параметры transient overlay crop-сессии. */
+/** Runtime parameters for the transient crop session overlay. */
 interface CropDimmingOverlayOptions {
   canvas: Canvas
   frame: Rect
@@ -26,27 +26,27 @@ interface CropDimmingOverlayOptions {
 }
 
 /**
- * Transient Fabric overlay, который затемняет viewport вне live crop frame.
- * Объект не добавляется в canvas object stack и не участвует в history.
+ * Transient Fabric overlay that dims the viewport outside the live crop frame.
+ * The object is not added to the canvas object stack and does not participate in history.
  */
 export class CropDimmingOverlay extends Rect {
-  /** Canvas, в viewport-плоскости которого строится затемнение. */
+  /** Canvas whose viewport coordinate plane is used to draw the dimming overlay. */
   private readonly _canvas: Canvas
 
-  /** Live crop frame, который образует прозрачное отверстие в overlay. */
+  /** Live crop frame that defines the transparent opening in the overlay. */
   private readonly _frame: Rect
 
-  /** Overlay canvas, который был установлен до входа в crop mode. */
+  /** Canvas overlay that was set before entering crop mode. */
   public readonly previousOverlayImage: FabricObject | undefined
 
-  /** Предыдущее поведение overlay относительно viewport transform. */
+  /** Previous overlay behavior with respect to the viewport transform. */
   public readonly previousOverlayVpt: boolean
 
-  /** Предыдущий порядок отрисовки controls относительно overlay. */
+  /** Previous rendering order of controls relative to the overlay. */
   public readonly previousControlsAboveOverlay: boolean
 
   /**
-   * @param options - runtime-ссылки crop-сессии и состояние canvas до установки overlay.
+   * @param options - Crop session runtime references and canvas state before installing the overlay.
    */
   constructor({
     canvas,
@@ -81,7 +81,7 @@ export class CropDimmingOverlay extends Rect {
     this.previousControlsAboveOverlay = previousControlsAboveOverlay
   }
 
-  /** Рисует чёрную маску с прозрачным отверстием по актуальной geometry crop frame. */
+  /** Draws a black mask with a transparent opening based on the current crop frame geometry. */
   public override _render(ctx: CanvasRenderingContext2D): void {
     const canvasCorners = getCanvasCornersInOverlayPlane({
       canvas: this._canvas,
@@ -101,7 +101,7 @@ export class CropDimmingOverlay extends Rect {
   }
 }
 
-/** Устанавливает transient dimming overlay для активной crop-сессии. */
+/** Installs the transient dimming overlay for the active crop session. */
 export function installCropDimmingOverlay({
   canvas,
   frame
@@ -122,7 +122,7 @@ export function installCropDimmingOverlay({
   canvas.controlsAboveOverlay = true
 }
 
-/** Восстанавливает canvas overlay state, который существовал до crop-сессии. */
+/** Restores the canvas overlay state that existed before the crop session. */
 export function restoreCropDimmingOverlay({ canvas }: { canvas: Canvas }): void {
   const overlay = canvas.overlayImage
   if (!(overlay instanceof CropDimmingOverlay)) return
@@ -132,7 +132,7 @@ export function restoreCropDimmingOverlay({ canvas }: { canvas: Canvas }): void 
   canvas.controlsAboveOverlay = overlay.previousControlsAboveOverlay
 }
 
-/** Возвращает углы canvas в локальной системе координат dimming overlay. */
+/** Returns the canvas corners in the local coordinate system of the dimming overlay. */
 function getCanvasCornersInOverlayPlane({
   canvas,
   overlay
@@ -152,7 +152,7 @@ function getCanvasCornersInOverlayPlane({
   ].map((point) => point.transform(inverseOverlayTransform))
 }
 
-/** Возвращает углы crop frame в локальной системе координат dimming overlay. */
+/** Returns the crop frame corners in the local coordinate system of the dimming overlay. */
 function getCropFrameCornersInOverlayPlane({
   canvas,
   frame,
@@ -173,7 +173,7 @@ function getCropFrameCornersInOverlayPlane({
   })
 }
 
-/** Возвращает четыре угла Rect в его локальной системе координат. */
+/** Returns the four corners of a Rect in its local coordinate system. */
 function getRectLocalCorners({ rect }: { rect: Rect }): Point[] {
   const halfWidth = rect.width / 2
   const halfHeight = rect.height / 2
@@ -186,7 +186,7 @@ function getRectLocalCorners({ rect }: { rect: Rect }): Point[] {
   ]
 }
 
-/** Добавляет замкнутый контур в текущий Canvas 2D path. */
+/** Adds a closed contour to the current Canvas 2D path. */
 function appendClosedPath({
   ctx,
   points

@@ -8,21 +8,21 @@ import {
   type TextWidthResizeGestureProjection
 } from './text-width-resize-projection'
 
-/** Точная геометрия Textbox при проверяемой ширине. */
+/** Exact Textbox geometry at the width being checked. */
 export type TextWidthResizeMeasurement = Readonly<{
   projection: ScaleStepProjectionInput
   width: number
 }>
 
-/** Измеряет перенос строк вне живого объекта текущего взаимодействия. */
+/** Measures line wrapping outside the current interaction's live object. */
 export default class TextWidthResizeMeasurer {
-  /** Отдельный Textbox, который не добавляется на холст. */
+  /** Separate Textbox that is not added to the canvas. */
   private readonly textbox: EditorTextbox
 
-  /** Исходная геометрия и неподвижная точка текущего жеста. */
+  /** Original geometry and fixed point of the current gesture. */
   private readonly gesture: TextWidthResizeGestureProjection
 
-  /** Создаёт измерительный Textbox с копией свойств живого объекта. */
+  /** Creates a measurement Textbox with a copy of the live object's properties. */
   constructor({
     target,
     gesture
@@ -37,7 +37,7 @@ export default class TextWidthResizeMeasurer {
     })
   }
 
-  /** Возвращает точную геометрию после переноса строк при заданной ширине. */
+  /** Returns exact geometry after wrapping lines at the given width. */
   public measure({ width }: { width: number }): TextWidthResizeMeasurement {
     const appliedWidth = applyCanonicalTextboxWidth({ textbox: this.textbox, width })
     const {
@@ -63,7 +63,7 @@ export default class TextWidthResizeMeasurer {
     return Object.freeze({ projection, width: appliedWidth })
   }
 
-  /** Освобождает внутренние ресурсы измерительного Textbox. */
+  /** Releases the measurement Textbox's internal resources. */
   public dispose(): void {
     this.textbox.dispose()
   }

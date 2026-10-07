@@ -6,7 +6,7 @@ import {
 } from './constants.js'
 
 /**
- * Инициализирует listeners для сериализации шаблона и активного объекта.
+ * Initializes listeners for template and active object serialization.
  */
 export default ({ editorInstance, controls }) => {
   const {
@@ -20,7 +20,7 @@ export default ({ editorInstance, controls }) => {
   } = controls
 
   /**
-   * Возвращает активный объект, если выбран только один объект.
+   * Returns the active object if exactly one object is selected.
    */
   const getSingleActiveObject = () => {
     const activeObject = editorInstance.canvas.getActiveObject()
@@ -33,7 +33,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Записывает значение в textarea шаблона.
+   * Writes a value to the template textarea.
    */
   const setTemplateInputValue = ({ value = '' }) => {
     if (!templateJsonInput) return
@@ -41,12 +41,12 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает текущее значение textarea шаблона.
+   * Returns the current value of the template textarea.
    */
   const getTemplateInputValue = () => templateJsonInput?.value ?? ''
 
   /**
-   * Синхронизирует textarea JSON активного объекта.
+   * Synchronizes the active object's JSON textarea.
    */
   const syncActiveObjectJson = () => {
     if (!activeObjectJsonInput) return
@@ -70,7 +70,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет JSON из textarea к активному объекту.
+   * Applies the JSON from the textarea to the active object.
    */
   const applyActiveObjectJson = async() => {
     if (!activeObjectJsonInput) return
@@ -108,7 +108,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на работу с шаблонами.
+   * Registers listeners for template operations.
    */
   const initTemplateListeners = () => {
     serializeTemplateBtn?.addEventListener('click', async() => {
@@ -143,7 +143,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает listeners на работу с JSON активного объекта.
+   * Registers listeners for active-object JSON operations.
    */
   const initActiveObjectListeners = () => {
     loadActiveObjectBtn?.addEventListener('click', syncActiveObjectJson)

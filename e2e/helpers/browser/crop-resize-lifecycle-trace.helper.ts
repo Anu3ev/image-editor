@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-explicit-any -- Fabric API внутри страницы не имеет полных типов в тестовом процессе. */
+/* eslint-disable @typescript-eslint/no-explicit-any -- The in-page Fabric API lacks complete types in the test process. */
 import { expect, type JSHandle, type Page } from '@playwright/test'
 
 import type {
@@ -7,7 +7,7 @@ import type {
   SnappingGuideState
 } from '../../types'
 
-/** Событие Fabric, которое проверяет сценарий изменения размера crop frame. */
+/** Fabric event checked by the crop-frame resize scenario. */
 export type CropResizeLifecycleTraceStage =
   | 'canvas:object:scaling'
   | 'canvas:mouse:move'
@@ -20,7 +20,7 @@ export type CropResizeLifecycleTraceStage =
   | 'target:modified'
   | 'target:mouseup'
 
-/** Текущая геометрия crop frame в координатах canvas-сцены. */
+/** Current crop-frame geometry in canvas-scene coordinates. */
 export type CropResizeLifecycleFrameGeometry = {
   left: number
   top: number
@@ -30,7 +30,7 @@ export type CropResizeLifecycleFrameGeometry = {
   scaleY: number
 }
 
-/** Состояние crop, снятое синхронно внутри одного обработчика Fabric. */
+/** Crop state captured synchronously inside a single Fabric handler. */
 export type CropResizeLifecycleTraceSnapshot = {
   cropRect: CropRectInfo | null
   frame: CropResizeLifecycleFrameGeometry
@@ -39,37 +39,37 @@ export type CropResizeLifecycleTraceSnapshot = {
   historyPatchCount: number
 }
 
-/** Одна упорядоченная запись изменения размера crop frame. */
+/** One ordered crop-frame resize record. */
 export type CropResizeLifecycleTraceEntry = CropResizeLifecycleTraceSnapshot & {
   order: number
   stage: CropResizeLifecycleTraceStage
   sourceEventId: number | null
 }
 
-/** Начальное, промежуточные и итоговое состояния одного изменения размера crop frame. */
+/** Initial, intermediate, and final states of one crop-frame resize. */
 export type CropResizeLifecycleTraceResult = {
   baseline: CropResizeLifecycleTraceSnapshot
   entries: CropResizeLifecycleTraceEntry[]
   final: CropResizeLifecycleTraceSnapshot
 }
 
-/** Правило сопоставления записи с исходным DOM-событием. */
+/** Rule for matching a record to the original DOM event. */
 type CropResizeSourceEventMode = 'event' | 'current' | 'none'
 
-/** Методы Fabric-объекта, необходимые для временной подписки. */
+/** Fabric-object methods required for a temporary subscription. */
 type TraceEventOwner = {
   on: (eventName: string, handler: (event: unknown) => void) => void
   off: (eventName: string, handler: (event: unknown) => void) => void
 }
 
-/** Одна временная подписка внутри страницы. */
+/** One temporary in-page subscription. */
 type TraceSubscription = {
   owner: TraceEventOwner
   eventName: string
   handler: (event: unknown) => void
 }
 
-/** Сборщик событий и сохранённая ссылка на активный crop frame внутри страницы. */
+/** Event collector and saved reference to the active in-page crop frame. */
 type CropResizeTraceSession = {
   frame: TraceEventOwner
   entries: CropResizeLifecycleTraceEntry[]
@@ -85,30 +85,30 @@ type CropResizeTraceSession = {
   }) => void
 }
 
-/** Активная запись изменения размера crop frame в тестовом процессе. */
+/** Active crop-frame resize recording in the test process. */
 type ActiveCropResizeTrace = {
   baseline: CropResizeLifecycleTraceSnapshot
   session: JSHandle<CropResizeTraceSession>
 }
 
-/** Количество событий, на которые подписывается временная запись. */
+/** Number of events the temporary recording subscribes to. */
 const CROP_RESIZE_EXPECTED_SUBSCRIPTION_COUNT = 10
 
 /**
- * Записывает события реального изменения crop frame, не подменяя обработчики редактора.
+ * Records real crop-frame change events without replacing editor handlers.
  */
 export class CropResizeLifecycleTrace {
   private readonly page: Page
 
   private activeTrace: ActiveCropResizeTrace | null
 
-  /** Создаёт запись изменения crop frame на указанной странице редактора. */
+  /** Creates a crop-frame change recording on the specified editor page. */
   constructor(page: Page) {
     this.page = page
     this.activeTrace = null
   }
 
-  /** Начинает запись событий активного crop frame. */
+  /** Starts recording active crop-frame events. */
   async start(): Promise<CropResizeLifecycleTraceSnapshot> {
     expect(this.activeTrace, 'перед началом трассировки не должно быть другого изменения crop frame').toBeNull()
     expect(this.page, 'для трассировки изменения crop frame должна существовать страница').toBeDefined()
@@ -128,7 +128,7 @@ export class CropResizeLifecycleTrace {
     return baseline
   }
 
-  /** Снимает временные обработчики и возвращает записанные состояния. */
+  /** Removes temporary handlers and returns the recorded states. */
   async finish(): Promise<CropResizeLifecycleTraceResult> {
     expect(this.activeTrace, 'нельзя завершить трассировку изменения размера до начала записи').not.toBeNull()
     expect(this.page, 'страница должна существовать до завершения трассировки изменения размера').toBeDefined()
@@ -161,7 +161,7 @@ export class CropResizeLifecycleTrace {
     }
   }
 
-  /** Создаёт сборщик событий внутри страницы и сохраняет активный crop frame. */
+  /** Creates an in-page event collector and saves the active crop frame. */
   private async _createTraceSession(): Promise<JSHandle<CropResizeTraceSession>> {
     const session = await this.page.evaluateHandle(() => {
       const { editor } = window as any
@@ -188,7 +188,7 @@ export class CropResizeLifecycleTrace {
     return session
   }
 
-  /** Настраивает единое чтение геометрии, направляющих, индикатора и history. */
+  /** Sets up unified reading of geometry, guides, the indicator, and history. */
   private async _installSnapshotReader(params: {
     session: JSHandle<CropResizeTraceSession>
   }): Promise<void> {
@@ -237,7 +237,7 @@ export class CropResizeLifecycleTrace {
     expect(session, 'сборщик событий должен сохраниться после настройки чтения состояния').toBeDefined()
   }
 
-  /** Нумерует исходные DOM-события и записывает порядок вызовов. */
+  /** Numbers original DOM events and records the call order. */
   private async _installRecorder(params: {
     session: JSHandle<CropResizeTraceSession>
   }): Promise<void> {
@@ -271,7 +271,7 @@ export class CropResizeLifecycleTrace {
     expect(session, 'сборщик событий должен сохраниться после настройки записи').toBeDefined()
   }
 
-  /** Подписывает запись на необходимый набор событий canvas и crop frame. */
+  /** Subscribes the recording to the required canvas and crop-frame events. */
   private async _attachListeners(params: {
     session: JSHandle<CropResizeTraceSession>
   }): Promise<void> {

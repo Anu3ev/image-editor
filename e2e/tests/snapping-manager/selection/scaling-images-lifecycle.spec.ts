@@ -3,7 +3,7 @@ import {
   expect
 } from '../../../fixtures/active-selection-scaling.fixture'
 
-/** Поля изображения, которые должны восстанавливаться через undo и redo. */
+/** Image fields that should be restored through undo and redo. */
 const IMAGE_HISTORY_FIELDS = [
   'boundsLeft',
   'boundsTop',
@@ -14,7 +14,7 @@ const IMAGE_HISTORY_FIELDS = [
   'angle'
 ] as const
 
-/** Точность сравнения геометрии после сериализации в истории. */
+/** Precision for geometry comparisons after serialization in history. */
 const HISTORY_GEOMETRY_PRECISION = 2
 
 test('после mouseup сохраняет геометрию и скрывает индикатор и направляющие', async({

@@ -12,29 +12,29 @@ export type SetColorOptions = {
 
 export type GradientColorStop = {
   color: string
-  offset: number // позиция цвета в процентах (0-100)
+  offset: number // color position as a percentage (0-100)
 }
 
 export type LinearGradientBackground = {
   type: 'linear'
-  angle: number // угол в градусах (0-360)
-  startColor?: string // HEX цвет начала градиента (опционально, если есть colorStops)
-  endColor?: string // HEX цвет конца градиента (опционально, если есть colorStops)
-  startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
-  endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
-  colorStops?: GradientColorStop[] // Массив цветов градиента
+  angle: number // angle in degrees (0-360)
+  startColor?: string // gradient start color in HEX (optional when colorStops is provided)
+  endColor?: string // gradient end color in HEX (optional when colorStops is provided)
+  startPosition?: number // start color position (0-100, defaults to 0)
+  endPosition?: number // end color position (0-100, defaults to 100)
+  colorStops?: GradientColorStop[] // Array of gradient colors
 }
 
 export type RadialGradientBackground = {
   type: 'radial'
-  centerX?: number // позиция центра по X в процентах (0-100, по умолчанию 50)
-  centerY?: number // позиция центра по Y в процентах (0-100, по умолчанию 50)
-  radius?: number // радиус в процентах (0-100, по умолчанию 50)
-  startColor?: string // HEX цвет центра градиента (опционально, если есть colorStops)
-  endColor?: string // HEX цвет края градиента (опционально, если есть colorStops)
-  startPosition?: number // позиция начального цвета (0-100, по умолчанию 0)
-  endPosition?: number // позиция конечного цвета (0-100, по умолчанию 100)
-  colorStops?: GradientColorStop[] // Массив цветов градиента
+  centerX?: number // center X position as a percentage (0-100, defaults to 50)
+  centerY?: number // center Y position as a percentage (0-100, defaults to 50)
+  radius?: number // radius as a percentage (0-100, defaults to 50)
+  startColor?: string // gradient center color in HEX (optional when colorStops is provided)
+  endColor?: string // gradient edge color in HEX (optional when colorStops is provided)
+  startPosition?: number // start color position (0-100, defaults to 0)
+  endPosition?: number // end color position (0-100, defaults to 100)
+  colorStops?: GradientColorStop[] // Array of gradient colors
 }
 
 export type GradientBackground = LinearGradientBackground | RadialGradientBackground
@@ -53,7 +53,7 @@ export type SetImageOptions = {
   withoutSave?: boolean
 }
 
-/** Параметры установки уже подготовленного image-объекта как фона. */
+/** Options for setting an already prepared image object as the background. */
 export type SetPreparedImageOptions = {
   image: FabricObject
   customData?: object
@@ -95,12 +95,12 @@ type GradientData = LinearGradientData | RadialGradientData
 
 export default class BackgroundManager {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageEditor
 
   /**
-   * Текущий объект фона.
+   * Current background object.
    */
   public backgroundObject: Rect | FabricImage | FabricObject | null
 
@@ -110,9 +110,9 @@ export default class BackgroundManager {
   }
 
   /**
-   * Возвращает каноническую геометрию background-rect для текущей монтажной области.
-   * Цветовой и градиентный фон должны совпадать с montageArea напрямую,
-   * а не проходить через generic fit/crop-логику.
+   * Returns the canonical background rectangle geometry for the current artboard.
+   * Color and gradient backgrounds must match montageArea directly,
+   * without going through the generic fit/crop logic.
    */
   private _getMontageBackgroundRectOptions(): Pick<
   Rect,
@@ -137,9 +137,9 @@ export default class BackgroundManager {
   }
 
   /**
-   * Синхронизирует геометрию background с монтажной областью.
-   * Цветовой и градиентный background совпадают с montageArea напрямую,
-   * image background продолжает использовать cover-fit относительно montageArea.
+   * Synchronizes the background geometry with the artboard.
+   * Color and gradient backgrounds match montageArea directly;
+   * image backgrounds continue to use cover-fit relative to montageArea.
    */
   private _syncBackgroundGeometry(): void {
     const { backgroundObject } = this
@@ -161,10 +161,10 @@ export default class BackgroundManager {
   }
 
   /**
-   * Устанавливает фон сплошного цвета.
-   * @param options - Опции для установки цвета фона
-   * @param options.color - Цвет фона в формате HEX (например, "#FF0000")
-   * @param options.withoutSave - Если true, не сохранять состояние в историю
+   * Sets a solid-color background.
+   * @param options - Options for setting the background color
+   * @param options.color - Background color in HEX format (for example, "#FF0000")
+   * @param options.withoutSave - If true, do not save the state to history
    */
   public setColorBackground({
     color,
@@ -182,19 +182,19 @@ export default class BackgroundManager {
         const currentFill = backgroundObject.fill
 
         if (currentFill === color) {
-          // Если цвет не изменился, ничего не делаем
+          // Do nothing if the color has not changed
           historyManager.resumeHistory()
           return
         }
 
-        // Обновляем существующий цветовой фон
+        // Update the existing color background
         backgroundObject.set({
           fill: color,
           backgroundId: `background-${nanoid()}`
         })
         this.editor.canvas.requestRenderAll()
       } else {
-        // Создаем новый цветовой фон
+        // Create a new color background
         this._removeCurrentBackground()
         this._createColorBackground(color)
       }
@@ -225,10 +225,10 @@ export default class BackgroundManager {
   }
 
   /**
-   * Устанавливает градиентный фон.
-   * @param options - Опции для установки градиентного фона
-   * @param options.gradient - Объект с параметрами градиента
-   * @param options.withoutSave - Если true, не сохранять состояние в историю
+   * Sets a gradient background.
+   * @param options - Options for setting a gradient background
+   * @param options.gradient - Object containing gradient parameters
+   * @param options.withoutSave - If true, do not save the state to history
    */
   public setGradientBackground({
     gradient,
@@ -243,11 +243,11 @@ export default class BackgroundManager {
       historyManager.suspendHistory()
 
       if (backgroundObject && backgroundObject.backgroundType === 'gradient') {
-        // Обновляем существующий градиентный фон
+        // Update the existing gradient background
         const fabricGradient = BackgroundManager._createFabricGradient(gradient)
 
         if (BackgroundManager._isGradientEqual(backgroundObject.fill as GradientData, fabricGradient)) {
-          // Если градиент не изменился, ничего не делаем
+          // Do nothing if the gradient has not changed
           historyManager.resumeHistory()
           return
         }
@@ -258,7 +258,7 @@ export default class BackgroundManager {
         })
         this.editor.canvas.requestRenderAll()
       } else {
-        // Создаем новый градиентный фон
+        // Create a new gradient background
         this._removeCurrentBackground()
         this._createGradientBackground(gradient)
       }
@@ -289,8 +289,8 @@ export default class BackgroundManager {
   }
 
   /**
-   * Устанавливает линейный градиентный фон.
-   * @param options - Опции для установки линейного градиента
+   * Sets a linear gradient background.
+   * @param options - Options for setting a linear gradient
    */
   public setLinearGradientBackground({
     angle,
@@ -327,8 +327,8 @@ export default class BackgroundManager {
   }
 
   /**
-   * Устанавливает радиальный градиентный фон.
-   * @param options - Опции для установки радиального градиента
+   * Sets a radial gradient background.
+   * @param options - Options for setting a radial gradient
    */
   public setRadialGradientBackground({
     centerX,
@@ -371,10 +371,10 @@ export default class BackgroundManager {
   }
 
   /**
-   * Устанавливает фон из изображения.
-   * @param options - Опции для установки фонового изображения
-   * @param options.imageUrl - URL изображения
-   * @param options.withoutSave - Если true, не сохранять состояние в историю
+   * Sets an image background.
+   * @param options - Options for setting a background image
+   * @param options.imageUrl - Image URL
+   * @param options.withoutSave - If true, do not save the state to history
    */
   public async setImageBackground({
     imageSource,
@@ -413,8 +413,8 @@ export default class BackgroundManager {
   }
 
   /**
-   * Устанавливает уже подготовленный image-объект как фон.
-   * Используется restore/template path, где source уже материализован через ImageManager.
+   * Sets an already prepared image object as the background.
+   * Used by the restore/template path, where the source has already been materialized through ImageManager.
    */
   public setPreparedImageBackground({
     image,
@@ -461,9 +461,9 @@ export default class BackgroundManager {
   }
 
   /**
-   * Удаляет текущий фон.
-   * @param options - Опции для удаления фона
-   * @param options.withoutSave - Если true, не сохранять состояние в историю
+   * Removes the current background.
+   * @param options - Options for removing the background
+   * @param options.withoutSave - If true, do not save the state to history
    */
   public removeBackground({ withoutSave = false }: { withoutSave?: boolean } = {}): void {
     try {
@@ -491,7 +491,7 @@ export default class BackgroundManager {
   }
 
   /**
-   * Обновляет размеры и позицию фона согласно монтажной области.
+   * Updates the background size and position to match the artboard.
    */
   public refresh(): void {
     const {
@@ -506,14 +506,14 @@ export default class BackgroundManager {
 
     this._syncBackgroundGeometry()
 
-    // Проверяем, находится ли фон в правильной позиции (сразу после montageArea)
+    // Check whether the background is in the correct position (immediately after montageArea)
     const objects = canvas.getObjects()
     const montageIndex = objects.indexOf(montageArea)
     const backgroundIndex = objects.indexOf(this.backgroundObject)
 
-    // Перемещаем фон только если он не на правильной позиции
+    // Move the background only if it is not in the correct position
     if (this.backgroundObject && backgroundIndex !== montageIndex + 1) {
-      // Используем moveObjectTo для точного позиционирования без дублирования
+      // Use moveObjectTo for precise positioning without duplication
       canvas.moveObjectTo(this.backgroundObject, montageIndex + 1)
     }
 
@@ -522,8 +522,8 @@ export default class BackgroundManager {
   }
 
   /**
-   * Создает цветовой фон.
-   * @param color - Цвет фона в формате HEX (например, "#FF0000")
+   * Creates a color background.
+   * @param color - Background color in HEX format (for example, "#FF0000")
    */
   private _createColorBackground(color: string): void {
     this.backgroundObject = addRectangleToCanvas({
@@ -546,11 +546,11 @@ export default class BackgroundManager {
   }
 
   /**
-   * Создает градиентный фон.
-   * @param gradient - Объект с параметрами градиента
+   * Creates a gradient background.
+   * @param gradient - Object containing gradient parameters
    */
   private _createGradientBackground(gradient: GradientBackground): void {
-    // Сначала создаем прямоугольник без градиента
+    // First create a rectangle without a gradient
     this.backgroundObject = addRectangleToCanvas({
       canvas: this.editor.canvas,
       options: {
@@ -569,15 +569,15 @@ export default class BackgroundManager {
 
     this.refresh()
 
-    // После установки позиции создаем градиент
+    // Create the gradient after setting the position
     const fabricGradient = BackgroundManager._createFabricGradient(gradient)
     this.backgroundObject.set('fill', fabricGradient)
     this.editor.canvas.requestRenderAll()
   }
 
   /**
-   * Создает фон из изображения.
-   * @param source - источник изображения (URL или File)
+   * Creates an image background.
+   * @param source - Image source (URL or File)
    */
   private async _createImageBackground(source: string | File, customData: object): Promise<void> {
     const { image } = await this.editor.imageManager.importImage({
@@ -596,7 +596,7 @@ export default class BackgroundManager {
   }
 
   /**
-   * Назначает image-объект текущим фоном и приводит его к background-контракту.
+   * Assigns an image object as the current background and brings it into compliance with the background contract.
    */
   private _setImageBackgroundObject({
     image,
@@ -616,7 +616,7 @@ export default class BackgroundManager {
       customData
     })
 
-    // Удаляем старый фон перед установкой нового
+    // Remove the old background before setting the new one
     this._removeCurrentBackground()
 
     if (image.canvas !== this.editor.canvas) {
@@ -628,7 +628,7 @@ export default class BackgroundManager {
   }
 
   /**
-   * Удаляет текущий фон.
+   * Removes the current background.
    */
   private _removeCurrentBackground(): void {
     if (this.backgroundObject) {
@@ -639,8 +639,8 @@ export default class BackgroundManager {
   }
 
   /**
-   * Создает Fabric.js градиент из параметров.
-   * @param gradient - Объект с параметрами градиента
+   * Creates a Fabric.js gradient from the parameters.
+   * @param gradient - Object containing gradient parameters
    */
   private static _createFabricGradient(gradient: GradientBackground): Gradient<'linear'> | Gradient<'radial'> {
     const {
@@ -651,7 +651,7 @@ export default class BackgroundManager {
       colorStops: providedStops
     } = gradient
 
-    // Создаем цветовые остановки
+    // Create color stops
     let colorStops: Array<{ offset: number; color: string }>
 
     if (providedStops && providedStops.length > 0) {
@@ -665,7 +665,7 @@ export default class BackgroundManager {
         { offset: endPosition / 100, color: endColor }
       ]
     } else {
-      // Fallback если цвета не переданы
+      // Fallback when colors are not provided
       colorStops = [
         { offset: 0, color: '#000000' },
         { offset: 1, color: '#ffffff' }
@@ -673,7 +673,7 @@ export default class BackgroundManager {
     }
 
     if (gradient.type === 'linear') {
-      // Конвертируем угол в координаты для Fabric.js
+      // Convert the angle to Fabric.js coordinates
       const angleRad = (gradient.angle * Math.PI) / 180
       const coords = BackgroundManager._angleToCoords(angleRad)
 
@@ -685,7 +685,7 @@ export default class BackgroundManager {
       })
     }
 
-    // Радиальный градиент
+    // Radial gradient
     const {
       centerX = 50,
       centerY = 50,
@@ -710,8 +710,8 @@ export default class BackgroundManager {
   }
 
   /**
-   * Конвертирует угол в координаты для линейного градиента.
-   * @param angle - Угол в радианах
+   * Converts an angle to coordinates for a linear gradient.
+   * @param angle - Angle in radians
    */
   private static _angleToCoords(angle: number) {
     const cos = Math.cos(angle)
@@ -726,17 +726,17 @@ export default class BackgroundManager {
   }
 
   /**
-   * Сравнивает два градиента на равенство
-   * @param gradient1 - Первый градиент
-   * @param gradient2 - Второй градиент
-   * @returns true если градиенты одинаковые
+   * Compares two gradients for equality
+   * @param gradient1 - First gradient
+   * @param gradient2 - Second gradient
+   * @returns true if the gradients are identical
    */
   private static _isGradientEqual(g1: GradientData, g2: GradientData): boolean {
-    // Проверяем, что оба объекта являются градиентами
+    // Check that both objects are gradients
     if (!g1 || !g2) return false
     if (g1.type !== g2.type) return false
 
-    // Сравниваем цвета
+    // Compare colors
     const stops1 = g1.colorStops || []
     const stops2 = g2.colorStops || []
 
@@ -750,7 +750,7 @@ export default class BackgroundManager {
 
     if (!colorStopsEqual) return false
 
-    // Сравниваем координаты в зависимости от типа градиента
+    // Compare coordinates according to the gradient type
     if (g1.type === 'linear' && g2.type === 'linear') {
       return Math.abs(g1.coords.x1 - g2.coords.x1) < 0.0001
         && Math.abs(g1.coords.y1 - g2.coords.y1) < 0.0001

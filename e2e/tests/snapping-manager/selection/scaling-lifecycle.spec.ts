@@ -1,19 +1,19 @@
 import { test, expect } from '../../../fixtures/editor.fixture'
 import type { ShapeScaleSnapshot, SnappingObjectSnapshot } from '../../../types'
 
-/** Допуск дрейфа неподвижного угла из-за округления координат указателя браузером. */
+/** Fixed-corner drift tolerance due to browser pointer-coordinate rounding. */
 const ACTIVE_SELECTION_ANCHOR_TOLERANCE = 0.1
 
-/** Точность сравнения live-геометрии до сериализации в истории. */
+/** Precision for live-geometry comparisons before serialization in history. */
 const LIVE_GEOMETRY_PRECISION = 8
 
-/** Точность сравнения геометрии после сериализации в истории. */
+/** Precision for geometry comparisons after serialization in history. */
 const HISTORY_GEOMETRY_PRECISION = 3
 
-/** Идентификаторы шейпов, входящих в общее выделение. */
+/** IDs of shapes in the active selection. */
 const SELECTION_SHAPE_IDS = ['left-shape', 'right-shape'] as const
 
-/** Поля шейпа, которые должны восстанавливаться через undo/redo. */
+/** Shape fields that should be restored through undo/redo. */
 const HISTORY_SHAPE_FIELDS = [
   'width',
   'height',
@@ -25,13 +25,13 @@ const HISTORY_SHAPE_FIELDS = [
   'groupBoundsHeight'
 ] as const
 
-/** Состояния двух шейпов в порядке их расположения на canvas. */
+/** States of two shapes in canvas order. */
 type SelectionChildren = readonly [ShapeScaleSnapshot, ShapeScaleSnapshot]
 
-/** Геометрия общего выделения до движения угловой ручки. */
+/** Active-selection geometry before corner-handle movement. */
 let baselineSelection: SnappingObjectSnapshot
 
-/** Геометрия обоих шейпов до движения угловой ручки. */
+/** Geometry of both shapes before corner-handle movement. */
 let baselineChildren: SelectionChildren
 
 test.beforeEach(async({

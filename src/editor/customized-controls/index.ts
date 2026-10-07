@@ -25,11 +25,11 @@ type ActiveSelectionPrototype = ActiveSelection & {
 }
 
 /**
- * Класс для настройки пользовательских контролов в редакторе
+ * Class for configuring custom controls in the editor
  */
 export default class ControlsCustomizer {
   /**
-   * Отключает изменение ширины по оси X для заблокированных объектов, сохраняя поведение остального хэндлера.
+   * Disables width changes along the X axis for locked objects while preserving the rest of the handler's behavior.
    */
   private static wrapWidthControl(
     control: Control | undefined
@@ -48,7 +48,7 @@ export default class ControlsCustomizer {
   }
 
   /**
-   * Применяет конфигурацию контролов к набору по ключам из DEFAULT_CONTROLS.
+   * Applies the control configuration to a set using keys from DEFAULT_CONTROLS.
    */
   private static applyControlOverrides(
     controls: Record<string, Control | undefined>
@@ -61,7 +61,7 @@ export default class ControlsCustomizer {
 
       if (key !== 'mtr') return
 
-      // Для кнопки вращения ставим курсор grab
+      // Use the grab cursor for the rotation button
       control.cursorStyle = 'grab'
       control.mouseDownHandler = (_eventData, transform, _x, _y) => {
         const target = transform?.target
@@ -70,14 +70,14 @@ export default class ControlsCustomizer {
           return
         }
 
-        // Во время реального вращения ставим курсор grabbing
+        // Use the grabbing cursor while actually rotating
         target.canvas?.setCursor('grabbing')
       }
     })
   }
 
   /**
-   * Регистрирует контролы и настройки поведения выделений.
+   * Registers controls and selection behavior settings.
    */
   public static apply(): void {
     const objectControls = controlsUtils.createObjectDefaultControls()
@@ -98,13 +98,13 @@ export default class ControlsCustomizer {
 
     ControlsCustomizer.patchActiveSelectionBounds()
 
-    // Устанавливаем snapAngle для всех объектов
-    // Это заставляет угол поворота изменяться только на целые градусы (минимум 1°)
+    // Set snapAngle for all objects
+    // This restricts rotation to whole-degree increments (a minimum step of 1°)
     InteractiveFabricObject.ownDefaults.snapAngle = 1
   }
 
   /**
-   * Обновляет алгоритм расчёта границ ActiveSelection, чтобы учитывать фон и отступы текстовых объектов.
+   * Updates the ActiveSelection bounds calculation to account for text object backgrounds and padding.
    */
   private static patchActiveSelectionBounds(): void {
     const activeSelectionPrototype = ActiveSelection.prototype as ActiveSelectionPrototype
@@ -207,7 +207,7 @@ export default class ControlsCustomizer {
   }
 
   /**
-   * Считает габариты выделения на основе реальных bounding-box объектов, включая фон и отступы.
+   * Calculates selection dimensions from the objects' actual bounding boxes, including backgrounds and padding.
    */
   private static calculateActiveSelectionBounds(
     {
@@ -233,7 +233,7 @@ export default class ControlsCustomizer {
   }
 
   /**
-   * Применяет ограничения и контролы масштабирования ActiveSelection для объектов с собственным text/layout контрактом.
+   * Applies ActiveSelection scaling constraints and controls for objects with their own text/layout contract.
    */
   private static applyActiveSelectionScalingRules(
     {
@@ -258,8 +258,8 @@ export default class ControlsCustomizer {
       })
     }
 
-    // Для текстовых объектов скрываем вертикальные хэндлы, но оставляем горизонтальное масштабирование:
-    // TextManager корректно обрабатывает изменение ширины.
+    // Hide vertical handles for text objects, but retain horizontal scaling:
+    // TextManager handles width changes correctly.
     selection.setControlsVisibility({
       mt: !hasText,
       mb: !hasText,

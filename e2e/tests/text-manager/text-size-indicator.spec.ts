@@ -1,6 +1,6 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 
-/** Допустимая погрешность округления размеров в DOM-индикаторе. */
+/** Allowed dimension-rounding error in the DOM indicator. */
 const TEXT_SIZE_INDICATOR_TOLERANCE = 1
 
 test.describe('Индикатор размеров текстового объекта', () => {

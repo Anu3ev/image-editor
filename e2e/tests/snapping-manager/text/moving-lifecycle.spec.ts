@@ -2,7 +2,7 @@ import { test, expect } from '../../../fixtures/editor.fixture'
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Исходное состояние отдельного сценария перемещения текста. */
+/** Initial state of an isolated text-movement scenario. */
 type TextMovementLifecycleSetup = {
   activeTextId: string
   baseline: SnappingObjectSnapshot

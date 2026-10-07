@@ -1,5 +1,5 @@
 /**
- * Полное сериализованное состояние canvas для history.
+ * Full serialized canvas state for history.
  */
 export type CanvasStateObject = {
   [key: string]: unknown
@@ -20,7 +20,7 @@ export type CanvasFullState = {
 }
 
 /**
- * Runtime-объект с полями, которые участвуют в нормализации history snapshot.
+ * Runtime object with fields used in history snapshot normalization.
  */
 export interface SnapshotObject {
   isEditing?: boolean
@@ -40,7 +40,7 @@ export interface SnapshotCanvas {
 }
 
 /**
- * Снимок интерактивности объекта для временной нормализации перед сериализацией.
+ * Snapshot of object interactivity for temporary normalization before serialization.
  */
 export type SnapshotInteractivityState = {
   object: SnapshotObject

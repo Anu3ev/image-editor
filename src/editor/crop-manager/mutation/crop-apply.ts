@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные mutation functions держим выше private helpers. */
+/* eslint-disable no-use-before-define -- Keep public mutation functions above private helpers. */
 import {
   Point,
   type FabricImage,
@@ -15,7 +15,7 @@ import type {
 } from '../types'
 
 /**
- * Размер применяемого image crop.
+ * Size of the image crop being applied.
  */
 type AppliedImageCropSize = {
   width: number
@@ -23,7 +23,7 @@ type AppliedImageCropSize = {
 }
 
 /**
- * Координаты копирования видимой части изображения в прозрачный crop canvas.
+ * Coordinates for copying the visible image region to a transparent crop canvas.
  */
 type ImageCropDrawRect = {
   sourceX: number
@@ -35,7 +35,7 @@ type ImageCropDrawRect = {
 }
 
 /**
- * Применяет кроп монтажной области.
+ * Applies an artboard crop.
  */
 export function applyCanvasCrop({
   editor,
@@ -65,7 +65,7 @@ export function applyCanvasCrop({
 }
 
 /**
- * Применяет кроп изображения.
+ * Applies an image crop.
  */
 export function applyImageCrop({
   editor,
@@ -97,7 +97,7 @@ export function applyImageCrop({
 }
 
 /**
- * Применяет source-pixel crop rect к FabricImage.
+ * Applies a crop rect in source pixels to a FabricImage.
  */
 function applyCropRectToImage({
   target,
@@ -150,7 +150,7 @@ function applyCropRectToImage({
 }
 
 /**
- * Возвращает true, если crop полностью попадает в текущую видимую область изображения.
+ * Returns true if the crop fits entirely within the currently visible image area.
  */
 function isCropInsideVisibleImage({
   target,
@@ -166,7 +166,7 @@ function isCropInsideVisibleImage({
 }
 
 /**
- * Применяет crop через обычные cropX/cropY без создания нового image source.
+ * Applies the crop using the standard cropX/cropY values without creating a new image source.
  */
 function applyInnerCropRectToImage({
   target,
@@ -189,7 +189,7 @@ function applyInnerCropRectToImage({
 }
 
 /**
- * Создаёт прозрачный image source, если crop выходит за текущие границы изображения.
+ * Creates a transparent image source if the crop extends beyond the current image bounds.
  */
 function createTransparentCropCanvas({
   target,
@@ -234,7 +234,7 @@ function createTransparentCropCanvas({
 }
 
 /**
- * Возвращает document для создания transparent crop canvas.
+ * Returns the document used to create the transparent crop canvas.
  */
 function getCanvasOwnerDocument({ target }: { target: FabricImage }): Document | null {
   const canvasElement = target.canvas?.getElement()
@@ -245,7 +245,7 @@ function getCanvasOwnerDocument({ target }: { target: FabricImage }): Document |
 }
 
 /**
- * Считает пересечение crop rect с текущей видимой областью изображения.
+ * Calculates the intersection of the crop rect and the currently visible image area.
  */
 function getVisibleImageDrawRect({
   target,
@@ -275,7 +275,7 @@ function getVisibleImageDrawRect({
 }
 
 /**
- * Сдвигает содержимое canvas так, чтобы выбранная область стала новым началом монтажной области.
+ * Shifts the canvas contents so that the selected area becomes the new artboard origin.
  */
 function moveCanvasContentAfterCrop({
   editor,

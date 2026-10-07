@@ -1,47 +1,47 @@
 import type { TextAddParams } from '../../types'
 
-/** Допуск для проверок геометрии autoExpand-сценариев. */
+/** Tolerance for geometry checks in autoExpand scenarios. */
 export const TEXT_AUTO_EXPAND_TOLERANCE = {
   geometry: 1.5
 }
 
-/** Вертикальный сдвиг для multi-object autoExpand-сценариев. */
+/** Vertical offset for multi-object autoExpand scenarios. */
 export const TEXT_AUTO_EXPAND_STACK_OFFSET = 80
 
-/** Базовый текстовый объект для сценариев с autoExpand по умолчанию. */
+/** Base text object for scenarios with default autoExpand. */
 export const TEXT_AUTO_EXPAND_BASE_OPTIONS: TextAddParams = {
   text: 'Текст',
   width: 140,
   fontSize: 24
 }
 
-/** Длинный текст, который должен уместиться в одну строку после авторасширения. */
+/** Long text that should fit on one line after auto-expansion. */
 export const TEXT_AUTO_EXPAND_EDITING_TEXT = 'один два три четыре пять шесть'
 
-/** Ещё более длинный текст для повторной проверки после redo. */
+/** Even longer text for another check after redo. */
 export const TEXT_AUTO_EXPAND_LONGER_TEXT = 'один два три четыре пять шесть семь восемь девять'
 
-/** Длинный текст, который должен уткнуться в ширину монтажной области и начать переноситься. */
+/** Long text that should reach the artboard width limit and start wrapping. */
 export const TEXT_AUTO_EXPAND_LIMIT_TEXT = 'один два три четыре пять шесть семь восемь девять десять '.repeat(10).trim()
 
-/** Базовый текстовый объект для скейлинга после упора в ширину монтажной области. */
+/** Base text object for scaling after reaching the artboard width limit. */
 export const TEXT_AUTO_EXPAND_LIMIT_BASE_OPTIONS: TextAddParams = {
   text: 'Текст',
   width: 120,
   fontSize: 32
 }
 
-/** Параметры объекта для проверки авторасширения при увеличении размера шрифта. */
+/** Object options for testing auto-expansion when increasing font size. */
 export const TEXT_AUTO_EXPAND_FONT_BASE_OPTIONS: TextAddParams = {
   text: 'Заголовок',
   width: 100,
   fontSize: 24
 }
 
-/** Целевой размер шрифта для проверки роста ширины через updateText. */
+/** Target font size for testing width growth through updateText. */
 export const TEXT_AUTO_EXPAND_GROWN_FONT_SIZE = 54
 
-/** Уменьшенное разрешение montage area для сценария с ограничением максимальной ширины. */
+/** Reduced artboard resolution for the maximum-width constraint scenario. */
 export const TEXT_AUTO_EXPAND_LIMIT_RESOLUTION = {
   width: 320,
   height: 480

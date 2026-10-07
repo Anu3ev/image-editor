@@ -21,38 +21,38 @@ import {
 } from '../types'
 
 /**
- * Контроллер lifecycle-событий shape-композиций.
- * Хранит временное состояние editing/resize сессий и собирает snapshot payload.
+ * Lifecycle-event controller for shape compositions.
+ * Stores temporary editing/resize session state and builds the snapshot payload.
  */
 export default class ShapeLifecycleController {
   /**
-   * Fabric canvas редактора.
+   * The editor's Fabric canvas.
    */
   private canvas: Canvas
 
   /**
-   * Снимки shape на момент входа в live text editing.
+   * Shape snapshots taken when entering live text editing.
    */
   private textEditingSnapshots: WeakMap<ShapeGroup, ShapeSnapshot>
 
   /**
-   * Отложенные lifecycle-контексты для программных обновлений текста внутри shape.
+   * Deferred lifecycle contexts for programmatic text updates inside shapes.
    */
   private pendingTextUpdates: WeakMap<ShapeTextNode, ShapeUpdateLifecycleContext>
 
   /**
-   * Снимки shape до начала pointer-resize.
-   * Нужны потому, что первый object:scaling приходит уже после transient transform Fabric.
+   * Shape snapshots taken before pointer resizing begins.
+   * Needed because the first object:scaling arrives after Fabric's transient transform.
    */
   private resizeStartSnapshots: Map<ShapeGroup, ShapeSnapshot>
 
   /**
-   * Отложенные lifecycle-контексты для финального commit ресайза shape.
+   * Deferred lifecycle contexts for the final shape-resize commit.
    */
   private pendingResizeUpdates: WeakMap<ShapeGroup, ShapeUpdateLifecycleContext>
 
   /**
-   * Инициализирует lifecycle controller для shape-событий на переданном canvas.
+   * Initializes the shape-event lifecycle controller for the given canvas.
    */
   constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
@@ -63,7 +63,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Создает lifecycle-контекст обновления shape-композиции.
+   * Creates a lifecycle context for updating a shape composition.
    */
   public createContext({
     group,
@@ -92,7 +92,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Эмитит before-lifecycle событие обновления shape.
+   * Emits the before-lifecycle event for a shape update.
    */
   public fireBefore({
     lifecycle
@@ -103,7 +103,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Эмитит финальное lifecycle событие обновления shape.
+   * Emits the final lifecycle event for a shape update.
    */
   public fireUpdated({
     lifecycle,
@@ -127,7 +127,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Фиксирует baseline shape перед live text editing.
+   * Captures the shape baseline before live text editing.
    */
   public beginTextEditing({
     group
@@ -141,7 +141,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Завершает live text editing и эмитит один итоговый shape lifecycle, если shape реально изменился.
+   * Finishes live text editing and emits a single final shape lifecycle if the shape actually changed.
    */
   public finishTextEditing({
     group,
@@ -177,7 +177,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Создает lifecycle-контекст программного обновления текста внутри shape.
+   * Creates a lifecycle context for a programmatic text update inside a shape.
    */
   public beginTextUpdate({
     group,
@@ -201,7 +201,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Сбрасывает pending lifecycle программного обновления текста.
+   * Resets the pending lifecycle for a programmatic text update.
    */
   public cancelTextUpdate({
     textNode
@@ -212,7 +212,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Завершает lifecycle программного обновления текста внутри shape.
+   * Completes the lifecycle for a programmatic text update inside a shape.
    */
   public finishTextUpdate({
     textNode
@@ -237,7 +237,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Сохраняет baseline shape до потенциального pointer-resize.
+   * Saves the shape baseline before a potential pointer resize.
    */
   public captureResizeStart({
     group
@@ -253,7 +253,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Переводит сохраненный resize-start snapshot в pending lifecycle-контекст.
+   * Converts the saved resize-start snapshot into a pending lifecycle context.
    */
   public beginResize({
     group
@@ -278,13 +278,13 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Сбрасывает resize-start snapshots без активного scaling.
+   * Resets resize-start snapshots without active scaling.
    */
   public clearResizeStarts(): void {
     this.resizeStartSnapshots.clear()
   }
 
-  /** Удаляет начальное и отложенное состояние прерванного resize одной shape-группы. */
+  /** Removes initial and pending state for an interrupted resize of a single shape group. */
   public cancelResize({
     group
   }: {
@@ -294,7 +294,7 @@ export default class ShapeLifecycleController {
     this.pendingResizeUpdates.delete(group)
   }
 
-  /** Завершает изменение размера шейпа по его текущему состоянию на холсте. */
+  /** Finalizes shape resizing from its current state on the canvas. */
   public finishResize({
     group
   }: {
@@ -322,7 +322,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Формирует снимок текущего доменного состояния shape-группы для lifecycle-событий.
+   * Builds a snapshot of the shape group's current domain state for lifecycle events.
    */
   public static getSnapshot({ group }: { group: ShapeGroup }): ShapeSnapshot {
     const groupWithId = group as ShapeGroup & {
@@ -410,7 +410,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Сравнивает два snapshot shape-композиции.
+   * Compares two shape-composition snapshots.
    */
   public static areSnapshotsEqual({
     before,
@@ -423,7 +423,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Создает lifecycle-контекст из заранее подготовленного before snapshot.
+   * Creates a lifecycle context from a previously prepared before snapshot.
    */
   private _createContextFromBefore({
     group,
@@ -456,7 +456,7 @@ export default class ShapeLifecycleController {
   }
 
   /**
-   * Формирует snapshot вложенного текстового узла shape-группы.
+   * Builds a snapshot of the shape group's nested text node.
    */
   private static _getTextNodeSnapshot({ textNode }: { textNode: ShapeTextNode }): ShapeSnapshot['text'] {
     const textNodeWithSnapshotFields = textNode as ShapeTextNode & {

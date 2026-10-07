@@ -14,25 +14,25 @@ import type {
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
 
-/** Координаты указателя в клиентской системе браузера. */
+/** Pointer coordinates in the browser's client coordinate system. */
 type CanvasClientPoint = {
   x: number
   y: number
 }
 
-/** Данные Fabric-преобразования, необходимые для следующего шага drag. */
+/** Fabric transform data required for the next drag step. */
 type DragTransformInfo = {
   offsetX: number
   offsetY: number
   snapshot: SnappingObjectSnapshot
 }
 
-/** Идентификатор объекта и модификатор одного pointer-step. */
+/** Object ID and modifier for one pointer step. */
 type DragPointerParams = SnappingTargetParams & {
   ctrlKey?: boolean
 }
 
-/** Управляет пользовательскими drag-сценариями и читает состояние прилипания. */
+/** Manages user drag scenarios and reads snapping state. */
 export class SnappingModel {
   private readonly page: Page
 
@@ -40,14 +40,14 @@ export class SnappingModel {
 
   private isControlKeyPressed: boolean
 
-  /** Создаёт модель прилипания для указанной Playwright-страницы. */
+  /** Creates a snapping model for the specified Playwright page. */
   constructor(page: Page) {
     this.page = page
     this.activePointerClientPoint = null
     this.isControlKeyPressed = false
   }
 
-  /** Возвращает текущее состояние направляющих SnappingManager. */
+  /** Returns the current SnappingManager guide state. */
   async getGuideState(): Promise<SnappingGuideState> {
     return this.page.evaluate(() => {
       const {
@@ -58,7 +58,7 @@ export class SnappingModel {
     })
   }
 
-  /** Возвращает snapshot объекта canvas с актуальным bounding box. */
+  /** Returns a canvas-object snapshot with its current bounding box. */
   async getObjectSnapshot(params: SnappingTargetParams = {}): Promise<SnappingObjectSnapshot> {
     const snapshot = await this.page.evaluate(({ activeObject, objectIndex, id }) => {
       const {
@@ -79,7 +79,7 @@ export class SnappingModel {
     return snapshot as SnappingObjectSnapshot
   }
 
-  /** Начинает реальное перетаскивание выбранного объекта из его центра. */
+  /** Starts a real drag of the selected object from its center. */
   async startObjectDrag(params: SnappingDragStartParams = {}): Promise<SnappingObjectSnapshot> {
     const dragStart = await this._resolveObjectDragStartClientPoint(params)
 
@@ -99,7 +99,7 @@ export class SnappingModel {
     return this.getObjectSnapshot(params)
   }
 
-  /** Возвращает клиентские координаты центра выбранного объекта. */
+  /** Returns client coordinates of the selected object's center. */
   private async _resolveObjectDragStartClientPoint(
     params: SnappingDragStartParams
   ): Promise<CanvasClientPoint> {
@@ -143,7 +143,7 @@ export class SnappingModel {
     return dragStart as CanvasClientPoint
   }
 
-  /** Проверяет, что pointerdown начал именно перемещение выбранного объекта. */
+  /** Checks that pointerdown started moving the selected object specifically. */
   private async _assertObjectDragStarted(params: SnappingDragStartParams): Promise<void> {
     const dragTransform = await this.page.evaluate(({ activeObject, objectIndex, id }) => {
       const {
@@ -166,7 +166,7 @@ export class SnappingModel {
     expect(dragTransform?.action, 'pointerdown должен начать перемещение, а не работу с control').toBe('drag')
   }
 
-  /** Перемещает объект в live drag-сессии и возвращает его новый snapshot. */
+  /** Moves the object in a live drag session and returns its new snapshot. */
   async dragObjectTo(params: SnappingDragMoveParams): Promise<SnappingObjectSnapshot> {
     const dragInfo = await this._getDragTransformInfo(params)
     return this._moveDragPointerToFabricPosition({
@@ -177,7 +177,7 @@ export class SnappingModel {
     })
   }
 
-  /** Перемещает объект в live drag-сессии так, чтобы его bounding box пришёл в нужную позицию. */
+  /** Moves the object in a live drag session so its bounding box reaches the required position. */
   async dragObjectBoundsTo(params: SnappingDragBoundsParams): Promise<SnappingObjectSnapshot> {
     const dragInfo = await this._getDragTransformInfo(params)
     const nextLeft = dragInfo.snapshot.left + (params.left - dragInfo.snapshot.boundsLeft)
@@ -191,7 +191,7 @@ export class SnappingModel {
     })
   }
 
-  /** Выполняет полный drag объекта до нужной позиции bounding box и завершает его через mouseup. */
+  /** Performs a complete object drag to the required bounding-box position and ends it with mouseup. */
   async moveObjectBoundsTo(params: SnappingDragBoundsParams): Promise<SnappingObjectSnapshot> {
     await this.startObjectDrag(params)
     await this.dragObjectBoundsTo(params)
@@ -200,7 +200,7 @@ export class SnappingModel {
     return this.getObjectSnapshot(params)
   }
 
-  /** Выполняет полное перетаскивание и сохраняет состояния внутри удержания. */
+  /** Performs a complete drag and saves states during the snap hold. */
   async dragObjectBoundsWithHold({
     heldPositions,
     ...params
@@ -230,7 +230,7 @@ export class SnappingModel {
     })
   }
 
-  /** Перемещает объект в live drag-сессии так, чтобы центр его bounding box пришёл в нужную позицию. */
+  /** Moves the object in a live drag session so its bounding-box center reaches the required position. */
   async dragObjectCenterTo(params: SnappingDragCenterParams): Promise<SnappingObjectSnapshot> {
     const dragInfo = await this._getDragTransformInfo(params)
     const nextLeft = dragInfo.snapshot.left + (params.centerX - dragInfo.snapshot.centerX)
@@ -244,7 +244,7 @@ export class SnappingModel {
     })
   }
 
-  /** Перемещает реальный указатель в позицию, соответствующую Fabric left/top. */
+  /** Moves the real pointer to the position corresponding to Fabric left/top. */
   private async _moveDragPointerToFabricPosition({
     params,
     dragInfo,
@@ -269,7 +269,7 @@ export class SnappingModel {
     return this.getObjectSnapshot(params)
   }
 
-  /** Завершает pointer-взаимодействие и очищает направляющие как после mouseup. */
+  /** Ends the pointer interaction and clears guides as after mouseup. */
   async finishPointerInteraction(): Promise<SnappingGuideState> {
     expect(
       this.activePointerClientPoint,
@@ -284,7 +284,7 @@ export class SnappingModel {
     return this.getGuideState()
   }
 
-  /** Прерывает активное перетаскивание событием отмены указателя и освобождает мышь. */
+  /** Interrupts the active drag with a pointer-cancel event and releases the mouse. */
   async cancelPointerInteraction(): Promise<SnappingGuideState> {
     if (!this.activePointerClientPoint) throw new Error('Перетаскивание не начато')
     try {
@@ -302,14 +302,14 @@ export class SnappingModel {
     }
   }
 
-  /** Завершает начатое моделью перетаскивание или ничего не делает без активного указателя. */
+  /** Finishes a drag started by the model, or does nothing if no pointer is active. */
   async finishPointerInteractionIfActive(): Promise<void> {
     if (!this.activePointerClientPoint) return
 
     await this.finishPointerInteraction()
   }
 
-  /** Возвращает текущее Fabric-преобразование и геометрию выбранного объекта. */
+  /** Returns the current Fabric transform and selected-object geometry. */
   private async _getDragTransformInfo(params: SnappingTargetParams): Promise<DragTransformInfo> {
     const dragInfo = await this.page.evaluate(({ activeObject, objectIndex, id }) => {
       const {
@@ -337,7 +337,7 @@ export class SnappingModel {
     return dragInfo as DragTransformInfo
   }
 
-  /** Переводит координаты сцены в клиентские координаты браузера. */
+  /** Converts scene coordinates to browser client coordinates. */
   private async _resolveClientPointForScenePoint(
     point: { x: number, y: number }
   ): Promise<CanvasClientPoint> {
@@ -356,7 +356,7 @@ export class SnappingModel {
     }, point)
   }
 
-  /** Выполняет одно реальное перемещение указателя с явно заданным состоянием Ctrl. */
+  /** Performs one real pointer movement with explicitly specified Ctrl state. */
   private async _movePointerDuringDrag({
     point,
     ctrlKey = false
@@ -370,7 +370,7 @@ export class SnappingModel {
     this.activePointerClientPoint = point
   }
 
-  /** Синхронизирует Ctrl с состоянием модификатора следующего события мыши. */
+  /** Synchronizes Ctrl with the next mouse event's modifier state. */
   private async _setControlKeyPressed({
     pressed
   }: {

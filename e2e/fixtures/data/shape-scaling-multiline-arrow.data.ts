@@ -55,7 +55,7 @@ export const MULTILINE_ARROW_SELECTION_SHAPES = [
   }
 ] as const
 
-/** Сценарии повторного уменьшения одного шейпа с многострочным текстом. */
+/** Scenarios that repeatedly shrink one shape with multiline text. */
 export const MULTILINE_ARROW_SINGLE_SHAPE_SCENARIOS = [
   {
     title: 'при повторном сужении шейпа arrow-right-fat справа до упора в рамках одного жеста шейп и текст сохраняют геометрию',
@@ -79,7 +79,7 @@ export const MULTILINE_ARROW_SINGLE_SHAPE_SCENARIOS = [
   }
 ] as const satisfies readonly MultilineArrowSingleShapeScenario[]
 
-/** Сценарии повторного уменьшения общего выделения из двух шейпов. */
+/** Scenarios that repeatedly shrink an active selection of two shapes. */
 export const MULTILINE_ARROW_SELECTION_SCENARIOS = [
   {
     title: 'при повторном сужении общего выделения справа до упора в рамках одного жеста оба шейпа arrow-right-fat сохраняют геометрию',

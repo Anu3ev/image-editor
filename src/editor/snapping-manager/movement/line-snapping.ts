@@ -5,7 +5,7 @@ import type {
 } from '../types'
 
 /**
- * Ищет ближайшую линию привязки по одной оси.
+ * Finds the nearest snapping line on one axis.
  */
 export const findAxisSnap = ({
   anchors,
@@ -39,7 +39,7 @@ export const findAxisSnap = ({
 }
 
 /**
- * Считает дельту сдвига и список направляющих для текущего объекта.
+ * Calculates the movement delta and guides for the current object.
  */
 export const calculateSnap = ({
   activeBounds,

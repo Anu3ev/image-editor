@@ -5,12 +5,12 @@ import {
 } from './constants'
 
 /**
- * DOM-событие указателя, из которого можно получить экранную позицию.
+ * DOM pointer event from which the browser viewport position can be obtained.
  */
 type CursorIndicatorPointerEvent = MouseEvent | TouchEvent
 
 /**
- * Координаты указателя в viewport-координатах браузера.
+ * Pointer position in browser viewport coordinates.
  */
 type CursorIndicatorClientPoint = {
   clientX: number
@@ -18,7 +18,7 @@ type CursorIndicatorClientPoint = {
 }
 
 /**
- * Параметры создания DOM-индикатора рядом с указателем.
+ * Options for creating a DOM indicator next to the pointer.
  */
 type CursorIndicatorConstructorParams = {
   className: string
@@ -26,7 +26,7 @@ type CursorIndicatorConstructorParams = {
 }
 
 /**
- * Параметры показа индикатора рядом с текущим указателем.
+ * Options for displaying the indicator next to the current pointer.
  */
 type CursorIndicatorShowParams = {
   event: CursorIndicatorPointerEvent
@@ -34,7 +34,7 @@ type CursorIndicatorShowParams = {
 }
 
 /**
- * Позиция индикатора в координатах родительского элемента.
+ * Indicator position in the parent element's coordinates.
  */
 type CursorIndicatorPosition = {
   left: number
@@ -42,21 +42,21 @@ type CursorIndicatorPosition = {
 }
 
 /**
- * DOM-индикатор, который показывает короткое значение рядом с курсором внутри canvas wrapper.
+ * DOM indicator displaying a short value next to the cursor within the canvas wrapper.
  */
 export default class CursorIndicator {
   /**
-   * HTML-элемент индикатора.
+   * Indicator HTML element.
    */
   public readonly el: HTMLDivElement
 
   /**
-   * Родительский элемент, внутри которого позиционируется индикатор.
+   * Parent element within which the indicator is positioned.
    */
   private readonly parent: HTMLElement
 
   /**
-   * Создаёт индикатор и добавляет его в родительский DOM-элемент.
+   * Creates the indicator and adds it to the parent DOM element.
    */
   constructor({ parent, className }: CursorIndicatorConstructorParams) {
     this.parent = parent
@@ -65,7 +65,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Показывает индикатор рядом с указателем и обновляет его текст.
+   * Displays the indicator next to the pointer and updates its text.
    */
   public showAtPointer({ text, event }: CursorIndicatorShowParams): void {
     const point = CursorIndicator._resolveClientPoint({ event })
@@ -83,7 +83,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Скрывает индикатор и очищает его текст.
+   * Hides the indicator and clears its text.
    */
   public hide(): void {
     this.el.style.display = 'none'
@@ -91,7 +91,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Удаляет DOM-элемент индикатора.
+   * Removes the indicator's DOM element.
    */
   public destroy(): void {
     this.hide()
@@ -102,7 +102,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Создаёт DOM-элемент индикатора с базовыми стилями.
+   * Creates the indicator's DOM element with base styles.
    */
   private _createElement({ className }: { className: string }): HTMLDivElement {
     const element = document.createElement('div')
@@ -116,7 +116,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Рассчитывает позицию индикатора в координатах родительского элемента.
+   * Calculates the indicator position in the parent element's coordinates.
    */
   private _resolvePosition({ point }: { point: CursorIndicatorClientPoint }): CursorIndicatorPosition {
     const parentRect = this.parent.getBoundingClientRect()
@@ -145,7 +145,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Применяет рассчитанную позицию к DOM-элементу индикатора.
+   * Applies the calculated position to the indicator's DOM element.
    */
   private _applyPosition({ position }: { position: CursorIndicatorPosition }): void {
     this.el.style.left = `${position.left}px`
@@ -153,7 +153,7 @@ export default class CursorIndicator {
   }
 
   /**
-   * Возвращает экранные координаты мыши или первого touch-события.
+   * Returns browser viewport coordinates for the mouse or the first touch point.
    */
   private static _resolveClientPoint(
     { event }: { event: CursorIndicatorPointerEvent }

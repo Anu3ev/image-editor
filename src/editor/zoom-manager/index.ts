@@ -15,27 +15,27 @@ type ZoomPointerCoordinates = {
 
 export default class ZoomManager {
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor: ImageEditor
 
   /**
-   * Параметры (опции) для слушателей.
+   * Parameters (options) for listeners.
    */
   public options: EditorOptions
 
   /**
-   * Минимальный зум
+   * Minimum zoom
    */
   public minZoom: number
 
   /**
-   * Максимальный зум
+   * Maximum zoom
    */
   public maxZoom: number
 
   /**
-   * Дефолтный зум, который будет применён при инициализации редактора.
+   * Default zoom to apply when initializing the editor.
    */
   public defaultZoom: number
 
@@ -48,9 +48,9 @@ export default class ZoomManager {
   }
 
   /**
-   * Приводит значение defaultZoom к числу с двумя знаками после запятой, а также учитывает минимальное и максимальное значения.
-   * @param zoom - Значение зума для нормализации
-   * @returns Нормализованное значение зума
+   * Converts defaultZoom to a number with two decimal places and respects the minimum and maximum values.
+   * @param zoom - Zoom value to normalize
+   * @returns Normalized zoom value
    * @private
    */
   private _normalizeDefaultZoom(zoom: number): number {
@@ -58,10 +58,10 @@ export default class ZoomManager {
   }
 
   /**
-   * Вычисляет defaultZoom для текущих размеров контейнера и монтажной области.
-   * defaultZoom является derived camera-state и должен пересчитываться каждый раз,
-   * когда меняется viewport контейнера или размер montageArea.
-   * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
+   * Calculates defaultZoom for the current container and artboard dimensions.
+   * defaultZoom is derived camera state and must be recalculated whenever
+   * the container viewport or the montageArea dimensions change.
+   * @param scale - Desired scale relative to the editor container dimensions.
    * @private
    */
   private _calculateDefaultZoom(scale: number): number {
@@ -78,9 +78,9 @@ export default class ZoomManager {
   }
 
   /**
-   * Вспомогательный метод для вычисления размеров масштабированной монтажной области
-   * @param zoom - Масштаб для расчета
-   * @returns Размеры масштабированной монтажной области
+   * Helper method for calculating the scaled artboard dimensions
+   * @param zoom - Zoom to use in the calculation
+   * @returns Scaled artboard dimensions
    * @private
    */
   private _getScaledMontageDimensions(zoom: number): { width: number; height: number } {
@@ -92,10 +92,10 @@ export default class ZoomManager {
   }
 
   /**
-   * Ограничивает координаты курсора видимыми границами монтажной области
-   * в viewport coordinates, потому что zoomToPoint работает именно в этой плоскости.
-   * @param pointer - DOM-координаты указателя
-   * @returns Ограниченные viewport-координаты внутри видимой области монтажа
+   * Clamps the pointer coordinates to the visible artboard bounds
+   * in viewport coordinates, because zoomToPoint operates in this coordinate system.
+   * @param pointer - DOM pointer coordinates
+   * @returns Clamped viewport coordinates within the visible artboard
    * @private
    */
   private _getClampedPointerCoordinates(pointer: ZoomPointerCoordinates): { x: number; y: number } {
@@ -125,9 +125,9 @@ export default class ZoomManager {
   }
 
   /**
-   * Переводит DOM client-координаты в viewport coordinates canvas.
-   * @param pointer - DOM-координаты указателя
-   * @returns Координаты указателя внутри canvas viewport
+   * Converts DOM client coordinates to canvas viewport coordinates.
+   * @param pointer - DOM pointer coordinates
+   * @returns Pointer coordinates within the canvas viewport
    * @private
    */
   private _getViewportPointerCoordinates(pointer: ZoomPointerCoordinates): { x: number; y: number } {
@@ -140,8 +140,8 @@ export default class ZoomManager {
   }
 
   /**
-   * Вычисляет зум при котором монтажная область точно помещается в viewport
-   * @returns Минимальный зум для полного размещения монтажной области
+   * Calculates the zoom at which the artboard fits exactly within the viewport
+   * @returns Minimum zoom for fitting the entire artboard
    * @private
    */
   private _calculateFitZoom(): number {
@@ -156,13 +156,13 @@ export default class ZoomManager {
   }
 
   /**
-   * Вычисляет целевую позицию viewport для центрирования монтажной области
-   * @param zoom - Текущий зум
-   * @returns Целевые координаты viewport transform
+   * Calculates the target viewport position for centering the artboard
+   * @param zoom - Current zoom
+   * @returns Target viewport transform coordinates
    *
-   * Camera-state должен жить только в viewportTransform. MontageArea здесь выступает
-   * стабильной scene-опорой, а не объектом, который нужно физически двигать по сцене
-   * при resize контейнера или reset зума.
+   * Camera state must reside only in viewportTransform. MontageArea serves here as
+   * a stable scene reference, rather than an object that needs to be physically moved within the scene
+   * when the container is resized or the zoom is reset.
    * @private
    */
   private _calculateTargetViewportPosition(zoom: number): { x: number; y: number } {
@@ -182,9 +182,9 @@ export default class ZoomManager {
   }
 
   /**
-   * Проверяет наличие пустого пространства вокруг монтажной области
-   * @param zoom - Текущий зум
-   * @returns Максимальное соотношение пустого пространства к размеру viewport
+   * Checks for empty space around the artboard
+   * @param zoom - Current zoom
+   * @returns Maximum ratio of empty space to viewport size
    * @private
    */
   private _calculateEmptySpaceRatio(zoom: number): number {
@@ -226,13 +226,13 @@ export default class ZoomManager {
   }
 
   /**
-   * Вычисляет плавный шаг перемещения viewport к центру с ускорением
-   * @param targetVpt - Целевая позиция viewport
-   * @param zoom - Текущий зум
-   * @param fitZoom - Зум при котором монтажная область помещается в viewport
-   * @param zoomStep - Шаг изменения зума
-   * @param maxEmptyRatio - Максимальная доля пустого пространства
-   * @returns Вычисленный шаг перемещения viewport
+   * Calculates a smooth, accelerating viewport movement step toward the centered position
+   * @param targetVpt - Target viewport position
+   * @param zoom - Current zoom
+   * @param fitZoom - Zoom at which the artboard fits within the viewport
+   * @param zoomStep - Zoom increment
+   * @param maxEmptyRatio - Maximum fraction of empty space
+   * @returns Calculated viewport movement step
    * @private
    */
   private _calculateSmoothCenteringStep(
@@ -284,13 +284,13 @@ export default class ZoomManager {
   }
 
   /**
-   * Применяет плавное центрирование viewport при приближении к defaultZoom.
-   * При zoom <= defaultZoom монтажная область полностью центрируется.
-   * При zoom > defaultZoom применяется плавная интерполяция в пределах переходного диапазона.
-   * @param zoom - Текущий зум
-   * @param isZoomingOut - Флаг, указывающий что происходит zoom-out (уменьшение масштаба)
-   * @param zoomStep - Шаг зума (адаптивно рассчитанный)
-   * @returns true если центрирование было применено
+   * Applies smooth viewport centering as zoom approaches defaultZoom.
+   * At zoom <= defaultZoom, the artboard is fully centered.
+   * At zoom > defaultZoom, smooth interpolation is applied within the transition range.
+   * @param zoom - Current zoom
+   * @param isZoomingOut - Flag indicating that zooming out is in progress
+   * @param zoomStep - Zoom increment (calculated adaptively)
+   * @returns true if centering was applied
    * @private
    */
   private _applyViewportCentering(
@@ -300,7 +300,7 @@ export default class ZoomManager {
   ): boolean {
     const { canvas } = this.editor
 
-    // Проверяем, выходит ли монтажная область за пределы viewport
+    // Check whether the artboard extends beyond the viewport
     const scaledDimensions = this._getScaledMontageDimensions(zoom)
     const viewportWidth = canvas.getWidth()
     const viewportHeight = canvas.getHeight()
@@ -310,7 +310,7 @@ export default class ZoomManager {
     const distanceFromFit = zoom - fitZoom
     const isInCenteringRange = !montageExceedsViewport || distanceFromFit
 
-    // Проверяем, нужно ли применять центрирование
+    // Check whether centering should be applied
     if (!isInCenteringRange && !isZoomingOut) {
       return false
     }
@@ -318,7 +318,7 @@ export default class ZoomManager {
     const vpt = canvas.viewportTransform
     const targetVpt = this._calculateTargetViewportPosition(zoom)
 
-    // Если монтажная область помещается в viewport, сразу центрируем
+    // If the artboard fits within the viewport, center it immediately
     if (!montageExceedsViewport) {
       vpt[4] = targetVpt.x
       vpt[5] = targetVpt.y
@@ -326,7 +326,7 @@ export default class ZoomManager {
       return true
     }
 
-    // При zoom-out проверяем наличие пустого пространства и применяем плавное центрирование
+    // When zooming out, check for empty space and apply smooth centering
     if (isZoomingOut && !montageExceedsViewport) {
       const maxEmptyRatio = this._calculateEmptySpaceRatio(zoom)
 
@@ -344,11 +344,11 @@ export default class ZoomManager {
   }
 
   /**
-   * Нормализует текущий viewportTransform по pan-границам после zoom-сценария.
-   * Zoom может сдвинуть camera-state за допустимый pan-диапазон быстрее,
-   * чем следующий scroll или Space-drag успеют пройти через PanConstraintManager.
-   * В этом случае bounds нужно применить сразу в том же zoom write-path,
-   * чтобы не оставлять invalid viewport до первого pan-события.
+   * Normalizes the current viewportTransform to the pan bounds after a zoom operation.
+   * Zooming can move camera state beyond the allowed pan range before
+   * the next scroll or Space-drag has a chance to pass through PanConstraintManager.
+   * In this case, the bounds must be applied immediately within the same zoom write path,
+   * to avoid leaving an invalid viewport until the first pan event.
    * @private
    */
   private _constrainViewportToPanBounds(): void {
@@ -372,10 +372,10 @@ export default class ZoomManager {
   }
 
   /**
-   * Пересчитывает defaultZoom для текущих размеров контейнера и монтажной области.
-   * Метод обновляет только derived camera-state и не меняет текущий viewport.
-   * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
-   * @returns Новое значение defaultZoom
+   * Recalculates defaultZoom for the current container and artboard dimensions.
+   * This method updates only derived camera state and does not change the current viewport.
+   * @param scale - Desired scale relative to the editor container dimensions.
+   * @returns New defaultZoom value
    */
   public updateDefaultZoom(scale: number = this.options.defaultScale): number {
     this.defaultZoom = this._calculateDefaultZoom(scale)
@@ -384,28 +384,28 @@ export default class ZoomManager {
   }
 
   /**
-   * Пересчитывает и сразу применяет defaultZoom для текущей монтажной области.
-   * Используется когда меняется размер montageArea и текущий camera-state нужно
-   * нормализовать к новому fit-состоянию.
-   * @param scale - Желаемый масштаб относительно размеров контейнера редактора.
+   * Recalculates and immediately applies defaultZoom for the current artboard.
+   * Used when the montageArea dimensions change and the current camera state needs
+   * to be normalized to the new fit state.
+   * @param scale - Desired scale relative to the editor container dimensions.
    */
   public calculateAndApplyDefaultZoom(scale: number = this.options.defaultScale): void {
     this.updateDefaultZoom(scale)
 
-    // применяем дефолтный зум
+    // apply the default zoom
     this.setZoom()
   }
 
   /**
-   * Обработчик зума от DOM-события с координатами указателя.
-   * Логика выбора точки зума:
-   * - Пока монтажная область полностью помещается во viewport, зум идёт от её опорной точки.
-   * - Когда монтажная область уже больше viewport, zoom-in и zoom-out идут от позиции указателя.
+   * Handles zoom from a DOM event with pointer coordinates.
+   * Zoom point selection logic:
+   * - While the artboard fits entirely within the viewport, zoom around its reference point.
+   * - Once the artboard is larger than the viewport, zoom in and out around the pointer position.
    *
-   * Важный контракт: pointer-zoom работает только через viewportTransform.
-   * Scene state монтажной области и объектов остаётся стабильным.
-   * @param scale - Шаг зума
-   * @param pointer - DOM-координаты указателя
+   * Important contract: pointer zoom works exclusively through viewportTransform.
+   * The scene state of the artboard and objects remains stable.
+   * @param scale - Zoom increment
+   * @param pointer - DOM pointer coordinates
    * @fires editor:zoom-changed
    */
   public handlePointerZoom(scale: number, pointer: ZoomPointerCoordinates): void {
@@ -451,10 +451,10 @@ export default class ZoomManager {
   }
 
   /**
-   * Техническая совместимость для существующего wheel API.
-   * Новый app-код должен использовать handlePointerZoom, чтобы не привязывать camera-state к WheelEvent.
-   * @param scale - Шаг зума
-   * @param event - Событие колеса мыши
+   * Compatibility support for the existing wheel API.
+   * New app code should use handlePointerZoom to avoid coupling camera state to WheelEvent.
+   * @param scale - Zoom increment
+   * @param event - Mouse wheel event
    * @fires editor:zoom-changed
    */
   public handleMouseWheelZoom(scale: number, event: WheelEvent): void {
@@ -462,11 +462,11 @@ export default class ZoomManager {
   }
 
   /**
-   * Увеличение/уменьшение масштаба
-   * @param scale - Шаг зума
-   * @param options - Координаты зума (по умолчанию центр канваса)
-   * @param options.pointX - Координата X точки зума
-   * @param options.pointY - Координата Y точки зума
+   * Zoom in/out
+   * @param scale - Zoom increment
+   * @param options - Zoom coordinates (the canvas center by default)
+   * @param options.pointX - X coordinate of the zoom point
+   * @param options.pointY - Y coordinate of the zoom point
    * @fires editor:zoom-changed
    */
   public zoom(scale: number = DEFAULT_ZOOM_RATIO, options: { pointX?: number; pointY?: number } = {}): void {
@@ -485,8 +485,8 @@ export default class ZoomManager {
     this.editor.montageArea.setCoords()
     this.editor.canvas.requestRenderAll()
 
-    // Live-zoom не округляется на каждом wheel-событии:
-    // мелкие инкременты тачпада должны накапливаться.
+    // Live zoom is not rounded on every wheel event:
+    // small touchpad increments must accumulate.
     let zoom = currentZoom + Number(scale)
     if (zoom > maxZoom) zoom = maxZoom
     if (zoom < minZoom) zoom = minZoom
@@ -504,10 +504,10 @@ export default class ZoomManager {
   }
 
   /**
-   * Установка зума
-   * После применения зума viewport заново центрируется на монтажной области,
-   * чтобы reset/default zoom работали относительно стабильных scene coordinates.
-   * @param zoom - Зум
+   * Set the zoom
+   * After applying the zoom, recenter the viewport on the artboard,
+   * so that reset/default zoom works relative to stable scene coordinates.
+   * @param zoom - Zoom
    * @fires editor:zoom-changed
    */
   public setZoom(zoom: number = this.defaultZoom): void {
@@ -537,8 +537,8 @@ export default class ZoomManager {
   }
 
   /**
-   * Сброс зума
-   * Сбрасывает зум и возвращает viewport к центру монтажной области.
+   * Reset the zoom
+   * Resets the zoom and returns the viewport to the center of the artboard.
    * @fires editor:zoom-changed
    */
   public resetZoom(): void {

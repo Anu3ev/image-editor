@@ -8,7 +8,7 @@ import {
 } from '../methods.js'
 
 /**
- * Инициализирует listeners синхронизации canvas-состояния и служебных индикаторов.
+ * Initializes listeners for synchronizing canvas state and status indicators.
  */
 export default ({
   editorInstance,
@@ -45,7 +45,7 @@ export default ({
   } = shapeApi
 
   /**
-   * Обновляет значения разрешения монтажной области в input'ах.
+   * Updates the artboard resolution values in the inputs.
    */
   const updateMontageInputs = () => {
     const { montageArea } = editorInstance
@@ -59,7 +59,7 @@ export default ({
   }
 
   /**
-   * Обновляет текущие размеры canvas в служебных элементах UI.
+   * Updates the current canvas dimensions in the UI status elements.
    */
   const syncCanvasInfoNodes = () => {
     canvasResolutionNode.textContent = getCanvasResolution(editorInstance)
@@ -68,14 +68,14 @@ export default ({
   }
 
   /**
-   * Обновляет текущую информацию о выбранном объекте.
+   * Updates the current information about the selected object.
    */
   const syncCurrentObjectData = () => {
     currentObjectDataNode.textContent = getCurrentObjectData(editorInstance)
   }
 
   /**
-   * Синхронизирует панели текста и фигур после изменения выделения.
+   * Synchronizes the text and shape panels after a selection change.
    */
   const handleSelectionChange = (event) => {
     const eventTarget = event?.target
@@ -90,7 +90,7 @@ export default ({
   }
 
   /**
-   * Инициализирует значения UI до подписки на события.
+   * Initializes UI values before subscribing to events.
    */
   const initState = () => {
     updateMontageInputs()
@@ -100,7 +100,7 @@ export default ({
   }
 
   /**
-   * Подписывает listeners на изменение размеров и zoom canvas.
+   * Registers listeners for canvas size and zoom changes.
    */
   const initCanvasInfoListeners = () => {
     editorInstance.canvas.on('editor:resolution-width-changed', updateMontageInputs)
@@ -136,7 +136,7 @@ export default ({
   }
 
   /**
-   * Подписывает listeners на изменение выделения и объектов canvas.
+   * Registers listeners for selection and canvas object changes.
    */
   const initCanvasSelectionListeners = () => {
     editorInstance.canvas.on('selection:created', handleSelectionChange)
@@ -170,7 +170,7 @@ export default ({
   }
 
   /**
-   * Подписывает listeners на изменение разрешения монтажной области.
+   * Registers listeners for artboard resolution changes.
    */
   const initMontageListeners = () => {
     applyMontageResolutionBtn?.addEventListener('click', () => {

@@ -47,7 +47,7 @@ describe('ClipboardManager', () => {
   let commitRehydratedShapeLayoutMock: jest.Mock
 
   beforeEach(() => {
-    // Устанавливаем глобальные моки браузерных API
+    // Set up global mocks for browser APIs
     setupBrowserMocks()
 
     const mocks = createManagerTestMocks()
@@ -58,7 +58,7 @@ describe('ClipboardManager', () => {
 
     clipboardManager = new ClipboardManager({ editor: mockEditor })
 
-    // Очищаем все моки
+    // Clear all mocks
     jest.clearAllMocks()
   })
 
@@ -93,7 +93,7 @@ describe('ClipboardManager', () => {
 
       clipboardManager.copy()
 
-      // Ждем завершения асинхронного клонирования
+      // Wait for asynchronous cloning to finish
       await new Promise(process.nextTick)
 
       expect(clipboardManager.clipboard).toBeTruthy()
@@ -614,7 +614,7 @@ describe('ClipboardManager', () => {
 
       expect(result).toBe(true)
       expect(mockCanvas.discardActiveObject).toHaveBeenCalled()
-      // Для ActiveSelection используется специальная логика добавления
+      // ActiveSelection uses special addition logic
       expect(mockEditor.historyManager.suspendHistory).toHaveBeenCalled()
       expect(mockEditor.historyManager.resumeHistory).toHaveBeenCalled()
       expect(mockCanvas.fire).toHaveBeenCalledWith('editor:object-pasted', {
@@ -867,19 +867,19 @@ describe('ClipboardManager', () => {
     })
   })
 
-  // Тесты комбинированных сценариев
+  // Tests for combined scenarios
   describe('комбинированные сценарии копирования и вставки', () => {
     it('должен корректно работать: копирование внутри редактора -> вставка извне -> вставка изнутри', async() => {
-      // 1. Копируем объект внутри редактора
+      // 1. Copy an object within the editor
       const internalObject = createMockFabricObject({ type: 'rect', id: 'internal-rect' })
       mockCanvas.getActiveObject.mockReturnValue(internalObject)
       clipboardManager.copy()
 
-      await new Promise(process.nextTick) // Ждем асинхронного клонирования
+      await new Promise(process.nextTick) // Wait for asynchronous cloning
 
       expect(clipboardManager.clipboard).toBeTruthy()
 
-      // 2. Имитируем вставку извне (изображение из системного буфера)
+      // 2. Simulate an external paste (an image from the system clipboard)
       const mockImage = createMockFabricObject({ type: 'image', id: 'external-image' })
       mockEditor.imageManager.importImage.mockResolvedValue({
         image: mockImage
@@ -890,7 +890,7 @@ describe('ClipboardManager', () => {
       })
 
       await clipboardManager.handlePasteEvent(clipboardEvent)
-      // Даем время на FileReader
+      // Allow time for FileReader
       await new Promise((resolve) => {
         setTimeout(() => resolve(undefined), ASYNC_DELAY)
       })
@@ -906,7 +906,7 @@ describe('ClipboardManager', () => {
         object: mockImage
       })
 
-      // 3. Вставляем внутренний объект
+      // 3. Paste the internal object
       const result = await clipboardManager.paste()
 
       expect(result).toBe(true)
@@ -918,7 +918,7 @@ describe('ClipboardManager', () => {
     })
 
     it('должен корректно работать: копирование извне -> копирование внутри -> вставка внутреннего объекта', async() => {
-      // 1. Вставляем изображение извне (симулируем что уже было скопировано извне)
+      // 1. Paste an external image (simulate an earlier external copy)
       mockEditor.imageManager.importImage.mockResolvedValue({
         image: createMockFabricObject({ type: 'image', id: 'external-image' })
       })
@@ -929,14 +929,14 @@ describe('ClipboardManager', () => {
 
       await clipboardManager.handlePasteEvent(clipboardEvent)
 
-      // 2. Копируем объект внутри редактора (должен перезаписать внутренний буфер)
+      // 2. Copy an object within the editor (this should overwrite the internal clipboard)
       const internalObject = createMockFabricObject({ type: 'circle', id: 'internal-circle' })
       mockCanvas.getActiveObject.mockReturnValue(internalObject)
       clipboardManager.copy()
 
       await new Promise(process.nextTick)
 
-      // 3. Вставляем - должен вставиться внутренний объект, а не внешний
+      // 3. Paste: the internal object should be pasted, rather than the external one
       const result = await clipboardManager.paste()
 
       expect(result).toBe(true)
@@ -963,7 +963,7 @@ describe('ClipboardManager', () => {
       })
 
       await clipboardManager.handlePasteEvent(clipboardEvent)
-      // Даем время на выполнение FileReader
+      // Allow time for FileReader to execute
       await new Promise<void>((resolve) => {
         setTimeout(() => resolve(), ASYNC_DELAY)
       })
@@ -999,14 +999,14 @@ describe('ClipboardManager', () => {
       const clipboardEvent = createMockClipboardEvent({
         items: [{
           type: 'text/html',
-          getAsFile: () => null // HTML элементы не возвращают файл
+          getAsFile: () => null // HTML elements do not return a file
         }],
         getData: getDataMock
       })
 
       await clipboardManager.handlePasteEvent(clipboardEvent)
 
-      // Даем время на асинхронное выполнение _handleImageImport
+      // Allow time for _handleImageImport to execute asynchronously
       await new Promise<void>((resolve) => {
         setTimeout(() => resolve(), ASYNC_DELAY)
       })
@@ -1045,7 +1045,7 @@ describe('ClipboardManager', () => {
         setTimeout(() => resolve(), ASYNC_DELAY)
       })
 
-      // Вставка отложена, пока не вызван resolve
+      // Pasting is deferred until resolve is called
       expect(getImageSource()).toEqual(expect.stringContaining('data:image/png;base64,'))
       expect(mockEditor.imageManager.importImage).not.toHaveBeenCalled()
 
@@ -1193,7 +1193,7 @@ describe('ClipboardManager', () => {
         })
       })
 
-      mockQuerySelector.mockReturnValue(null) // Нет img элементов
+      mockQuerySelector.mockReturnValue(null) // No img elements
 
       await clipboardManager.handlePasteEvent(clipboardEvent)
 
@@ -1207,7 +1207,7 @@ describe('ClipboardManager', () => {
     })
   })
 
-  // Тесты обработки ошибок
+  // Error handling tests
   describe('error handling', () => {
     it('должен обработать ошибку клонирования при копировании', async() => {
       const failingObject = createFailingMockObject('Clone error in copy')

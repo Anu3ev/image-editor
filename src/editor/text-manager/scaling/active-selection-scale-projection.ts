@@ -5,16 +5,16 @@ import type {
   ScaleStepProjectionInput
 } from '../../snapping-manager/scaling/scale-snapping-resolver'
 
-/** Геометрия общего выделения при соседнем наборе канонических множителей текста. */
+/** Selection geometry at a neighboring set of canonical text multipliers. */
 export type ActiveSelectionTextScaleProjectionSample = Readonly<{
   bounds: ObjectBounds
   values: readonly number[]
 }>
 
-/** Допуск проверки соседнего значения канонического множителя. */
+/** Tolerance for checking a neighboring canonical-multiplier value. */
 const ACTIVE_SELECTION_TEXT_SCALE_PROJECTION_EPSILON = 0.000000001
 
-/** Возвращает локальный коэффициент одной грани по конкретной переменной скейлинга. */
+/** Returns the local coefficient of one edge with respect to a specific scaling variable. */
 function resolveEdgeCoefficient({
   bounds,
   edge,
@@ -36,7 +36,7 @@ function resolveEdgeCoefficient({
   return (sample.bounds[edge] - bounds[edge]) / valueDelta
 }
 
-/** Проверяет количество переменных и соседних измерений текущего режима. */
+/** Checks the number of variables and neighboring measurements for the current mode. */
 function assertProjectionSamples({
   projectionMode,
   samples,
@@ -59,7 +59,7 @@ function assertProjectionSamples({
 }
 
 /**
- * Создаёт локальную линейную модель по точным измерениям канонического состояния текстов.
+ * Creates a local linear model from exact measurements of canonical text state.
  */
 export function createActiveSelectionTextScaleStepProjection({
   bounds,

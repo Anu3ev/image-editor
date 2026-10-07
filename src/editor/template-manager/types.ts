@@ -1,21 +1,21 @@
-/** Маркер подстановки данных в объект шаблона. */
+/** Data substitution marker in a template object. */
 export type TemplatePlaceholder = {
   id: string
   label?: string
   type: 'text' | 'image'
 }
 
-/** Размер исходника, в системе координат которого сохранена crop-область. */
+/** Source dimensions defining the coordinate system in which the crop area is saved. */
 export type TemplateImageCrop = {
   source: string
   sourceWidth: number
   sourceHeight: number
 }
 
-/** Способ вписывания нового источника изображения в сохранённую область. */
+/** Method for fitting a new image source into the saved area. */
 export type TemplateImageFit = 'contain' | 'stretch'
 
-/** Пользовательские и служебные данные объекта шаблона. */
+/** User and internal data for a template object. */
 export interface TemplateCustomData {
   [key: string]: unknown
   templateField?: string
@@ -24,7 +24,7 @@ export interface TemplateCustomData {
   imageFit?: TemplateImageFit
 }
 
-/** Метаданные шаблона и его базовой монтажной области. */
+/** Metadata for the template and its base artboard. */
 export interface TemplateMeta {
   [key: string]: unknown
   baseWidth: number
@@ -35,10 +35,10 @@ export interface TemplateMeta {
   positionsNormalized?: boolean
 }
 
-/** Положение объекта относительно одной из границ шаблона. */
+/** Object position relative to one of the template boundaries. */
 export type TemplateAnchor = 'start' | 'center' | 'end'
 
-/** Сериализованное описание одного объекта шаблона. */
+/** Serialized description of a single template object. */
 export interface TemplateObjectData {
   [key: string]: unknown
   id?: unknown
@@ -59,14 +59,14 @@ export interface TemplateObjectData {
   _templateAnchorY?: TemplateAnchor
 }
 
-/** Полное сериализованное описание шаблона. */
+/** Full serialized template description. */
 export type TemplateDefinition = {
   id: string
   meta: TemplateMeta
   objects: TemplateObjectData[]
 }
 
-/** Параметры создания шаблона из текущего выделения. */
+/** Options for creating a template from the current selection. */
 export type SerializeTemplateOptions = {
   templateId?: string
   previewId?: string
@@ -74,7 +74,7 @@ export type SerializeTemplateOptions = {
   withBackground?: boolean
 }
 
-/** Параметры применения шаблона к редактору. */
+/** Options for applying a template to the editor. */
 export type ApplyTemplateOptions = {
   template: TemplateDefinition
   data?: Record<string, string>

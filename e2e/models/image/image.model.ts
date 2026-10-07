@@ -9,7 +9,7 @@ import type {
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 import { ImageScalingSession } from './image-scaling-session'
 
-/** RGBA-цвет пикселя в data URL изображении. */
+/** RGBA pixel color in a data-URL image. */
 type ImagePixelColor = {
   red: number
   green: number
@@ -17,13 +17,13 @@ type ImagePixelColor = {
   alpha: number
 }
 
-/** Размер изображения в data URL. */
+/** Dimensions of the image in a data URL. */
 type ImageDataUrlSize = {
   width: number
   height: number
 }
 
-/** Сводка экспортированного файла с первыми байтами для проверки фактического формата. */
+/** Exported-file summary with initial bytes for checking its actual format. */
 type CanvasFileExportInfo = {
   contentType: string
   fileName: string
@@ -31,10 +31,10 @@ type CanvasFileExportInfo = {
   header: number[]
 }
 
-/** Длина заголовка, достаточная для проверки PNG, JPEG, WEBP и PDF. */
+/** Header length sufficient to check PNG, JPEG, WEBP, and PDF. */
 const EXPORTED_FILE_HEADER_LENGTH = 12
 
-/** Источник live image-объекта в Fabric. */
+/** Source of the live image object in Fabric. */
 type ImageSourceInfo = {
   id: string | null
   src: string | null
@@ -46,13 +46,13 @@ type ImageSourceInfo = {
   sourceHeight: number
 }
 
-/** Матрица преобразования изображения в координатах сцены. */
+/** Image transformation matrix in scene coordinates. */
 type ImageTransformMatrix = [number, number, number, number, number, number]
 
-/** Способ начального вписывания импортированного изображения. */
+/** Initial fitting method for the imported image. */
 type ImageImportScale = 'image-contain' | 'image-cover' | 'scale-montage'
 
-/** Полное описание цветного растрового источника для тестов. */
+/** Complete description of a colored raster source for tests. */
 type ColorGridImageParams = {
   width: number
   height: number
@@ -67,7 +67,7 @@ type ColorGridImageParams = {
 export class ImageModel {
   private readonly page: Page
 
-  /** Полный lifecycle изменения размера изображения. */
+  /** Complete image-resize lifecycle. */
   readonly scaling: ImageScalingSession
 
   constructor(page: Page) {
@@ -75,7 +75,7 @@ export class ImageModel {
     this.scaling = new ImageScalingSession(page)
   }
 
-  /** Добавляет растровое изображение заданного размера через публичный API ImageManager. */
+  /** Adds a raster image of the specified size through the public ImageManager API. */
   async addFilledImage(
     params: {
       width: number
@@ -105,7 +105,7 @@ export class ImageModel {
     })
   }
 
-  /** Добавляет изображение из четырёх цветовых областей через публичный API ImageManager. */
+  /** Adds an image with four colored regions through the public ImageManager API. */
   async addColorGridImage(
     params: {
       width: number
@@ -141,7 +141,7 @@ export class ImageModel {
     })
   }
 
-  /** Создаёт цветной растровый источник и добавляет его через публичный API ImageManager. */
+  /** Creates a colored raster source and adds it through the public ImageManager API. */
   private async _addImageFromColorGrid(params: ColorGridImageParams): Promise<EditorObjectInfo | null> {
     return this.page.evaluate(async({
       width,
@@ -185,7 +185,7 @@ export class ImageModel {
     }, params)
   }
 
-  /** Экспортирует image-объект через публичный API ImageManager в data URL. */
+  /** Exports an image object to a data URL through the public ImageManager API. */
   async exportObjectAsBase64(params: ObjectTargetParams = {}): Promise<string> {
     const dataUrl = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -212,7 +212,7 @@ export class ImageModel {
     return dataUrl
   }
 
-  /** Экспортирует всю монтажную область через публичный API ImageManager в data URL. */
+  /** Exports the entire artboard to a data URL through the public ImageManager API. */
   async exportCanvasAsBase64(params: { contentType?: string } = {}): Promise<string> {
     const dataUrl = await this.page.evaluate(({ contentType = 'image/png' }) => {
       const { editor } = window as any
@@ -233,7 +233,7 @@ export class ImageModel {
     return dataUrl
   }
 
-  /** Экспортирует монтажную область в File и возвращает метаданные с первыми байтами результата. */
+  /** Exports the artboard to a File and returns metadata with the result's initial bytes. */
   async exportCanvasAsFile(
     params: {
       contentType: string
@@ -273,7 +273,7 @@ export class ImageModel {
     return result
   }
 
-  /** Возвращает размер изображения из data URL. */
+  /** Returns image dimensions from a data URL. */
   async getDataUrlSize(params: { dataUrl: string }): Promise<ImageDataUrlSize> {
     const size = await this.page.evaluate(async({ dataUrl }) => {
       const image = new Image()
@@ -295,7 +295,7 @@ export class ImageModel {
     return size
   }
 
-  /** Возвращает цвет пикселя из data URL изображения. */
+  /** Returns a pixel color from an image data URL. */
   async getDataUrlPixelColor(params: { dataUrl: string, x: number, y: number }): Promise<ImagePixelColor> {
     const pixel = await this.page.evaluate(async({ dataUrl, x, y }) => {
       const image = new Image()
@@ -333,7 +333,7 @@ export class ImageModel {
     return pixel
   }
 
-  /** Возвращает текущее состояние изображения по id или индексу canvas. */
+  /** Returns the current image state by ID or canvas index. */
   async getObject(params: ObjectTargetParams = {}): Promise<EditorObjectInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -347,7 +347,7 @@ export class ImageModel {
     }, params)
   }
 
-  /** Возвращает snapshot изображения с актуальным bounding box. */
+  /** Returns an image snapshot with its current bounding box. */
   async getSnapshot(params: ObjectTargetParams = {}): Promise<SnappingObjectSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -365,7 +365,7 @@ export class ImageModel {
     return snapshot as SnappingObjectSnapshot
   }
 
-  /** Возвращает фактическую матрицу отрисовки изображения в координатах сцены. */
+  /** Returns the actual image-rendering matrix in scene coordinates. */
   async getTransformMatrix(params: ObjectTargetParams = {}): Promise<ImageTransformMatrix> {
     const matrix = await this.page.evaluate(({ objectIndex, id }) => {
       const { __editorHelpers: helpers } = window as any
@@ -383,7 +383,7 @@ export class ImageModel {
     return matrix as ImageTransformMatrix
   }
 
-  /** Возвращает runtime source изображения. */
+  /** Returns the image's runtime source. */
   async getSourceInfo(params: ObjectTargetParams = {}): Promise<ImageSourceInfo> {
     const info = await this.page.evaluate((targetParams) => {
       const runtimeWindow = window as any
@@ -420,7 +420,7 @@ export class ImageModel {
     return info
   }
 
-  /** Устанавливает обычную масштабируемую обводку изображения для scale-сценария. */
+  /** Sets a regular scalable image stroke for a scaling scenario. */
   async setStroke({
     stroke,
     strokeWidth,
@@ -467,7 +467,7 @@ export class ImageModel {
     return this.scaling.getSnapshot(targetParams)
   }
 
-  /** Устанавливает абсолютный угол изображения через публичный TransformManager. */
+  /** Sets the image's absolute angle through the public TransformManager. */
   async setAngle(params: { angle: number } & ObjectTargetParams): Promise<void> {
     expect(Number.isFinite(params.angle), 'угол изображения должен быть конечным числом').toBe(true)
     if (!Number.isFinite(params.angle)) {
@@ -491,7 +491,7 @@ export class ImageModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Отражает изображение по выбранной оси через публичный TransformManager. */
+  /** Flips the image along the selected axis through the public TransformManager. */
   async flip(
     params: { axis: 'x' | 'y' } & ObjectTargetParams
   ): Promise<EditorObjectInfo> {
@@ -529,7 +529,7 @@ export class ImageModel {
     return result.image
   }
 
-  /** Переносит левый верхний угол bounds изображения в координаты canvas-сцены. */
+  /** Moves the top-left corner of the image bounds to canvas-scene coordinates. */
   async moveBoundsTo(
     params: { left: number, top: number } & ObjectTargetParams
   ): Promise<SnappingObjectSnapshot> {
@@ -559,7 +559,7 @@ export class ImageModel {
     return snapshot as SnappingObjectSnapshot
   }
 
-  /** Проверяет что изображение было добавлено и возвращает объект с обязательным id. */
+  /** Checks that the image was added and returns an object with a required ID. */
   checkCreation(params: { imageObject: EditorObjectInfo | null }): EditorObjectInfo & { id: string } {
     const { imageObject } = params
 

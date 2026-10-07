@@ -13,7 +13,7 @@ import { ShapeGroupObject } from '../../../src/editor/shape-manager/domain/shape
 import { createSnappingTestContext } from '../canvas/geometry-objects'
 import { createMockFabricImage } from '../managers/image'
 
-/** Тип объекта в проверке маршрутизации перемещения. */
+/** Object type in a movement-routing check. */
 export type MovementRoutingTargetKind =
   | 'active-selection'
   | 'active-selection-empty'
@@ -36,24 +36,24 @@ export type MovementRoutingTargetKind =
   | 'shape'
   | 'text'
 
-/** Событие перемещения, которое принимает прежняя ветка SnappingManager. */
+/** Movement event accepted by the previous SnappingManager branch. */
 type MovementRoutingEvent = BasicTransformEvent<TPointerEvent> & {
   target?: FabricObject | null
   e?: TPointerEvent | null
 }
 
-/** Вызов прежней ветки перемещения. */
+/** Call to the previous movement branch. */
 type LegacyMovementRoute = (input: {
   event: MovementRoutingEvent
 }) => unknown
 
-/** Внутренняя часть SnappingManager, которую проверяют точечные тесты маршрутизации. */
+/** Internal part of SnappingManager checked by focused routing tests. */
 export type MovementRoutingManagerState = {
   movementSnappingController: MovementSnappingController
   _resolveObjectMovementContext: LegacyMovementRoute
 }
 
-/** SnappingManager и наблюдаемые границы одного сценария маршрутизации. */
+/** SnappingManager and observable boundaries for one routing scenario. */
 export type MovementRoutingSetup = Readonly<{
   canvas: ReturnType<typeof createSnappingTestContext>['canvas']
   legacyRouteMock: jest.SpiedFunction<LegacyMovementRoute>
@@ -62,7 +62,7 @@ export type MovementRoutingSetup = Readonly<{
   state: MovementRoutingManagerState
 }>
 
-/** Добавляет объекту полную геометрию, необходимую общему контроллеру перемещения. */
+/** Adds the full geometry needed by the shared movement controller to an object. */
 function applyMovementGeometry<T extends FabricObject>({
   target,
   id
@@ -97,7 +97,7 @@ function applyMovementGeometry<T extends FabricObject>({
   return target
 }
 
-/** Создаёт верхнеуровневую или вложенную группу для проверки маршрутизации. */
+/** Creates a top-level or nested group for testing routing. */
 function createGroupMovementRoutingTarget({
   kind
 }: {
@@ -117,7 +117,7 @@ function createGroupMovementRoutingTarget({
   return group
 }
 
-/** Создаёт одиночный объект для проверки маршрутизации перемещения. */
+/** Creates a single object for testing movement routing. */
 function createSingleMovementRoutingTarget({
   kind
 }: {
@@ -163,7 +163,7 @@ function createSingleMovementRoutingTarget({
   return cropFrame
 }
 
-/** Создаёт поддерживаемый состав общего выделения. */
+/** Creates a supported multi-object selection composition. */
 function createSupportedActiveSelection({
   kind
 }: {
@@ -195,7 +195,7 @@ function createSupportedActiveSelection({
   })
 }
 
-/** Создаёт некорректное состояние общего выделения для проверки отказа от нового пути. */
+/** Creates an invalid multi-object selection state to test rejection of the new path. */
 function createInvalidActiveSelectionState({
   kind
 }: {
@@ -238,7 +238,7 @@ function createInvalidActiveSelectionState({
   return null
 }
 
-/** Создаёт неподдерживаемый состав общего выделения. */
+/** Creates an unsupported multi-object selection composition. */
 function createUnsupportedActiveSelection({
   kind
 }: {
@@ -266,7 +266,7 @@ function createUnsupportedActiveSelection({
   return null
 }
 
-/** Создаёт один из допустимых или оставленных на прежнем пути объектов. */
+/** Creates one of the supported objects or an object kept on the previous path. */
 export function createMovementRoutingTarget({
   kind
 }: {
@@ -284,7 +284,7 @@ export function createMovementRoutingTarget({
   return target
 }
 
-/** Создаёт SnappingManager с наблюдаемой прежней веткой перемещения. */
+/** Creates a SnappingManager with an observable previous movement branch. */
 export function createMovementRoutingSetup(): MovementRoutingSetup {
   const {
     editor,

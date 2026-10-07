@@ -35,19 +35,19 @@ import type {
 import { resolveShapeScaleActionAxes } from './shape-scaling-transform'
 import type { ShapeModifiedEvent } from './shape-scaling-types'
 
-/** Масштаб шейпа по двум осям во время финальной фиксации. */
+/** Shape scale along both axes during the final commit. */
 type ShapeScale = Readonly<{
   scaleX: number
   scaleY: number
 }>
 
-/** Исходный размер шейпа перед финальной фиксацией скейлинга. */
+/** Original shape dimensions before the final scaling commit. */
 export type ShapeScalingCommitStartSize = Readonly<{
   height: number
   width: number
 }>
 
-/** Данные, нужные для расчёта финального масштаба и размеров. */
+/** Data required to calculate the final scale and dimensions. */
 type ShapeScalingCommitContext = Readonly<{
   alignH: ShapeHorizontalAlign
   alignV: ShapeVerticalAlign
@@ -56,7 +56,7 @@ type ShapeScalingCommitContext = Readonly<{
   startDimensions: ShapeScalingStartDimensions
 }>
 
-/** Полный план финальной фиксации геометрии шейпа. */
+/** Complete plan for the final shape-geometry commit. */
 export type ShapeScalingCommitPlan = Readonly<{
   alignH: ShapeHorizontalAlign
   alignV: ShapeVerticalAlign
@@ -65,7 +65,7 @@ export type ShapeScalingCommitPlan = Readonly<{
   wrapPolicy?: ShapeTextWrapPolicy
 }>
 
-/** Возвращает канонический размер, от которого нужно фиксировать завершённый скейлинг. */
+/** Returns the canonical dimensions from which completed scaling should be committed. */
 export function resolveShapeScalingCommitStartSize({
   group,
   state
@@ -85,7 +85,7 @@ export function resolveShapeScalingCommitStartSize({
   return { height, width }
 }
 
-/** Собирает оси, исходные размеры и настройки финальной фиксации. */
+/** Collects axes, original dimensions, and final-commit settings. */
 function createShapeScalingCommitContext({
   event,
   group,
@@ -133,7 +133,7 @@ function createShapeScalingCommitContext({
   }
 }
 
-/** Ограничивает финальный пропорциональный масштаб минимальным размером текста. */
+/** Constrains the final proportional scale by the minimum text size. */
 function resolveProportionalCommitScale({
   canvas,
   context,
@@ -176,7 +176,7 @@ function resolveProportionalCommitScale({
     : initialScale
 }
 
-/** Ограничивает финальный свободный масштаб минимальными размерами по каждой оси. */
+/** Constrains the final free scale by the minimum dimensions along each axis. */
 function resolveFreeCommitScale({
   canvas,
   context,
@@ -223,7 +223,7 @@ function resolveFreeCommitScale({
   return { scaleX, scaleY }
 }
 
-/** Выбирает допустимый финальный масштаб с учётом режима текущего жеста. */
+/** Selects a valid final scale, accounting for the current gesture mode. */
 function resolveShapeScalingCommitScale({
   canvas,
   context,
@@ -250,7 +250,7 @@ function resolveShapeScalingCommitScale({
   return resolveFreeCommitScale({ canvas, context, event, group, initialScale, state, text })
 }
 
-/** Рассчитывает полный план финальной фиксации геометрии шейпа. */
+/** Calculates the complete plan for the final shape-geometry commit. */
 export function resolveShapeScalingCommitPlan({
   canvas,
   event,

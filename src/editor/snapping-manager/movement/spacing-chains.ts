@@ -6,13 +6,13 @@ import {
   type SpacingPatternSource
 } from './spacing-patterns'
 
-/** Допуск на погрешность вычислений и сериализации точных интервалов. */
+/** Tolerance for calculation and serialization errors in exact intervals. */
 const SPACING_CHAIN_DISTANCE_TOLERANCE = 0.001
 
-/** Идентификатор активного объекта внутри полного снимка цепочек. */
+/** Active object identifier within the complete chain snapshot. */
 export const ACTIVE_MOVEMENT_SPACING_SOURCE_ID = 'movement-active-target'
 
-/** Точный соседний интервал из снимка, сделанного в начале перемещения. */
+/** Exact adjacent interval from the snapshot taken at the start of movement. */
 export type MovementSpacingInterval = Readonly<{
   id: string
   type: SpacingPattern['type']
@@ -24,7 +24,7 @@ export type MovementSpacingInterval = Readonly<{
   exactDistance: number
 }>
 
-/** Непрерывная цепочка равных интервалов с допуском на погрешность вычислений. */
+/** Continuous chain of equal intervals with a tolerance for calculation errors. */
 export type MovementSpacingChain = Readonly<{
   id: string
   type: SpacingPattern['type']
@@ -34,13 +34,13 @@ export type MovementSpacingChain = Readonly<{
   displayDistance: number
 }>
 
-/** Цепочки полного снимка для обеих осей. */
+/** Chains from the complete snapshot for both axes. */
 export type MovementSpacingChains = Readonly<{
   vertical: readonly MovementSpacingChain[]
   horizontal: readonly MovementSpacingChain[]
 }>
 
-/** Преобразует найденный интервал в неизменяемую доменную модель. */
+/** Converts a discovered interval to an immutable domain model. */
 function createMovementSpacingInterval({
   entry
 }: {
@@ -60,7 +60,7 @@ function createMovementSpacingInterval({
   })
 }
 
-/** Создаёт общую цепочку, если в последовательности есть минимум два интервала. */
+/** Creates a shared chain if the sequence contains at least two intervals. */
 function createMovementSpacingChain({
   entries,
   type
@@ -93,7 +93,7 @@ function createMovementSpacingChain({
   })
 }
 
-/** Делит связанную последовательность по максимальному разбросу точных расстояний. */
+/** Splits a connected sequence by the maximum spread of exact distances. */
 function createConnectedSpacingChains({
   entries,
   type
@@ -141,7 +141,7 @@ function createConnectedSpacingChains({
   return chains
 }
 
-/** Собирает связанные последовательности интервалов одной оси без рекурсии. */
+/** Collects connected interval sequences on one axis without recursion. */
 function createAxisSpacingChains({
   entries,
   type
@@ -174,7 +174,7 @@ function createAxisSpacingChains({
   return chains
 }
 
-/** Строит неизменяемые цепочки из полного снимка, включая активный объект. */
+/** Builds immutable chains from the complete snapshot, including the active object. */
 export function createMovementSpacingChains({
   sources
 }: {
@@ -199,7 +199,7 @@ export function createMovementSpacingChains({
   })
 }
 
-/** Проверяет принадлежность точного интервала заданной цепочке. */
+/** Checks whether an exact interval belongs to the given chain. */
 export function movementSpacingChainIncludesPattern({
   chain,
   pattern
@@ -218,7 +218,7 @@ export function movementSpacingChainIncludesPattern({
   })
 }
 
-/** Проверяет, что объект входит хотя бы в один интервал цепочки. */
+/** Checks whether the object belongs to at least one interval in the chain. */
 export function movementSpacingChainIncludesSource({
   chain,
   sourceId
@@ -231,7 +231,7 @@ export function movementSpacingChainIncludesSource({
   })
 }
 
-/** Возвращает цепочку из неизменяемого снимка по её стабильному идентификатору. */
+/** Returns a chain from the immutable snapshot by its stable identifier. */
 export function findMovementSpacingChainById({
   chains,
   chainId
@@ -248,7 +248,7 @@ export function findMovementSpacingChainById({
   return null
 }
 
-/** Подставляет итоговые границы активного объекта в один интервал. */
+/** Substitutes the active object's final bounds into one interval. */
 function materializeMovementSpacingInterval({
   interval,
   activeSourceId,
@@ -268,7 +268,7 @@ function materializeMovementSpacingInterval({
   }
 }
 
-/** Создаёт направляющие, которые вместе показывают каждый интервал проверенной цепочки. */
+/** Creates guides that collectively show every interval in the verified chain. */
 export function createMovementSpacingChainGuides({
   chain,
   activeSourceId,

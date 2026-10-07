@@ -15,7 +15,7 @@ import type {
   PlannedMovementSpacingConstraint
 } from './movement-snapping-resolver'
 
-/** Возвращает допуск по поперечной оси для нового или удерживаемого прилипания. */
+/** Returns the cross-axis tolerance for new or held snapping. */
 function resolveSpacingSelectionTolerance({
   constraint,
   baseline
@@ -28,7 +28,7 @@ function resolveSpacingSelectionTolerance({
     : baseline.thresholds.acquire
 }
 
-/** Оставляет только варианты равноудалённости, применимые к заданным границам. */
+/** Keeps only equal-spacing options applicable to the given bounds. */
 export function resolveApplicableMovementSpacingSelections({
   constraint,
   baseline,
@@ -50,13 +50,13 @@ export function resolveApplicableMovementSpacingSelections({
   })
 }
 
-/** Проверенные направляющие и признак общей оси полной цепочки. */
+/** Verified guides and a flag indicating a common axis for the complete chain. */
 type VerifiedSpacingGuides = Readonly<{
   guides: readonly SpacingGuide[]
   usesChainAxis: boolean
 }>
 
-/** Возвращает полную цепочку или отдельные направляющие выбранной коррекции. */
+/** Returns the complete chain or individual guides for the selected correction. */
 function resolveVerifiedSpacingGuides({
   baseline,
   bounds,
@@ -95,7 +95,7 @@ function resolveVerifiedSpacingGuides({
   })
 }
 
-/** Добавляет проверенные направляющие с фактическим положением объекта по поперечной оси. */
+/** Adds verified guides using the object's actual cross-axis position. */
 export function appendVerifiedMovementSpacingGuides({
   baseline,
   bounds,

@@ -1,9 +1,9 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 
-/** Все стандартные ручки активной crop-рамки и общего выделения. */
+/** All standard handles of the active crop frame and active selection. */
 const ALL_SCALE_HANDLES = ['tl', 'tr', 'br', 'bl', 'ml', 'mt', 'mr', 'mb'] as const
 
-/** Объекты, между которыми создаётся общее выделение во время crop. */
+/** Objects included in the active selection created during cropping. */
 type CropSelectionSetup = Readonly<{
   imageId: string
   neighborId: string

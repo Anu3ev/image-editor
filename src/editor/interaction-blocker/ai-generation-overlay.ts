@@ -7,8 +7,8 @@ import {
 
 export const AI_GENERATION_OVERLAY_TYPE = 'ai-generation-overlay'
 
-// Базовая координатная система анимации. Она не равна размеру montage area:
-// через неё задаётся плотность точек и движение пятен влияния в стабильных единицах.
+// Base coordinate system for the animation. It is independent of the artboard size:
+// it defines point density and the movement of influence regions in stable units.
 const ANIMATION_SPACE_SIZE = 1080
 const TAU = Math.PI * 2
 const BASE_GRID_COUNT = 40
@@ -259,8 +259,8 @@ function getAnimationRenderMetrics({
 }: {
   size: OverlayRenderSize
 }): AnimationRenderMetrics {
-  // Canvas zoom применится внешним viewport transform Fabric.
-  // Внутри overlay animation-space зависит только от размера montage area.
+  // Canvas zoom is applied by Fabric's outer viewport transform.
+  // Inside the overlay, animation space depends only on the artboard size.
   const animationToOverlayScale = Math.min(size.width, size.height) / ANIMATION_SPACE_SIZE
 
   return {
@@ -276,8 +276,8 @@ function getGridAxis({ size }: { size: number }): GridAxis {
   const rawCount = Math.floor((size - 2 * GRID_START) / GRID_PITCH) + 1
   const count = Math.max(1, Math.min(MAX_GRID_LINES, rawCount))
 
-  // Сетка центрируется по каждой оси отдельно: точки не растягиваются,
-  // а на вытянутых форматах просто добавляются новые ряды или колонки.
+  // The grid is centered on each axis independently: points are not stretched;
+  // elongated formats simply add more rows or columns.
   return {
     count,
     start: (size - (count - 1) * GRID_PITCH) / 2

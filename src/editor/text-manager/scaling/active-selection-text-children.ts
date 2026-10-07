@@ -3,15 +3,15 @@ import { Textbox, type ActiveSelection } from 'fabric'
 import { BackgroundTextbox } from '../background-textbox'
 import type { EditorTextbox } from '../types'
 
-/** Допуск проверки канонического преобразования текста внутри общего выделения. */
+/** Tolerance for checking the canonical text transform inside a selection. */
 const ACTIVE_SELECTION_TEXT_STATE_EPSILON = 0.000000001
 
-/** Проверяет, что числовое свойство текста осталось в каноническом состоянии. */
+/** Checks that a numeric text property remains in its canonical state. */
 function isCanonicalValue({ value }: { value: number }): boolean {
   return Number.isFinite(value) && Math.abs(value) <= ACTIVE_SELECTION_TEXT_STATE_EPSILON
 }
 
-/** Проверяет отдельный текст перед каноническим скейлингом внутри общего выделения. */
+/** Checks a standalone text object before canonical scaling inside a selection. */
 function isCanonicalSelectionText({
   selection,
   textbox
@@ -42,8 +42,8 @@ function isCanonicalSelectionText({
 }
 
 /**
- * Возвращает все поддерживаемые отдельные тексты из общего выделения.
- * Наличие других типов объектов не считается ошибкой, но неподдерживаемый отдельный текст отклоняет весь набор.
+ * Returns all supported standalone text objects from the selection.
+ * Other object types are not considered an error, but unsupported standalone text rejects the entire set.
  */
 export function resolveCanonicalActiveSelectionTexts({
   selection

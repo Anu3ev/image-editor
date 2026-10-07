@@ -1,5 +1,5 @@
 /**
- * Создаёт минимальный мок CanvasRenderingContext2D для рендера.
+ * Creates a minimal CanvasRenderingContext2D mock for rendering.
  */
 export const createMockContext = (): CanvasRenderingContext2D => {
   const ctx: any = {

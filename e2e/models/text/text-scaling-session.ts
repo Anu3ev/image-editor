@@ -8,7 +8,7 @@ import type {
 } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
-/** Незавершённый скейлинг отдельного текста настоящей мышью. */
+/** Unfinished standalone-text scaling with a real mouse. */
 type ActiveTextScaleInteraction = Readonly<{
   baseline: TextCornerScaleSnapshot
   centered: boolean
@@ -29,36 +29,36 @@ type ActiveTextScaleInteraction = Readonly<{
   }>
 }>
 
-/** Модификаторы одного движения угловой ручки текста. */
+/** Modifiers for one movement of a text corner handle. */
 type TextScalePointerOptions = Readonly<{
   ctrlKey?: boolean
   pointerSteps?: number
   shiftKey?: boolean
 }>
 
-/** Параметры одного смещения угловой ручки текста. */
+/** Options for one text-corner-handle offset. */
 type TextScalePointerStep = TextScalePointerOptions & Readonly<{
   deltaX: number
   deltaY: number
 }>
 
-/** Один измеренный шаг калибровки указателя. */
+/** One measured pointer-calibration step. */
 type TextScaleCalibrationStep = Readonly<{
   multiplier: number
   observedScale: number
   point: Readonly<{ x: number; y: number }>
 }>
 
-/** Допуск при калибровке положения указателя по фактически применённому множителю. */
+/** Tolerance for calibrating pointer position against the actual applied factor. */
 const TEXT_SCALE_CALIBRATION_EPSILON = 0.0000001
 
-/** Достаточная близость к целевому множителю для проверки реального прилипания. */
+/** Sufficient closeness to the target factor for testing real snapping. */
 const TEXT_SCALE_CALIBRATION_TARGET_EPSILON = 0.00001
 
-/** Доля рычага для второго измерения, различимого после округления координат браузером. */
+/** Fraction of the lever arm for a second measurement distinguishable after browser coordinate rounding. */
 const TEXT_SCALE_CALIBRATION_PROBE_DELTA = 0.2
 
-/** Возвращает неподвижную и перемещаемую точки выбранной угловой ручки. */
+/** Returns the fixed and moving points of the selected corner handle. */
 function resolveCornerScaleScenePoints({
   centered,
   corner,
@@ -90,20 +90,20 @@ function resolveCornerScaleScenePoints({
   return Object.freeze({ fixed: Object.freeze(fixed), moving: Object.freeze(moving) })
 }
 
-/** Управляет полным циклом браузерного взаимодействия при угловом скейлинге отдельного текста. */
+/** Manages the complete browser-interaction lifecycle for standalone-text corner scaling. */
 export default class TextScalingSession {
-  /** Страница редактора для настоящих событий мыши и клавиатуры. */
+  /** Editor page for real mouse and keyboard events. */
   private readonly page: Page
 
-  /** Активный жест или null между взаимодействиями. */
+  /** Active gesture, or null between interactions. */
   private activeInteraction: ActiveTextScaleInteraction | null = null
 
-  /** Создаёт модель углового скейлинга текста. */
+  /** Creates a text-corner-scaling model. */
   constructor(page: Page) {
     this.page = page
   }
 
-  /** Захватывает выбранную угловую ручку и оставляет кнопку мыши зажатой. */
+  /** Captures the selected corner handle and leaves the mouse button held. */
   async start(
     params: Readonly<{
       corner: TextCornerScaleHandle
@@ -142,7 +142,7 @@ export default class TextScalingSession {
     return baseline
   }
 
-  /** Тянет выбранную угловую ручку и оставляет кнопку мыши зажатой. */
+  /** Drags the selected corner handle and leaves the mouse button held. */
   async dragBy(
     params: TextScalePointerStep & Readonly<{
       corner: TextCornerScaleHandle
@@ -154,7 +154,7 @@ export default class TextScalingSession {
     return this.continueBy(params)
   }
 
-  /** Продолжает текущий скейлинг без отпускания угловой ручки. */
+  /** Continues the current scaling without releasing the corner handle. */
   async continueBy(params: TextScalePointerStep): Promise<TextCornerScaleSnapshot> {
     const interaction = this.activeInteraction
     expect(interaction, 'нельзя продолжать скейлинг текста без активного жеста').not.toBeNull()
@@ -170,7 +170,7 @@ export default class TextScalingSession {
     return this.getSnapshot(interaction)
   }
 
-  /** Двигает активную угловую ручку к точке в координатах сцены редактора. */
+  /** Moves the active corner handle to a point in editor-scene coordinates. */
   async dragToScenePoint(
     params: TextScalePointerOptions & Readonly<{
       point: Readonly<{ x: number; y: number }>
@@ -187,7 +187,7 @@ export default class TextScalingSession {
     return this.getSnapshot(interaction)
   }
 
-  /** Двигает ручку к заданному множителю с поправкой на браузерные координаты. */
+  /** Moves the handle to the specified factor with browser-coordinate correction. */
   async dragToScale({
     ctrlKey = false,
     scale,
@@ -226,7 +226,7 @@ export default class TextScalingSession {
     })
   }
 
-  /** Двигает указатель к множителю без калибровки по ограниченному размеру текста. */
+  /** Moves the pointer to a factor without calibrating against the constrained text size. */
   async dragTowardScale({
     pointerSteps = 1,
     scale
@@ -245,7 +245,7 @@ export default class TextScalingSession {
     return this.getSnapshot(interaction)
   }
 
-  /** Резко уменьшает текст, перетаскивая активную угловую ручку за неподвижную точку. */
+  /** Rapidly shrinks text by dragging the active corner handle past the fixed point. */
   async dragPastFixedPoint({
     distanceFactor = 0.2
   }: {
@@ -269,7 +269,7 @@ export default class TextScalingSession {
     })
   }
 
-  /** Возвращает точку выбранного множителя в координатах окна браузера. */
+  /** Returns the point for the selected factor in browser-window coordinates. */
   private async _resolveScaleViewportPoint({
     interaction,
     scale
@@ -290,7 +290,7 @@ export default class TextScalingSession {
     })
   }
 
-  /** Уточняет Alt-жест ещё одним шагом, если браузер не попал в целевой множитель. */
+  /** Refines the Alt gesture with another step if the browser missed the target factor. */
   private async _continueCenteredScaleCalibration({
     ctrlKey,
     interaction,
@@ -319,7 +319,7 @@ export default class TextScalingSession {
     return this.getSnapshot(interaction)
   }
 
-  /** Возвращает точку для скейлинга относительно центра в координатах окна браузера. */
+  /** Returns a center-relative scaling point in browser-window coordinates. */
   private _resolveCenteredViewportPoint({
     interaction,
     scale
@@ -338,7 +338,7 @@ export default class TextScalingSession {
     })
   }
 
-  /** Подбирает положение указателя по нескольким реальным шагам без прилипания. */
+  /** Determines pointer position from several real steps without snapping. */
   private async _calibratePointerMultiplier({
     interaction,
     pointerLever,
@@ -378,7 +378,7 @@ export default class TextScalingSession {
     return this._resolveCalibrationMultiplier({ first: second, second: third, scale })
   }
 
-  /** Измеряет реальный множитель текста в одной калибровочной точке без прилипания. */
+  /** Measures the actual text factor at one calibration point without snapping. */
   private async _measureCalibrationStep({
     interaction,
     multiplier,
@@ -402,7 +402,7 @@ export default class TextScalingSession {
     return Object.freeze({ multiplier, observedScale, point })
   }
 
-  /** Уточняет положение указателя по двум реальным измерениям одного жеста. */
+  /** Refines pointer position using two real measurements of one gesture. */
   private _resolveCalibrationMultiplier({
     first,
     scale,
@@ -426,7 +426,7 @@ export default class TextScalingSession {
     return result
   }
 
-  /** Возвращает точку указателя на выбранной доле калибровочного рычага. */
+  /** Returns the pointer point at the selected fraction of the calibration lever arm. */
   private _createCalibratedPoint({
     interaction,
     multiplier,
@@ -445,7 +445,7 @@ export default class TextScalingSession {
     })
   }
 
-  /** Выполняет несколько последовательных движений одной угловой ручки. */
+  /** Performs several successive movements of one corner handle. */
   async dragInSteps(
     params: Readonly<{
       corner: TextCornerScaleHandle
@@ -470,7 +470,7 @@ export default class TextScalingSession {
     return states
   }
 
-  /** Завершает текущий жест настоящим `mouseup`. */
+  /** Finishes the current gesture with a real `mouseup`. */
   async finish(params: ObjectTargetParams = {}): Promise<TextCornerScaleSnapshot> {
     const interaction = this.activeInteraction
     expect(interaction, 'нельзя завершить скейлинг текста без активного жеста').not.toBeNull()
@@ -490,7 +490,7 @@ export default class TextScalingSession {
     }
   }
 
-  /** Прерывает текущий жест настоящим событием `pointercancel`. */
+  /** Interrupts the current gesture with a real `pointercancel` event. */
   async cancelWithPointerEvent(): Promise<TextCornerScaleSnapshot> {
     const interaction = this.activeInteraction
     expect(interaction, 'нельзя отменить скейлинг текста без активного жеста').not.toBeNull()
@@ -519,14 +519,14 @@ export default class TextScalingSession {
     }
   }
 
-  /** Завершает скейлинг, если угловая ручка ещё захвачена. */
+  /** Finishes scaling if the corner handle is still captured. */
   async finishIfActive(): Promise<TextCornerScaleSnapshot | null> {
     if (!this.activeInteraction) return null
 
     return this.finish(this.activeInteraction)
   }
 
-  /** Возвращает координаты выбранной угловой ручки в окне браузера. */
+  /** Returns the selected corner handle's coordinates in the browser window. */
   private async _resolveHandlePoint(
     params: Readonly<{ corner: TextCornerScaleHandle }> & ObjectTargetParams
   ): Promise<Readonly<{ x: number; y: number }>> {
@@ -553,7 +553,7 @@ export default class TextScalingSession {
     return point
   }
 
-  /** Переводит точку сцены редактора в координаты окна браузера. */
+  /** Converts an editor-scene point to browser-window coordinates. */
   private async _resolveViewportPoint(
     point: Readonly<{ x: number; y: number }>
   ): Promise<Readonly<{ x: number; y: number }>> {
@@ -577,7 +577,7 @@ export default class TextScalingSession {
     return viewportPoint
   }
 
-  /** Двигает указатель с выбранными модификаторами и возвращает его положение. */
+  /** Moves the pointer with the selected modifiers and returns its position. */
   private async _movePointer({
     ctrlKey = false,
     point,
@@ -600,7 +600,7 @@ export default class TextScalingSession {
     return Object.freeze({ ...point })
   }
 
-  /** Читает точное состояние текста, необходимое для проверки углового скейлинга. */
+  /** Reads the exact text state needed to test corner scaling. */
   async getSnapshot(params: ObjectTargetParams): Promise<TextCornerScaleSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const { __editorHelpers: helpers } = window as any
@@ -625,7 +625,7 @@ export default class TextScalingSession {
     })
   }
 
-  /** Проверяет, что завершается жест выбранного текста. */
+  /** Checks that the gesture being finished belongs to the selected text. */
   private _matchesTarget({
     interaction,
     params
@@ -639,7 +639,7 @@ export default class TextScalingSession {
     return true
   }
 
-  /** Возвращает активный жест или явно завершает тест при нарушении порядка действий. */
+  /** Returns the active gesture or explicitly fails the test if the action order is violated. */
   private _getActiveInteraction(): ActiveTextScaleInteraction {
     expect(this.activeInteraction, 'для движения ручки должен существовать активный жест').not.toBeNull()
     if (!this.activeInteraction) throw new Error('Активный жест скейлинга текста должен существовать')

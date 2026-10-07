@@ -5,7 +5,7 @@ type CanvasHandlers = {
 }
 
 /**
- * Вызывает обработчики canvas события, если они зарегистрированы в __handlers.
+ * Invokes canvas event handlers if they are registered in __handlers.
  */
 export const emitCanvasEvent = ({
   canvas,
@@ -29,8 +29,8 @@ export const emitCanvasEvent = ({
 }
 
 /**
- * В тестах canvas из `createCanvasStub` хранит подписчиков в `__handlers`,
- * но `fire` по умолчанию их не вызывает. Этот хелпер делает `fire` "настоящим".
+ * In tests, the canvas from `createCanvasStub` stores subscribers in `__handlers`,
+ * but `fire` does not call them by default. This helper makes `fire` "real".
  */
 export const enableCanvasFireHandlers = (canvas: any) => {
   const fireSpy = jest.fn((eventName: string, payload?: any) => {

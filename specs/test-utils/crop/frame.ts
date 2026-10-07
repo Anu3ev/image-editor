@@ -1,7 +1,7 @@
 import { Control, Point, Rect } from 'fabric'
 import { CropFrame } from '../../../src/editor/crop-manager/domain/crop-frame'
 
-/** Создаёт фактическую source-геометрию crop без зависимости от неполного общего mock Fabric. */
+/** Creates actual crop source geometry without depending on the incomplete shared Fabric mock. */
 export function createCropInteractionFrame({
   allowFrameOverflow,
   width = 1000,

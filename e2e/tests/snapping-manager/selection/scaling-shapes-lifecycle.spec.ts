@@ -14,7 +14,7 @@ import {
 } from '../../../helpers/rotated-shape-selection-scaling.helper'
 import type { ShapeScaleSnapshot } from '../../../types'
 
-/** Поля шейпа, которые должны восстанавливаться через undo и redo. */
+/** Shape fields that should be restored through undo and redo. */
 const SHAPE_HISTORY_FIELDS = [
   'width',
   'height',
@@ -26,7 +26,7 @@ const SHAPE_HISTORY_FIELDS = [
   'groupBoundsHeight'
 ] as const satisfies readonly (keyof ShapeScaleSnapshot)[]
 
-/** Точность сравнения геометрии после сериализации в истории. */
+/** Precision for geometry comparisons after serialization in history. */
 const HISTORY_GEOMETRY_PRECISION = 2
 
 test('после mouseup сохраняет геометрию шейпов и скрывает индикатор и направляющие', async({

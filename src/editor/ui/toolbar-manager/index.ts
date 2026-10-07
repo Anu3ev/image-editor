@@ -29,106 +29,106 @@ export type ToolbarConfig = {
 
 export default class ToolbarManager {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageEditor
 
   /**
-   * Канвас редактора.
+   * Editor canvas.
    */
   public canvas: Canvas
 
   /**
-   * Настройки редактора.
+   * Editor settings.
    */
   public options: EditorOptions
 
   /**
-   * Конфигурация панели инструментов
+   * Toolbar configuration
    */
   public config!: ToolbarConfig
 
   /**
-   * Текущий объект, на котором выполняются действия панели инструментов
+   * Current object on which toolbar actions are performed
    */
   public currentTarget: FabricObject | null = null
 
   /**
-   * Флаг, указывающий на то, что текущий объект в данный момент заблокирован
-   * и не может быть изменён.
+   * Flag indicating that the current object is currently locked
+   * and cannot be modified.
    */
   public currentLocked: boolean = false
 
   /**
-   * Флаг, указывающий на то, что в данный момент выполняется трансформация текущего объекта и панель инструментов должна быть скрыта.
+   * Flag indicating that the current object is being transformed and the toolbar should be hidden.
    */
   public isTransforming: boolean = false
 
   /**
-   * Флаг временного скрытия панели инструментов внешними режимами.
+   * Flag for temporarily hiding the toolbar in external modes.
    */
   public isTemporarilyHidden: boolean = false
 
   /**
-   * Обработчик события нажатия мыши.
+   * Mouse-down event handler.
    */
   private _onMouseDown!: (opt: TPointerEventInfo<TPointerEvent>) => void
 
   /**
-   * Обработчик события перемещения объекта.
+   * Object move event handler.
    */
   private _onObjectMoving!: (opt: BasicTransformEvent<TPointerEvent>) => void
 
   /**
-   * Обработчик события изменения размера объекта.
+   * Object resize event handler.
    */
   private _onObjectScaling!: (opt: BasicTransformEvent<TPointerEvent>) => void
 
   /**
-   * Обработчик события вращения объекта.
+   * Object rotation event handler.
    */
   private _onObjectRotating!: (opt: BasicTransformEvent<TPointerEvent>) => void
 
   /**
-   * Обработчик события изменения выделения объекта.
+   * Object selection change event handler.
    */
   private _onMouseUp!: (opt: TPointerEventInfo<TPointerEvent>) => void
 
   /**
-   * Обработчик события изменения выделенного объекта.
-   * Вызывается после завершения трансформации объекта.
+   * Selected object modification event handler.
+   * Called after the object transformation finishes.
    */
   private _onObjectModified!: (opt: ModifiedEvent) => void
 
   /**
-   * Обработчик события изменения выделения объектов.
-   * Вызывается при создании, обновлении или изменении выделения.
+   * Object selection change event handler.
+   * Called when the selection is created, updated, or changed.
    */
   private _onSelectionChange!: () => void
 
   /**
-   * Обработчик события очистки выделения.
-   * Вызывается при снятии выделения с объектов.
-   * Скрывает панель инструментов.
+   * Selection clearing event handler.
+   * Called when objects are deselected.
+   * Hides the toolbar.
    */
   private _onSelectionClear!: () => void
 
   /**
-   * Обработчик события наведения мыши на кнопку панели инструментов.
-   * Применяет стиль наведения к кнопке.
+   * Toolbar button mouse-enter event handler.
+   * Applies the hover style to the button.
    */
   private _onBtnOver!: (e: MouseEvent) => void
 
   /**
-   * Обработчик события ухода мыши с кнопки панели инструментов.
-   * Применяет стиль кнопки по умолчанию.
+   * Toolbar button mouse-leave event handler.
+   * Applies the default button style.
    */
   private _onBtnOut!: (e: MouseEvent) => void
 
   /**
-   * HTML элемент панели инструментов.
-   * Создаётся при инициализации менеджера инструментов.
-   * Содержит кнопки для выполнения действий над выделенным объектом.
+   * Toolbar HTML element.
+   * Created when the toolbar manager is initialized.
+   * Contains buttons for performing actions on the selected object.
    */
   public el!: HTMLDivElement
 
@@ -189,7 +189,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Создаёт DOM элемент панели инструментов и добавляет его в canvas
+   * Creates the toolbar DOM element and adds it to the canvas
    */
   private _createDOM(): void {
     const { style } = this.config
@@ -216,10 +216,10 @@ export default class ToolbarManager {
   }
 
   /**
-   * Отрисовывает кнопки панели инструментов
-   * @param actions - массив действий для отрисовки
-   * @param actions[].name - название действия
-   * @param actions[].handle - название обработчика
+   * Renders the toolbar buttons
+   * @param actions - array of actions to render
+   * @param actions[].name - action name
+   * @param actions[].handle - handler name
    */
   private _renderButtons(actions: Array<{ name: string; handle: string }>): void {
     this.el.innerHTML = ''
@@ -235,14 +235,14 @@ export default class ToolbarManager {
 
       btn.onclick = () => handlers[handle]?.(this.editor, this.currentTarget)
 
-      // Предотвращаем всплытие событий мыши на кнопках тулбара
-      // чтобы избежать конфликта с drag'n'drop объектов на канвасе
+      // Prevent mouse events on toolbar buttons from bubbling
+      // to avoid conflicts with dragging and dropping objects on the canvas
       btn.onmousedown = (e) => {
         e.stopPropagation()
         e.preventDefault()
       }
 
-      // Отключаем drag'n'drop для кнопок
+      // Disable drag and drop for buttons
       btn.ondragstart = (e) => e.preventDefault()
 
       this.el.appendChild(btn)
@@ -250,10 +250,10 @@ export default class ToolbarManager {
   }
 
   /**
-   * Привязывает события к canvas
+   * Binds events to the canvas
    */
   private _bindEvents(): void {
-    // На время трансформации скрываем тулбар
+    // Hide the toolbar during transformation
     this.canvas.on('mouse:down', this._onMouseDown)
     this.canvas.on('object:moving', this._onObjectMoving)
     this.canvas.on('object:scaling', this._onObjectScaling)
@@ -262,7 +262,7 @@ export default class ToolbarManager {
     this.canvas.on('mouse:up', this._onMouseUp)
     this.canvas.on('object:modified', this._onObjectModified)
 
-    // 2) выделение / рендер
+    // 2) selection / rendering
     this.canvas.on('selection:created', this._onSelectionChange)
     this.canvas.on('selection:updated', this._onSelectionChange)
     this.canvas.on('after:render', this._onSelectionChange)
@@ -271,7 +271,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Временно скрывает панель инструментов до повторного показа.
+   * Temporarily hides the toolbar until it is shown again.
    */
   public hideTemporarily(): void {
     if (!this.options.showToolbar || !this.el) return
@@ -281,7 +281,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Показывает панель инструментов после временного скрытия.
+   * Shows the toolbar after it has been temporarily hidden.
    */
   public showAfterTemporary(): void {
     if (!this.options.showToolbar || !this.el) return
@@ -291,7 +291,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * На время трансформации скрываем тулбар
+   * Hide the toolbar during transformation
    */
   private _handleMouseDown(opt: TPointerEventInfo<TPointerEvent>): void {
     if (opt.transform?.actionPerformed) {
@@ -300,7 +300,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Начало трансформации объекта
+   * Start of an object transformation
    */
   private _startTransform(): void {
     this.isTransforming = true
@@ -308,7 +308,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Завершение трансформации объекта
+   * End of an object transformation
    */
   private _endTransform(): void {
     this.isTransforming = false
@@ -316,7 +316,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Обновляет панель инструментов в зависимости от выделенного объекта и его состояния
+   * Updates the toolbar based on the selected object and its state
    */
   private _updateToolbar(): void {
     if (this.isTransforming || this.isTemporarilyHidden) return
@@ -330,7 +330,7 @@ export default class ToolbarManager {
 
     const locked = Boolean(target.locked)
 
-    // Если объект или его флаг locked изменились — перерисовываем кнопки
+    // Re-render the buttons if the object or its locked flag has changed
     if (target !== this.currentTarget || locked !== this.currentLocked) {
       this.currentTarget = target
       this.currentLocked = locked
@@ -345,7 +345,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Обновляет позицию панели инструментов в зависимости от положения выделенного объекта
+   * Updates the toolbar position based on the selected object's position
    */
   private _updatePos(): void {
     if (this.isTransforming || this.isTemporarilyHidden) return
@@ -359,31 +359,31 @@ export default class ToolbarManager {
 
     const { el, config, canvas } = this
 
-    // Пересчитываем внутренние координаты объекта (для корректного getBoundingRect)
+    // Recalculate the object's internal coordinates (for a correct getBoundingRect result)
     target.setCoords()
 
-    // Читаем текущий зум (масштаб) и сдвиг (панорамирование) холста
+    // Read the current canvas zoom (scale) and translation (pan)
     const zoom = canvas.getZoom()
 
     // viewportTransform — [scaleX, skewX, skewY, scaleY, translateX, translateY]
     const [, , , , panX, panY] = canvas.viewportTransform
 
-    // Находим центр объекта в исходных canvas-координатах
+    // Find the object's center in the original canvas coordinates
     const { x: centerX } = target.getCenterPoint()
 
-    // Получаем axis-aligned bounding-box объекта (с учётом поворота)
-    //    первый аргумент false — не включаем масштаб в результат,
-    //    второй true — учитываем текущий трансформ (rotate/scale)
+    // Get the object's axis-aligned bounding box (accounting for rotation)
+    //    the first argument, false, excludes scaling from the result,
+    //    the second argument, true, accounts for the current transform (rotate/scale)
     const { top: objectTop, height: objectHeight } = target.getBoundingRect()
 
-    // Вычисляем экранную X-координату центра объекта
+    // Calculate the screen X coordinate of the object's center
     const screenCenterX = centerX * zoom + panX
 
-    // Смещаем тулбар по горизонтали так, чтобы он был строго по центру снизу
+    // Shift the toolbar horizontally so it is exactly centered beneath the object
     const left = screenCenterX - el.offsetWidth / 2
     const offsetTop = config.offsetTop || 0
 
-    // Получаем нижнюю грань объекта в пикселях с учётом угла поворота + отступ
+    // Get the object's bottom edge in pixels, accounting for the rotation angle, plus the offset
     const top = (objectTop + objectHeight) * zoom + panY + offsetTop
 
     Object.assign(el.style, {
@@ -394,8 +394,8 @@ export default class ToolbarManager {
   }
 
   /**
-   * Возвращает объект, относительно которого тулбар должен и позиционироваться, и выполнять действия.
-   * Для текста внутри shape-группы это сама группа, а не внутренний editing-textbox.
+   * Returns the object the toolbar should use both for positioning and for actions.
+   * For text inside a shape group, this is the group itself rather than the internal editing-textbox.
    */
   private _resolveCurrentTarget(): FabricObject | null {
     const activeObject = this.canvas.getActiveObject()
@@ -406,7 +406,7 @@ export default class ToolbarManager {
   }
 
   /**
-   * Удаляет слушатели событий и DOM элемент панели инструментов
+   * Removes event listeners and the toolbar DOM element
    */
   destroy(): void {
     this.el.removeEventListener('mouseover', this._onBtnOver)

@@ -555,7 +555,7 @@ describe('saveState и getFullState', () => {
       .mockReturnValueOnce(state3)
       .mockReturnValueOnce(state4)
 
-    historyManager.saveState() // Базовое состояние
+    historyManager.saveState() // Base state
     historyManager.saveState() // patch-1
     historyManager.saveState() // patch-2
 
@@ -572,7 +572,7 @@ describe('saveState и getFullState', () => {
     mockCanvas.toDatalessObject.mockReturnValueOnce(state4)
     historyManager.saveState()
 
-    // После saveState patch-2 должен быть удален и заменен на patch-3
+    // After saveState, patch-2 should be removed and replaced by patch-3
     expect(historyManager.patches.map((patch) => patch.id)).toEqual(['patch-1', 'patch-3'])
     expect(historyManager.currentIndex).toBe(2)
     expect(historyManager.totalChangesCount).toBe(2)
@@ -604,10 +604,10 @@ describe('saveState и getFullState', () => {
       .mockReturnValueOnce(state3)
       .mockReturnValueOnce(state4)
 
-    historyManager.saveState() // Базовое: state1
+    historyManager.saveState() // Base: state1
     historyManager.saveState() // patch-1: state2
     historyManager.saveState() // patch-2: state3
-    historyManager.saveState() // patch-3: state4, сдвиг базового состояния
+    historyManager.saveState() // patch-3: state4, shifting the base state
 
     expect(historyManager.baseState).toEqual(state2)
     expect(historyManager.patches).toHaveLength(2)

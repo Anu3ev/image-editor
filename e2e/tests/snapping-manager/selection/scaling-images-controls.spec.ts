@@ -7,7 +7,7 @@ import {
   type ActiveSelectionScaleEdge
 } from '../../../fixtures/data/active-selection-scaling.data'
 
-/** Поля точных границ общего выделения по именам сценических граней. */
+/** Exact active-selection bounds fields keyed by scene-edge names. */
 const ACTIVE_SELECTION_BOUNDS_FIELDS = {
   bottom: 'boundsBottom',
   left: 'boundsLeft',
@@ -15,7 +15,7 @@ const ACTIVE_SELECTION_BOUNDS_FIELDS = {
   top: 'boundsTop'
 } as const satisfies Record<ActiveSelectionScaleEdge, string>
 
-/** Числовые свойства изображений, которые не меняются при скейлинге общего выделения. */
+/** Numeric image properties that do not change during active-selection scaling. */
 const IMAGE_LOCAL_NUMERIC_FIELDS = [
   'left',
   'top',
@@ -30,19 +30,19 @@ const IMAGE_LOCAL_NUMERIC_FIELDS = [
   'skewY'
 ] as const
 
-/** Логические свойства изображений, которые не меняются при скейлинге общего выделения. */
+/** Boolean image properties that do not change during active-selection scaling. */
 const IMAGE_LOCAL_BOOLEAN_FIELDS = [
   'flipX',
   'flipY'
 ] as const
 
-/** Точки отсчёта изображений, которые не меняются при скейлинге общего выделения. */
+/** Image origins that do not change during active-selection scaling. */
 const IMAGE_LOCAL_ORIGIN_FIELDS = [
   'originX',
   'originY'
 ] as const
 
-/** Одна ожидаемая направляющая после скейлинга общего выделения. */
+/** One expected guide after active-selection scaling. */
 type ExpectedScaleGuide = {
   position: number
   type: 'horizontal' | 'vertical'

@@ -1,4 +1,4 @@
-/** Палитра быстрых цветов заливки для текстовых объектов demo-редактора. */
+/** Fill color preset palette for text objects in the demo editor. */
 export const TEXT_FILL_PALETTE = [
   '#000000',
   '#ffffff',
@@ -12,7 +12,7 @@ export const TEXT_FILL_PALETTE = [
   '#f472b6'
 ]
 
-/** Палитра быстрых цветов обводки для текстовых объектов demo-редактора. */
+/** Stroke color preset palette for text objects in the demo editor. */
 export const TEXT_STROKE_PALETTE = [
   '#000000',
   '#ffffff',
@@ -26,7 +26,7 @@ export const TEXT_STROKE_PALETTE = [
   '#111827'
 ]
 
-/** Палитра быстрых цветов заливки для shape-объектов demo-редактора. */
+/** Fill color preset palette for shape objects in the demo editor. */
 export const SHAPE_FILL_PALETTE = [
   '#B0B5BF',
   '#111827',
@@ -40,7 +40,7 @@ export const SHAPE_FILL_PALETTE = [
   '#a855f7'
 ]
 
-/** Палитра быстрых цветов обводки для shape-объектов demo-редактора. */
+/** Stroke color preset palette for shape objects in the demo editor. */
 export const SHAPE_STROKE_PALETTE = [
   '#000000',
   '#ffffff',
@@ -54,16 +54,16 @@ export const SHAPE_STROKE_PALETTE = [
   '#6b7280'
 ]
 
-/** Последовательность значений выравнивания текста для циклического переключения кнопкой. */
+/** Sequence of text alignment values cycled through by the button. */
 export const ALIGN_SEQUENCE = ['left', 'center', 'right', 'justify']
-/** Количество пробелов при сериализации JSON активного объекта. */
+/** Number of indentation spaces when serializing the active object's JSON. */
 export const ACTIVE_OBJECT_JSON_SPACES = 2
-/** Текст по умолчанию для создания нового текстового объекта. */
+/** Default text for creating a new text object. */
 export const DEFAULT_TEXT_VALUE = 'Новый текст'
 
 /**
- * Список дополнительных свойств Fabric-объектов, которые нужно сохранять
- * при сериализации активного объекта и шаблонов demo-редактора.
+ * List of additional Fabric object properties to preserve
+ * when serializing the active object and demo editor templates.
  */
 export const OBJECT_SERIALIZATION_PROPS = [
   'id',

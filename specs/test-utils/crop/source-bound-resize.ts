@@ -3,13 +3,13 @@ import type { CropSourceBoundTransform } from '../../../src/editor/crop-manager/
 import { createActiveCropManager } from './manager'
 import { createCropTransform } from './interaction'
 
-/** Создаёт crop 50×50 внутри источника 100×100 и жест за правый верхний угол. */
+/** Creates a 50×50 crop within a 100×100 source and a top-right corner gesture. */
 export function createSourceBoundResize() {
   const context = createActiveCropManager({ showDimmedArea: false })
   const { frame } = context.session
   if (!(frame instanceof CropFrame)) throw new Error('Resize требует CropFrame')
   frame.set({ left: 0, top: 0, originX: 'center', originY: 'center', scaleX: 1, scaleY: 1 })
-  /** В этой fixture точка центра уже выражена в нужном origin. */
+  /** In this fixture, the center point is already expressed using the required origin. */
   frame.translateToOriginPoint = (point, originX, originY) => {
     if (originX !== 'center' || originY !== 'center') throw new Error('Fixture поддерживает только центр рамки')
     return point

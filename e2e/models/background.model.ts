@@ -9,7 +9,7 @@ export class BackgroundModel {
     this.page = page
   }
 
-  /** Устанавливает цветовой фон через публичный API BackgroundManager. */
+  /** Sets a solid-color background through the public BackgroundManager API. */
   async setColor(params: { color: string }): Promise<void> {
     await this.page.evaluate(({ color }) => {
       const { editor } = window as any
@@ -17,7 +17,7 @@ export class BackgroundModel {
     }, params)
   }
 
-  /** Устанавливает линейный градиентный фон через публичный API BackgroundManager. */
+  /** Sets a linear-gradient background through the public BackgroundManager API. */
   async setLinearGradient(params: { angle: number, startColor: string, endColor: string }): Promise<void> {
     await this.page.evaluate(({ angle, startColor, endColor }) => {
       const { editor } = window as any
@@ -29,7 +29,7 @@ export class BackgroundModel {
     }, params)
   }
 
-  /** Устанавливает фоновое изображение через публичный API BackgroundManager. */
+  /** Sets a background image through the public BackgroundManager API. */
   async setImage(params: { imageSource: string }): Promise<void> {
     await this.page.evaluate(async({ imageSource }) => {
       const { editor } = window as any
@@ -37,7 +37,7 @@ export class BackgroundModel {
     }, params)
   }
 
-  /** Возвращает сериализованное состояние текущего фонового объекта. */
+  /** Returns the current background object's serialized state. */
   async getObject(): Promise<BackgroundObjectInfo | null> {
     return this.page.evaluate(() => {
       const {

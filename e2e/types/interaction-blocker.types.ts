@@ -1,4 +1,4 @@
-/** Сериализованное состояние interaction blocker и overlay-маски. */
+/** Serialized state of the interaction blocker and overlay mask. */
 export interface InteractionBlockerStateInfo {
   isBlocked: boolean
   overlayExists: boolean

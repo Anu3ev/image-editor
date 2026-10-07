@@ -31,7 +31,7 @@ export type ShapePadding = {
 }
 
 /**
- * Пара width/height для current, manual или replacement shape-контекста.
+ * Width/height pair for the current, manual, or replacement shape context.
  */
 export type ShapeDimensions = {
   width: number
@@ -39,7 +39,7 @@ export type ShapeDimensions = {
 }
 
 /**
- * Вычисляет внутренний text inset для конкретных размеров шейпа.
+ * Calculates the internal text inset for specific shape dimensions.
  */
 export type ShapeInsetResolver = ({
   width,
@@ -64,8 +64,8 @@ export type ShapeVisualStyle = {
 }
 
 /**
- * Публичные текстовые стили shape-группы.
- * Режим shapeTextAutoExpand управляется только на уровне shape API.
+ * Public text styles of a shape group.
+ * The shapeTextAutoExpand mode is controlled only at the shape API level.
  */
 export type ShapeTextStyleOptions = Omit<TextStyleOptions, 'autoExpand'>
 
@@ -153,7 +153,7 @@ export type ShapeGroupMetadata = {
   shapeStrokeDashArray?: number[] | null
   shapeOpacity?: number
   /**
-   * Степень скругления фигуры в диапазоне 0..100.
+   * Shape rounding in the 0..100 range.
    */
   shapeRounding?: number
   shapeCanRound?: boolean
@@ -187,7 +187,7 @@ export type ShapeAddOptions = ShapeVisualStyle & ShapeCreationFlags & {
   alignH?: ShapeHorizontalAlign
   alignV?: ShapeVerticalAlign
   /**
-   * Степень скругления фигуры в диапазоне 0..100.
+   * Shape rounding in the 0..100 range.
    */
   rounding?: number
   textPadding?: Partial<ShapePadding>
@@ -207,7 +207,7 @@ export type ShapeUpdateOptions = ShapeVisualStyle & {
   alignH?: ShapeHorizontalAlign
   alignV?: ShapeVerticalAlign
   /**
-   * Степень скругления фигуры в диапазоне 0..100.
+   * Shape rounding in the 0..100 range.
    */
   rounding?: number
   textPadding?: Partial<ShapePadding>
@@ -235,7 +235,7 @@ export type ShapeSnapshot = {
   strokeDashArray?: number[] | null
   opacity?: number
   /**
-   * Степень скругления фигуры в диапазоне 0..100.
+   * Shape rounding in the 0..100 range.
    */
   rounding?: number
   left?: number
@@ -268,8 +268,8 @@ export type ShapeUpdateSource =
   | 'resize'
 
 /**
- * Общая часть payload editor-level событий перед и после обновления shape-композиции.
- * Контракт покрывает все shape-level update path, а не только публичный `update()`.
+ * Common payload for editor-level events before and after a shape-composition update.
+ * The contract covers all shape-level update paths, not just the public `update()`.
  */
 export type ShapeUpdateLifecyclePayload = {
   shape: ShapeGroup

@@ -4,38 +4,38 @@ import type {
   SelectionImageTextCompositionSnapshot
 } from '../types'
 
-/** Пара снимков до и во время скейлинга выделения с изображениями и текстами. */
+/** Pair of snapshots before and during scaling of a selection containing images and text. */
 type ImageTextScalePreviewExpectation = Readonly<{
   changesHeight: boolean
   initial: SelectionImageTextCompositionSnapshot
   live: SelectionImageTextCompositionSnapshot
 }>
 
-/** Пара снимков до и после завершения скейлинга указателем. */
+/** Pair of snapshots before and after pointer scaling completes. */
 type ImageTextScaleCommitExpectation = Readonly<{
   final: SelectionImageTextCompositionSnapshot
   live: SelectionImageTextCompositionSnapshot
 }>
 
-/** Пара снимков первого и последующих кадров удержания направляющей. */
+/** Pair of snapshots of the first and subsequent guide-hold frames. */
 type ImageTextScaleHoldExpectation = Readonly<{
   acquired: SelectionImageTextCompositionSnapshot
   held: SelectionImageTextCompositionSnapshot
 }>
 
-/** Пара снимков до и после копирования или восстановления из шаблона. */
+/** Pair of snapshots before and after copying or restoring from a template. */
 type ImageTextScaleRoundtripExpectation = Readonly<{
   actual: SelectionImageTextCompositionSnapshot
   expected: SelectionImageTextCompositionSnapshot
 }>
 
-/** Смещение восстановленного общего выделения относительно исходного. */
+/** Restored active-selection offset relative to the original. */
 type ImageTextScaleRoundtripOffset = Readonly<{
   x: number
   y: number
 }>
 
-/** Проверяет сохранение видимой геометрии дочернего объекта после roundtrip. */
+/** Checks preservation of a child object's visible geometry after a round trip. */
 function expectChildSceneGeometryRoundtrip({
   actual,
   expected,
@@ -53,7 +53,7 @@ function expectChildSceneGeometryRoundtrip({
   expect(actual.orthogonality).toBeCloseTo(expected.orthogonality, 5)
 }
 
-/** Проверяет сохранение изображения после копирования или восстановления из шаблона. */
+/** Checks image preservation after copying or restoring from a template. */
 function expectImageScaleRoundtrip({
   actual,
   expected,
@@ -83,7 +83,7 @@ function expectImageScaleRoundtrip({
   expectChildSceneGeometryRoundtrip({ actual: actual.geometry, expected: expected.geometry, offset })
 }
 
-/** Проверяет сохранение отдельного текста после копирования или восстановления из шаблона. */
+/** Checks standalone-text preservation after copying or restoring from a template. */
 function expectTextScaleRoundtrip({
   actual,
   expected,
@@ -137,7 +137,7 @@ function expectTextScaleRoundtrip({
   expectChildSceneGeometryRoundtrip({ actual: actual.geometry, expected: expected.geometry, offset })
 }
 
-/** Проверяет видимую геометрию всего состава после копирования или шаблона. */
+/** Checks the entire composition's visible geometry after copying or applying a template. */
 export function expectImageTextScaleRoundtrip({
   actual,
   expected
@@ -168,7 +168,7 @@ export function expectImageTextScaleRoundtrip({
   }
 }
 
-/** Проверяет неизменность рамки и всех дочерних объектов внутри удержания. */
+/** Checks that the frame and all child objects remain unchanged during a snap hold. */
 export function expectImageTextScaleHold({
   acquired,
   held
@@ -201,7 +201,7 @@ export function expectImageTextScaleHold({
   }
 }
 
-/** Проверяет живой размер изображений и отсутствие растяжения символов текста. */
+/** Checks live image dimensions and that text glyphs are not stretched. */
 export function expectImageTextScalePreview({
   changesHeight,
   initial,
@@ -255,7 +255,7 @@ export function expectImageTextScalePreview({
   }
 }
 
-/** Проверяет, что mouseup не меняет последнее видимое состояние рамки и её детей. */
+/** Checks that mouseup does not change the last visible state of the frame and its children. */
 export function expectImageTextScaleCommit({
   final,
   live

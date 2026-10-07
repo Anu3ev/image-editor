@@ -24,17 +24,17 @@ import {
 } from '../domain/shape-rounding'
 
 /**
- * Минимальный размер shape-узла, который можно безопасно передать в Fabric.
+ * Minimum shape-node size that can safely be passed to Fabric.
  */
 const MIN_SIZE = 1
 
 /**
- * Минимальная длина ребра для построения rounded path без вырожденной геометрии.
+ * Minimum edge length for constructing a rounded path without degenerate geometry.
  */
 const MIN_EDGE_LENGTH = 0.0001
 
 /**
- * Размер shape в пикселях.
+ * Shape dimensions in pixels.
  */
 type ShapeSize = {
   width: number
@@ -42,7 +42,7 @@ type ShapeSize = {
 }
 
 /**
- * Аргументы ресайза уже созданного shape-узла.
+ * Arguments for resizing an existing shape node.
  */
 type ResizeShapeNodeParams = ShapeSize & {
   shape: ShapeNode
@@ -51,14 +51,14 @@ type ResizeShapeNodeParams = ShapeSize & {
 }
 
 /**
- * Аргументы расчета внутреннего размера shape с учетом stroke.
+ * Arguments for calculating the shape's inner dimensions, accounting for stroke.
  */
 type ResolveInnerShapeSizeParams = ShapeSize & {
   strokeWidth?: number
 }
 
 /**
- * Аргументы создания shape-узла из пресета.
+ * Arguments for creating a shape node from a preset.
  */
 type CreateShapeObjectByPresetParams = {
   preset: ShapePreset
@@ -66,14 +66,14 @@ type CreateShapeObjectByPresetParams = {
 }
 
 /**
- * Общие аргументы для shape, которые могут использовать скругление.
+ * Common arguments for shapes that support rounding.
  */
 type CreateRoundedPathParams = {
   rounding?: number
 }
 
 /**
- * Аргументы создания path-shape из path-строки.
+ * Arguments for creating a path shape from a path string.
  */
 type CreatePathShapeParams = {
   path: string
@@ -81,7 +81,7 @@ type CreatePathShapeParams = {
 }
 
 /**
- * Аргументы создания polygon/polyline-shape.
+ * Arguments for creating a polygon/polyline shape.
  */
 type CreatePolygonShapeParams = {
   points: ShapePoint[]
@@ -90,7 +90,7 @@ type CreatePolygonShapeParams = {
 }
 
 /**
- * Аргументы построения rounded path из линейного path.
+ * Arguments for constructing a rounded path from a linear path.
  */
 type CreateRoundedPathFromLinearPathParams = {
   path: string
@@ -98,7 +98,7 @@ type CreateRoundedPathFromLinearPathParams = {
 }
 
 /**
- * Аргументы создания закругленного path по списку точек.
+ * Arguments for creating a rounded path from a list of points.
  */
 type CreateRoundedPolygonPathShapeParams = {
   points: ShapePoint[]
@@ -107,7 +107,7 @@ type CreateRoundedPolygonPathShapeParams = {
 }
 
 /**
- * Аргументы построения path-строки с закругленными вершинами.
+ * Arguments for constructing a path string with rounded vertices.
  */
 type BuildRoundedPathFromPointsParams = {
   points: ShapePoint[]
@@ -116,7 +116,7 @@ type BuildRoundedPathFromPointsParams = {
 }
 
 /**
- * Аргументы построения линейной path-строки без скруглений.
+ * Arguments for constructing a linear path string without rounding.
  */
 type BuildLinearPathFromPointsParams = {
   points: ShapePoint[]
@@ -124,7 +124,7 @@ type BuildLinearPathFromPointsParams = {
 }
 
 /**
- * Точки входа и выхода дуги скругления для одной вершины.
+ * Entry and exit points of the rounding arc for a single vertex.
  */
 type RoundedCornerPoints = {
   start: ShapePoint
@@ -132,7 +132,7 @@ type RoundedCornerPoints = {
 }
 
 /**
- * Аргументы расчета точек скругления для одной вершины.
+ * Arguments for calculating rounding points for a single vertex.
  */
 type ResolveRoundedCornerPointsParams = {
   previous: ShapePoint
@@ -142,14 +142,14 @@ type ResolveRoundedCornerPointsParams = {
 }
 
 /**
- * Аргументы создания shape из SVG-строки.
+ * Arguments for creating a shape from an SVG string.
  */
 type CreateShapeFromSvgParams = {
   svg: string
 }
 
 /**
- * Fabric-свойства, которые shape factory применяет к обычному shape-узлу.
+ * Fabric properties that the shape factory applies to a regular shape node.
  */
 interface ShapeStyleNodeUpdates {
   strokeUniform: boolean
@@ -163,21 +163,21 @@ interface ShapeStyleNodeUpdates {
 }
 
 /**
- * Нормализует число для стабильного path-представления.
+ * Normalizes a number for a stable path representation.
  */
 function normalizeNumber({ value }: { value: number }): number {
   return Number(value.toFixed(4))
 }
 
 /**
- * Проверяет, нужно ли строить rounded-path для фигуры.
+ * Checks whether a rounded path should be constructed for the shape.
  */
 function shouldUseRoundedPath({ rounding }: CreateRoundedPathParams): boolean {
   return normalizeShapeRounding({ rounding }) > 0
 }
 
 /**
- * Возвращает внутренний размер фигуры с учетом толщины stroke.
+ * Returns the shape's inner dimensions, accounting for stroke width.
  */
 function resolveInnerShapeSize({
   width,
@@ -195,7 +195,7 @@ function resolveInnerShapeSize({
 }
 
 /**
- * Применяет геометрию нужного размера к shape-объекту.
+ * Applies geometry of the required dimensions to the shape object.
  */
 export function resizeShapeNode({
   shape,
@@ -251,7 +251,7 @@ export function resizeShapeNode({
 }
 
 /**
- * Применяет визуальный стиль к одному shape-узлу без обхода вложенных групп.
+ * Applies visual styling to a single shape node without traversing nested groups.
  */
 function applyShapeStyleToNode({
   shape,
@@ -299,7 +299,7 @@ function applyShapeStyleToNode({
 }
 
 /**
- * Применяет fill/stroke/opacity к фигуре, включая SVG-группы.
+ * Applies fill/stroke/opacity to the shape, including SVG groups.
  */
 export function applyShapeStyle({
   shape,
@@ -336,7 +336,7 @@ export function applyShapeStyle({
 }
 
 /**
- * Строит линейный path из точек без закруглений.
+ * Constructs a linear path from points without rounding.
  */
 function buildLinearPathFromPoints({
   points,
@@ -359,7 +359,7 @@ function buildLinearPathFromPoints({
 }
 
 /**
- * Вычисляет начальную и конечную точки дуги скругления для одной вершины.
+ * Calculates the start and end points of the rounding arc for a single vertex.
  */
 function resolveRoundedCornerPoints({
   previous,
@@ -418,7 +418,7 @@ function resolveRoundedCornerPoints({
 }
 
 /**
- * Строит path-строку с закругленными вершинами из точек.
+ * Constructs a path string with rounded vertices from points.
  */
 function buildRoundedPathFromPoints({
   points,
@@ -501,7 +501,7 @@ function buildRoundedPathFromPoints({
 }
 
 /**
- * Создает Path с закругленными углами по списку точек.
+ * Creates a Path with rounded corners from a list of points.
  */
 function createRoundedPolygonPathShape({
   points,
@@ -523,7 +523,7 @@ function createRoundedPolygonPathShape({
 }
 
 /**
- * Создает Triangle или rounded-path вариант Triangle.
+ * Creates a Triangle or a rounded-path variant of Triangle.
  */
 function createTriangleShape({
   rounding
@@ -553,7 +553,7 @@ function createTriangleShape({
 }
 
 /**
- * Создает базовый Path без модификации сегментов.
+ * Creates a basic Path without modifying its segments.
  */
 function createBasePathShape({
   path
@@ -569,7 +569,7 @@ function createBasePathShape({
 }
 
 /**
- * Пытается построить rounded-path из линейного Path (M/L/Z).
+ * Attempts to construct a rounded path from a linear Path (M/L/Z).
  */
 function createRoundedPathFromLinearPath({
   path,
@@ -623,7 +623,7 @@ function createRoundedPathFromLinearPath({
 }
 
 /**
- * Создает Path фигуру и пытается применить скругление для линейных контуров.
+ * Creates a Path shape and attempts to round linear contours.
  */
 function createPathShape({
   path,
@@ -643,7 +643,7 @@ function createPathShape({
 }
 
 /**
- * Создает Polygon/Polyline для пресета.
+ * Creates a Polygon/Polyline for the preset.
  */
 function createPolygonShape({
   points,
@@ -688,7 +688,7 @@ function createPolygonShape({
 }
 
 /**
- * Создает shape из SVG-строки.
+ * Creates a shape from an SVG string.
  */
 async function createShapeFromSvg({
   svg
@@ -711,7 +711,7 @@ async function createShapeFromSvg({
 }
 
 /**
- * Создает базовый shape-object на основе типа пресета.
+ * Creates a basic shape object based on the preset type.
  */
 async function createShapeObjectByPreset({
   preset,
@@ -770,7 +770,7 @@ async function createShapeObjectByPreset({
 }
 
 /**
- * Создает объект фигуры из пресета, назначает ему id и применяет стили.
+ * Creates a shape object from a preset, assigns its id, and applies styles.
  */
 export async function createShapeNode({
   preset,

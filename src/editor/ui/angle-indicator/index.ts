@@ -10,42 +10,42 @@ import CursorIndicator from '../cursor-indicator'
 import { ANGLE_INDICATOR_CLASS } from './constants'
 
 /**
- * Менеджер индикатора угла поворота
- * Отображает текущий угол при вращении объектов
+ * Rotation angle indicator manager
+ * Displays the current angle while objects are being rotated
  */
 export default class AngleIndicatorManager {
   /**
-   * Ссылка на редактор
+   * Reference to the editor
    */
   public editor: ImageEditor
 
   /**
-   * Canvas редактора
+   * Editor canvas
    */
   public canvas: Canvas
 
   /**
-   * Опции редактора
+   * Editor options
    */
   public options: EditorOptions
 
   /**
-   * HTML-элемент индикатора
+   * Indicator HTML element
    */
   public el: HTMLDivElement
 
   /**
-   * Текущий угол поворота
+   * Current rotation angle
    */
   private currentAngle: number = 0
 
   /**
-   * Общий DOM-индикатор, который отвечает за показ рядом с указателем.
+   * Shared DOM indicator responsible for displaying values next to the pointer.
    */
   private readonly indicator: CursorIndicator
 
   /**
-   * Создаёт менеджер и подписывает его на события вращения объекта.
+   * Creates the manager and subscribes it to object rotation events.
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
@@ -61,7 +61,7 @@ export default class AngleIndicatorManager {
   }
 
   /**
-   * Привязка обработчиков событий
+   * Bind event handlers
    */
   private _bindEvents(): void {
     this.canvas.on('object:rotating', this._handleObjectRotating)
@@ -71,7 +71,7 @@ export default class AngleIndicatorManager {
   }
 
   /**
-   * Обработчик вращения объекта
+   * Object rotation handler
    */
   private _handleObjectRotating = (opt: BasicTransformEvent<TPointerEvent>): void => {
     const { target } = opt.transform
@@ -84,7 +84,7 @@ export default class AngleIndicatorManager {
     const angle = target.angle || 0
     this.currentAngle = AngleIndicatorManager._normalizeAngle(angle)
 
-    // Для отрицательных знак минус уже есть, для положительных не добавляем плюс (как в Canva)
+    // Negative values already have a minus sign; do not add a plus for positive values (as in Canva)
     this.indicator.showAtPointer({
       text: `${this.currentAngle}°`,
       event: opt.e
@@ -92,28 +92,28 @@ export default class AngleIndicatorManager {
   }
 
   /**
-   * Обработчик отпускания кнопки мыши
+   * Mouse button release handler
    */
   private _handleMouseUp = (): void => {
     this._hideIndicator()
   }
 
   /**
-   * Обработчик модификации объекта
+   * Object modification handler
    */
   private _handleObjectModified = (): void => {
     this._hideIndicator()
   }
 
   /**
-   * Обработчик снятия выделения
+   * Selection clearing handler
    */
   private _handleSelectionCleared = (): void => {
     this._hideIndicator()
   }
 
   /**
-   * Проверка, можно ли показывать индикатор для данного объекта
+   * Check whether the indicator can be shown for this object
    */
   private _shouldShowIndicator(target: FabricObject | undefined): boolean {
     if (!this.options.showRotationAngle) return false
@@ -125,7 +125,7 @@ export default class AngleIndicatorManager {
   }
 
   /**
-   * Скрыть индикатор
+   * Hide the indicator
    */
   private _hideIndicator(): void {
     this.indicator.hide()
@@ -133,20 +133,20 @@ export default class AngleIndicatorManager {
   }
 
   /**
-   * Нормализация угла в диапазон -180° до +180° и округление
-   * Положительные значения - поворот вправо (по часовой стрелке)
-   * Отрицательные значения - поворот влево (против часовой стрелки)
+   * Normalize the angle to the range -180° to +180° and round it
+   * Positive values indicate rotation to the right (clockwise)
+   * Negative values indicate rotation to the left (counterclockwise)
    */
   private static _normalizeAngle(angle: number): number {
-    // Нормализуем в диапазон -180 до +180
+    // Normalize to the range -180 to +180
     let normalized = angle % 360
 
-    // Если угол больше 180, вычитаем 360 (например, 270° становится -90°)
+    // If the angle is greater than 180, subtract 360 (for example, 270° becomes -90°)
     if (normalized > 180) {
       normalized -= 360
     }
 
-    // Если угол меньше -180, добавляем 360 (например, -270° становится 90°)
+    // If the angle is less than -180, add 360 (for example, -270° becomes 90°)
     if (normalized < -180) {
       normalized += 360
     }
@@ -155,7 +155,7 @@ export default class AngleIndicatorManager {
   }
 
   /**
-   * Очистка ресурсов
+   * Clean up resources
    */
   public destroy(): void {
     this.canvas.off('object:rotating', this._handleObjectRotating)

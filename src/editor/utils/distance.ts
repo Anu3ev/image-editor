@@ -1,5 +1,5 @@
 /**
- * Округляет конечное расстояние для отображения и завершает расчёт при невалидной геометрии.
+ * Rounds a finite distance for display and stops the calculation if the geometry is invalid.
  */
 export const resolveDisplayDistance = ({
   distance
@@ -14,11 +14,11 @@ export const resolveDisplayDistance = ({
 }
 
 /**
- * Максимальная разница между двумя подписями, при которой расстояния считаются равными.
+ * Maximum difference between two labels for the distances to be considered equal.
  */
 export const MAX_DISPLAY_DISTANCE_DIFF = 0
 
-/** Округлённые значения двух расстояний и результат их сравнения для интерфейса. */
+/** Rounded values of two distances and the result of comparing them for the UI. */
 export type CommonDisplayDistance = {
   firstDisplayDistance: number
   secondDisplayDistance: number
@@ -27,7 +27,7 @@ export type CommonDisplayDistance = {
 }
 
 /**
- * Сравнивает две округлённые подписи расстояния и возвращает общее значение для интерфейса.
+ * Compares two rounded distance labels and returns their common value for the UI.
  */
 export const resolveCommonDisplayDistance = ({
   firstDistance,

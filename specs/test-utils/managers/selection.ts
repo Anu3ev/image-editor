@@ -7,10 +7,10 @@ export type SelectionTestSetup = {
 }
 
 /**
- * Создает объект для тестов выделения.
- * @param params - параметры объекта
- * @param params.id - идентификатор объекта
- * @param params.locked - признак блокировки
+ * Creates an object for selection tests.
+ * @param params - Object parameters
+ * @param params.id - Object identifier
+ * @param params.locked - Whether the object is locked
  */
 export const createSelectionObject = ({
   id,
@@ -23,7 +23,7 @@ export const createSelectionObject = ({
 }
 
 /**
- * Создает редактор и настраивает активное выделение для тестов SelectionManager.
+ * Creates an editor and configures the active selection for SelectionManager tests.
  */
 export const createSelectionTestSetup = (): SelectionTestSetup => {
   const editor = createEditorStub()

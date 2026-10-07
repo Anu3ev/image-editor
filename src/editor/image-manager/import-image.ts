@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные import-функции держим выше внутренних шагов. */
+/* eslint-disable no-use-before-define -- Keep the public import functions above the internal steps. */
 import {
   FabricImage,
   FabricObject,
@@ -23,10 +23,10 @@ import type {
   SuccessulImageImportResult
 } from './types'
 
-/** Нормализованное значение scale для импорта изображения. */
+/** Normalized scale value for image import. */
 export type ResolvedImportScale = NonNullable<ImportImageOptions['scale']>
 
-/** Внутренний import request до runtime-проверки source. */
+/** Internal import request before runtime source validation. */
 export interface ImportImageRequest {
   source: unknown
   scale: ResolvedImportScale
@@ -40,30 +40,30 @@ export interface ImportImageRequest {
   format: string
 }
 
-/** Внутренний import request после проверки, что source можно загрузить. */
+/** Internal import request after verifying that the source can be loaded. */
 export interface SupportedImportImageRequest extends ImportImageRequest {
   source: File | string
 }
 
-/** Контекст завершения import transaction. */
+/** Context for completing an import transaction. */
 interface CompleteImportImageParams {
   editor: ImageManagerEditor
   image: FabricImage | FabricObject
   request: SupportedImportImageRequest
 }
 
-/** Контекст сборки результата успешного импорта. */
+/** Context for building a successful import result. */
 interface CreateImportImageResultParams {
   image: FabricImage | FabricObject
   request: SupportedImportImageRequest
 }
 
-/** Сериализованный объект canvas из initial/history state. */
+/** Serialized canvas object from initial/history state. */
 interface SerializedCanvasObject {
   [key: string]: unknown
 }
 
-/** Проверяет runtime-тип source, потому что публичный API может вызываться из JS. */
+/** Checks the runtime source type because the public API may be called from JS. */
 export function isSupportedImageSource(source: unknown): source is File | string {
   if (source instanceof File) return true
   if (typeof source === 'string') return true
@@ -71,7 +71,7 @@ export function isSupportedImageSource(source: unknown): source is File | string
   return false
 }
 
-/** Создаёт import request без побочных эффектов и error emit. */
+/** Creates an import request without side effects or error emission. */
 export async function createImportImageRequest({
   options,
   defaultScale,
@@ -113,7 +113,7 @@ export async function createImportImageRequest({
   }
 }
 
-/** Достаёт contentType из невалидного source только для диагностического payload. */
+/** Extracts contentType from an invalid source solely for the diagnostic payload. */
 function getInvalidSourceContentType({ source }: { source: unknown }): string {
   if (!isSerializedCanvasObject(source)) return 'application/octet-stream'
 
@@ -123,7 +123,7 @@ function getInvalidSourceContentType({ source }: { source: unknown }): string {
   return 'application/octet-stream'
 }
 
-/** Создаёт Fabric object из подготовленного image URL. */
+/** Creates a Fabric object from a prepared image URL. */
 export async function loadImportImage({
   dataUrl,
   format
@@ -141,7 +141,7 @@ export async function loadImportImage({
   return FabricImage.fromURL(dataUrl, { crossOrigin: 'anonymous' })
 }
 
-/** Возвращает source raster-изображения для resize. */
+/** Returns the raster image source for resizing. */
 function getImageElementSource({ image }: { image: FabricImage }): string {
   const imageElement = image.getElement()
 
@@ -151,7 +151,7 @@ function getImageElementSource({ image }: { image: FabricImage }): string {
   throw new Error('Не удалось получить источник изображения для resize')
 }
 
-/** Масштабирует слишком большие или слишком маленькие raster-изображения. */
+/** Scales raster images that are too large or too small. */
 export async function resizeImportImageIfNeeded({
   editor,
   blobUrls,
@@ -189,7 +189,7 @@ export async function resizeImportImageIfNeeded({
   return image
 }
 
-/** Применяет editor metadata на загруженное изображение. */
+/** Applies editor metadata to the loaded image. */
 export function applyImportedImageProperties({
   image,
   request
@@ -207,7 +207,7 @@ export function applyImportedImageProperties({
   })
 }
 
-/** Применяет выбранную стратегию размещения импортированного изображения. */
+/** Applies the selected placement strategy to the imported image. */
 export function placeImportedImage({
   editor,
   image,
@@ -243,7 +243,7 @@ export function placeImportedImage({
 }
 
 /**
- * Отправляет ошибку неподдержанного contentType до начала history transaction.
+ * Emits an unsupported contentType error before the history transaction begins.
  */
 export function emitInvalidContentTypeError({
   editor,
@@ -290,7 +290,7 @@ export function emitInvalidContentTypeError({
 }
 
 /**
- * Отправляет ошибку неподдержанного runtime-типа source внутри history transaction.
+ * Emits an unsupported runtime source type error within the history transaction.
  */
 export function emitInvalidSourceTypeError({
   editor,
@@ -329,7 +329,7 @@ export function emitInvalidSourceTypeError({
 }
 
 /**
- * Возвращает URL, который Fabric может загрузить как изображение.
+ * Returns a URL that Fabric can load as an image.
  */
 export async function resolveImportImageUrl({
   request,
@@ -353,7 +353,7 @@ export async function resolveImportImageUrl({
 }
 
 /**
- * Завершает import transaction, добавляет объект на canvas и отправляет событие.
+ * Completes the import transaction, adds the object to the canvas, and emits the event.
  */
 export function completeImportImage({
   editor,
@@ -378,7 +378,7 @@ export function completeImportImage({
 }
 
 /**
- * Заменяет src у изображений в сериализованном состоянии на blob URL.
+ * Replaces image src values in serialized state with blob URLs.
  */
 export async function replaceImageSrcInObjects({
   objects,
@@ -411,7 +411,7 @@ export async function replaceImageSrcInObjects({
   }
 }
 
-/** Делегирует resize публичной resize-операции и загружает результат обратно в FabricImage. */
+/** Delegates resizing to the public resize operation and loads the result back into a FabricImage. */
 async function resizeImportImageToBoundaries({
   editor,
   blobUrls,
@@ -439,12 +439,12 @@ async function resizeImportImageToBoundaries({
   return FabricImage.fromURL(resizedBlobUrl, { crossOrigin: 'anonymous' })
 }
 
-/** Проверяет, что значение можно читать как сериализованный canvas object. */
+/** Checks whether the value can be read as a serialized canvas object. */
 function isSerializedCanvasObject(value: unknown): value is SerializedCanvasObject {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
-/** Собирает публичный результат успешного импорта изображения. */
+/** Builds the public result of a successful image import. */
 function createImportImageResult({
   image,
   request
@@ -477,7 +477,7 @@ function createImportImageResult({
   }
 }
 
-/** Добавляет импортированный объект на canvas и применяет selection policy. */
+/** Adds the imported object to the canvas and applies the selection policy. */
 function addImportedImageToCanvas({
   editor,
   image,
@@ -496,7 +496,7 @@ function addImportedImageToCanvas({
 }
 
 /**
- * Отправляет общую ошибку import path после начала history transaction.
+ * Emits a general import path error after the history transaction has begun.
  */
 export function emitImportFailed({
   editor,

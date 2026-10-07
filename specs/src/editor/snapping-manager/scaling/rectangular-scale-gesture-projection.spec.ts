@@ -20,7 +20,7 @@ import {
   RECTANGULAR_SCALE_CONTROL_ROTATION_CASES
 } from '../../../../test-utils/snapping/rectangular-scale-gesture-projection'
 
-/** Угловые кейсы из общей матрицы controls и rotations. */
+/** Corner-handle cases from the shared matrix of controls and rotations. */
 const CORNER_ROTATION_CASES = RECTANGULAR_SCALE_CONTROL_ROTATION_CASES.filter(({ controlKey }) => {
   return controlKey === 'tl' || controlKey === 'tr' || controlKey === 'bl' || controlKey === 'br'
 })

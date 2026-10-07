@@ -8,12 +8,12 @@ import {
 } from '../../../src/editor/shape-manager/layout/shape-layout'
 import { isShapeGroup } from '../../../src/editor/shape-manager/domain/shape-reference'
 
-/** Наблюдаемые зависимости расчёта компоновки общего выделения из шейпов. */
+/** Observable dependencies for calculating the layout of a multi-object selection of shapes. */
 export type ActiveSelectionScalingStateMocks = Readonly<{
   applyShapeTextLayoutMock: jest.MockedFunction<typeof applyShapeTextLayout>
 }>
 
-/** Возвращает стабильный результат измерения текста для заданного размера шейпа. */
+/** Returns a stable text measurement result for the specified shape size. */
 function createResolvedTextLayout({ width, height }: { width: number, height: number }) {
   return {
     width,
@@ -41,7 +41,7 @@ function createResolvedTextLayout({ width, height }: { width: number, height: nu
   }
 }
 
-/** Применяет рассчитанные размеры к тестовой shape-группе. */
+/** Applies calculated dimensions to the test shape group. */
 function applyResolvedShapeLayout({
   group,
   width,
@@ -53,7 +53,7 @@ function applyResolvedShapeLayout({
   group.shapeBaseHeight = height
 }
 
-/** Настраивает предсказуемое измерение текста для unit-тестов общего выделения из шейпов. */
+/** Configures predictable text measurement for unit tests of multi-object selections of shapes. */
 export function configureActiveSelectionScalingStateMocks(): ActiveSelectionScalingStateMocks {
   const applyFixedWidthShapeTextLayoutMock = jest.mocked(applyFixedWidthShapeTextLayout)
   const applyShapeTextLayoutMock = jest.mocked(applyShapeTextLayout)

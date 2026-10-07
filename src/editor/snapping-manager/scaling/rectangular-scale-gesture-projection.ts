@@ -10,34 +10,34 @@ import type {
 } from './scale-projection'
 import type { ScaleProjectionModeInput } from './scale-snapping-resolver'
 
-/** Ручка, за которую можно менять размер прямоугольного объекта. */
+/** Control used to resize a rectangular object. */
 export type RectangularScaleControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
-/** Способ изменения размера для выбранной ручки. */
+/** Resizing mode for the selected control. */
 export type RectangularScaleGestureMode = 'horizontal' | 'vertical' | 'free' | 'uniform'
 
-/** Переменная, через которую scale влияет на положение граней прямоугольника. */
+/** Variable through which scale affects the rectangle's edge positions. */
 export type RectangularScaleProjectionVariable = 'multiplier-x' | 'multiplier-y' | 'uniform-multiplier'
 
-/** Грань внешних bounds прямоугольника в координатах canvas. */
+/** Edge of the rectangle's outer bounds in canvas coordinates. */
 export type RectangularScaleSceneEdge = ScaleSceneEdge
 
-/** Ось внешних bounds прямоугольника в координатах canvas. */
+/** Axis of the rectangle's outer bounds in canvas coordinates. */
 export type RectangularScaleSceneAxis = ScaleSceneAxis
 
-/** Двумерная точка scale-жеста. */
+/** Two-dimensional point of a scaling gesture. */
 export type RectangularScalePoint = Readonly<{
   x: number
   y: number
 }>
 
-/** Множители ширины и высоты относительно начала жеста. */
+/** Width and height factors relative to the start of the gesture. */
 export type RectangularScaleMultipliers = Readonly<{
   x: number
   y: number
 }>
 
-/** Данные Fabric transform, необходимые для расчёта scale. */
+/** Fabric transform data required to calculate scale. */
 export type RectangularScaleGestureTransform = Readonly<{
   target: FabricObject
   action: Transform['action']
@@ -50,7 +50,7 @@ export type RectangularScaleGestureTransform = Readonly<{
   }>
 }>
 
-/** Зависимость положения одной грани от множителей scale. */
+/** Dependence of one edge's position on scale factors. */
 export type RectangularScaleEdgeProjection = Readonly<{
   axis: RectangularScaleSceneAxis
   edge: RectangularScaleSceneEdge
@@ -58,7 +58,7 @@ export type RectangularScaleEdgeProjection = Readonly<{
   coefficients: readonly number[]
 }>
 
-/** Расчёт перемещаемых граней для одного режима scale. */
+/** Moving edge calculation for one scaling mode. */
 export type RectangularScaleModeProjection = Readonly<{
   mode: RectangularScaleGestureMode
   variables: readonly RectangularScaleProjectionVariable[]
@@ -66,7 +66,7 @@ export type RectangularScaleModeProjection = Readonly<{
   edges: readonly RectangularScaleEdgeProjection[]
 }>
 
-/** Исходная геометрия одного scale-жеста прямоугольного top-level объекта. */
+/** Initial geometry of one scaling gesture for a rectangular top-level object. */
 export type RectangularScaleGestureProjection = Readonly<{
   controlKey: RectangularScaleControlKey
   control: RectangularScalePoint
@@ -79,7 +79,7 @@ export type RectangularScaleGestureProjection = Readonly<{
   baselineBounds: Readonly<ObjectBounds>
 }>
 
-/** Четыре угла Fabric в координатах canvas: tl, tr, br, bl. */
+/** Four Fabric corners in canvas coordinates: tl, tr, br, bl. */
 type RectangularScaleCorners = Readonly<{
   topLeft: RectangularScalePoint
   topRight: RectangularScalePoint
@@ -87,10 +87,10 @@ type RectangularScaleCorners = Readonly<{
   bottomLeft: RectangularScalePoint
 }>
 
-/** Правило выбора грани из координат четырёх углов. */
+/** Rule for selecting an edge from the four corner coordinates. */
 type RectangularScaleEdgeExtremum = 'minimum' | 'maximum'
 
-/** Вклад ширины и высоты в положение одной грани. */
+/** Width and height contributions to one edge's position. */
 type RectangularScaleEdgeCoefficients = Readonly<{
   axis: RectangularScaleSceneAxis
   edge: RectangularScaleSceneEdge
@@ -99,17 +99,17 @@ type RectangularScaleEdgeCoefficients = Readonly<{
   multiplierY: number
 }>
 
-/** Описание грани, необходимое для расчёта её положения. */
+/** Edge description required to calculate its position. */
 type RectangularScaleEdgeDescriptor = Readonly<{
   axis: RectangularScaleSceneAxis
   edge: RectangularScaleSceneEdge
   extremum: RectangularScaleEdgeExtremum
 }>
 
-/** Допуск при проверке базисных векторов и коэффициентов. */
+/** Tolerance for validating basis vectors and coefficients. */
 const RECTANGULAR_SCALE_PROJECTION_EPSILON = 0.000000001
 
-/** Нормализованные координаты восьми ручек Fabric. */
+/** Normalized coordinates of the eight Fabric controls. */
 const RECTANGULAR_SCALE_CONTROL_COORDINATES: Readonly<
   Record<RectangularScaleControlKey, RectangularScalePoint>
 > = Object.freeze({
@@ -123,7 +123,7 @@ const RECTANGULAR_SCALE_CONTROL_COORDINATES: Readonly<
   mb: Object.freeze({ x: 0.5, y: 1 })
 })
 
-/** Четыре внешние грани прямоугольника и правило выбора каждой из них. */
+/** The rectangle's four outer edges and the selection rule for each. */
 const RECTANGULAR_SCALE_EDGE_DESCRIPTORS: readonly RectangularScaleEdgeDescriptor[] = Object.freeze([
   Object.freeze({ axis: 'x', edge: 'left', extremum: 'minimum' }),
   Object.freeze({ axis: 'x', edge: 'right', extremum: 'maximum' }),
@@ -131,24 +131,24 @@ const RECTANGULAR_SCALE_EDGE_DESCRIPTORS: readonly RectangularScaleEdgeDescripto
   Object.freeze({ axis: 'y', edge: 'bottom', extremum: 'maximum' })
 ])
 
-/** Переменные scale за левую или правую ручку. */
+/** Scale variables for the left or right control. */
 const HORIZONTAL_PROJECTION_VARIABLES: readonly RectangularScaleProjectionVariable[] = Object.freeze(['multiplier-x'])
 
-/** Переменные scale за верхнюю или нижнюю ручку. */
+/** Scale variables for the top or bottom control. */
 const VERTICAL_PROJECTION_VARIABLES: readonly RectangularScaleProjectionVariable[] = Object.freeze(['multiplier-y'])
 
-/** Переменные свободного scale за угол. */
+/** Variables for free corner scaling. */
 const FREE_PROJECTION_VARIABLES: readonly RectangularScaleProjectionVariable[] = Object.freeze([
   'multiplier-x',
   'multiplier-y'
 ])
 
-/** Переменная пропорционального scale за угол. */
+/** Variable for proportional corner scaling. */
 const UNIFORM_PROJECTION_VARIABLES: readonly RectangularScaleProjectionVariable[] = Object.freeze([
   'uniform-multiplier'
 ])
 
-/** Соответствие переменных прямоугольника переменным общего snapping-resolver. */
+/** Mapping from rectangle variables to shared snapping resolver variables. */
 const SNAP_VARIABLE_BY_RECTANGULAR_VARIABLE: Readonly<Record<
   RectangularScaleProjectionVariable,
   ScaleProjectionVariable
@@ -158,7 +158,7 @@ const SNAP_VARIABLE_BY_RECTANGULAR_VARIABLE: Readonly<Record<
   'uniform-multiplier': 'uniform-scale'
 })
 
-/** Преобразует множители прямоугольника в значения общего snapping-resolver. */
+/** Converts rectangle factors to shared snapping resolver values. */
 export function createRectangularScaleValues({
   mode,
   multipliers
@@ -173,7 +173,7 @@ export function createRectangularScaleValues({
   return Object.freeze([multipliers.x, multipliers.y])
 }
 
-/** Возвращает множители прямоугольника из значений общего snapping-resolver. */
+/** Returns rectangle factors from shared snapping resolver values. */
 export function resolveRectangularScaleMultipliers({
   projectionMode,
   effectiveValues
@@ -200,7 +200,7 @@ export function resolveRectangularScaleMultipliers({
   throw new Error(`Unsupported rectangular scale projection mode "${projectionMode}"`)
 }
 
-/** Копирует точку и запрещает её изменение. */
+/** Copies and freezes a point. */
 function createFrozenPoint({ point }: { point: RectangularScalePoint }): RectangularScalePoint {
   return Object.freeze({
     x: point.x,
@@ -208,12 +208,12 @@ function createFrozenPoint({ point }: { point: RectangularScalePoint }): Rectang
   })
 }
 
-/** Проверяет, что обе координаты точки являются конечными числами. */
+/** Checks that both point coordinates are finite numbers. */
 function isFinitePoint({ point }: { point: RectangularScalePoint }): boolean {
   return Number.isFinite(point.x) && Number.isFinite(point.y)
 }
 
-/** Преобразует Fabric origin одной оси в число от 0 до 1. */
+/** Converts a Fabric origin on one axis to a number from 0 to 1. */
 function resolveOriginCoordinate({
   origin,
   startName,
@@ -233,7 +233,7 @@ function resolveOriginCoordinate({
   return null
 }
 
-/** Возвращает нормализованную точку, вокруг которой Fabric выполняет scale. */
+/** Returns the normalized point around which Fabric scales. */
 function resolveTransformOrigin({
   transform
 }: {
@@ -255,12 +255,12 @@ function resolveTransformOrigin({
   return Object.freeze({ x, y })
 }
 
-/** Проверяет, что ключ обозначает поддерживаемую ручку scale. */
+/** Checks that the key denotes a supported scale control. */
 function isRectangularScaleControlKey(corner: string): corner is RectangularScaleControlKey {
   return Object.prototype.hasOwnProperty.call(RECTANGULAR_SCALE_CONTROL_COORDINATES, corner)
 }
 
-/** Проверяет, что действие Fabric соответствует выбранной ручке. */
+/** Checks that the Fabric action matches the selected control. */
 function isMatchingScaleAction({
   action,
   controlKey
@@ -274,7 +274,7 @@ function isMatchingScaleAction({
   return action === 'scale'
 }
 
-/** Проверяет, что ручка не совпадает с неподвижной точкой по изменяемым осям. */
+/** Checks that the control does not coincide with the fixed point on changing axes. */
 function hasValidControlLevers({
   controlKey,
   control,
@@ -293,7 +293,7 @@ function hasValidControlLevers({
     && (!requiresY || leverY > RECTANGULAR_SCALE_PROJECTION_EPSILON)
 }
 
-/** Читает четыре угла прямоугольника в начале жеста. */
+/** Reads the rectangle's four corners at the start of the gesture. */
 function readRectangularScaleCorners({
   target,
   corners
@@ -321,7 +321,7 @@ function readRectangularScaleCorners({
   }
 }
 
-/** Возвращает вектор между двумя точками canvas. */
+/** Returns the vector between two canvas points. */
 function subtractPoints({
   point,
   origin
@@ -335,7 +335,7 @@ function subtractPoints({
   })
 }
 
-/** Возвращает определитель базиса, образованного векторами u и v. */
+/** Returns the determinant of the basis formed by vectors u and v. */
 function getBasisDeterminant({
   u,
   v
@@ -346,7 +346,7 @@ function getBasisDeterminant({
   return (u.x * v.y) - (u.y * v.x)
 }
 
-/** Переводит нормализованные координаты прямоугольника в координаты canvas. */
+/** Converts normalized rectangle coordinates to canvas coordinates. */
 function projectBaselinePoint({
   topLeft,
   u,
@@ -364,7 +364,7 @@ function projectBaselinePoint({
   })
 }
 
-/** Возвращает внешние bounds для четырёх углов прямоугольника. */
+/** Returns the outer bounds of the rectangle's four corners. */
 function createBoundsFromCorners({ corners }: { corners: RectangularScaleCorners }): Readonly<ObjectBounds> {
   const points = [corners.topLeft, corners.topRight, corners.bottomRight, corners.bottomLeft]
   const xCoordinates = points.map(({ x }) => x)
@@ -384,7 +384,7 @@ function createBoundsFromCorners({ corners }: { corners: RectangularScaleCorners
   })
 }
 
-/** Проверяет исходные значения scale Fabric. */
+/** Validates initial Fabric scale values. */
 function hasValidOriginalScales({
   original
 }: {
@@ -396,7 +396,7 @@ function hasValidOriginalScales({
     && original.scaleY > RECTANGULAR_SCALE_PROJECTION_EPSILON
 }
 
-/** Проверяет входные данные перед расчётом исходной геометрии. */
+/** Validates inputs before calculating initial geometry. */
 function canCreateRectangularScaleProjection({
   transform,
   pointerStart,
@@ -412,9 +412,9 @@ function canCreateRectangularScaleProjection({
 }
 
 /**
- * Запоминает исходную геометрию прямоугольного top-level scale-жеста.
- * Домен может передать собственные углы, если его геометрия исключает обводку Fabric.
- * Возвращает null, если control или affine-состояние не поддерживаются.
+ * Captures the initial geometry of a rectangular top-level scaling gesture.
+ * The domain can supply its own corners if its geometry excludes the Fabric stroke.
+ * Returns null if the control or affine state is unsupported.
  */
 export function createRectangularScaleGestureProjection({
   transform,
@@ -459,7 +459,7 @@ export function createRectangularScaleGestureProjection({
   })
 }
 
-/** Проверяет, что выбранная ручка поддерживает указанный режим scale. */
+/** Checks that the selected control supports the specified scaling mode. */
 function isModeSupportedByControl({
   controlKey,
   mode
@@ -474,7 +474,7 @@ function isModeSupportedByControl({
   return mode === 'free'
 }
 
-/** Переводит смещение указателя в локальные оси исходного прямоугольника. */
+/** Converts pointer displacement to the initial rectangle's local axes. */
 function resolvePointerBasisDelta({
   projection,
   pointer
@@ -495,7 +495,7 @@ function resolvePointerBasisDelta({
   })
 }
 
-/** Вычисляет независимые множители ширины и высоты. */
+/** Calculates independent width and height factors. */
 function resolveFreeMultipliers({
   projection,
   pointerDelta
@@ -516,12 +516,12 @@ function resolveFreeMultipliers({
   })
 }
 
-/** Возвращает длину вектора исходной геометрии. */
+/** Returns the length of an initial geometry vector. */
 function getVectorLength({ vector }: { vector: RectangularScalePoint }): number {
   return Math.sqrt((vector.x ** 2) + (vector.y ** 2))
 }
 
-/** Вычисляет множитель пропорционального scale так же, как Fabric. */
+/** Calculates the proportional scale factor the same way as Fabric. */
 function resolveUniformMultiplier({
   projection,
   pointerDelta
@@ -556,8 +556,8 @@ function resolveUniformMultiplier({
 }
 
 /**
- * Возвращает множители scale по смещению указателя от начала жеста.
- * Расчёт не зависит от текущей геометрии объекта.
+ * Returns scale factors from pointer displacement since the start of the gesture.
+ * The calculation does not depend on the object's current geometry.
  */
 export function resolveRectangularScalePointerMultipliers({
   projection,
@@ -587,7 +587,7 @@ export function resolveRectangularScalePointerMultipliers({
   return freeMultipliers
 }
 
-/** Вычисляет положение одного угла после scale вокруг неподвижной точки. */
+/** Calculates one corner's position after scaling around the fixed point. */
 function projectScaledPoint({
   projection,
   multipliers,
@@ -610,7 +610,7 @@ function projectScaledPoint({
   })
 }
 
-/** Возвращает внешние bounds по рассчитанным координатам углов. */
+/** Returns the outer bounds from the calculated corner coordinates. */
 function createProjectedBounds({
   topLeft,
   topRight,
@@ -623,7 +623,7 @@ function createProjectedBounds({
 }
 
 /**
- * Рассчитывает bounds для заданных множителей, не изменяя объект.
+ * Calculates bounds for the given factors without changing the object.
  */
 export function projectRectangularScaleBounds({
   projection,
@@ -642,7 +642,7 @@ export function projectRectangularScaleBounds({
   })
 }
 
-/** Возвращает исходную позицию указанной грани. */
+/** Returns the initial position of the specified edge. */
 function getBaselineEdgePosition({
   bounds,
   edge
@@ -657,7 +657,7 @@ function getBaselineEdgePosition({
   return bounds.bottom
 }
 
-/** Выбирает локальную координату угла, образующего внешнюю грань. */
+/** Selects the local coordinate of the corner forming the outer edge. */
 function resolveExtremumCoordinate({
   component,
   extremum
@@ -670,7 +670,7 @@ function resolveExtremumCoordinate({
   return component >= 0 ? 1 : 0
 }
 
-/** Вычисляет вклад ширины и высоты в положение одной грани. */
+/** Calculates width and height contributions to one edge's position. */
 function createEdgeCoefficients({
   projection,
   descriptor
@@ -692,7 +692,7 @@ function createEdgeCoefficients({
   })
 }
 
-/** Возвращает переменные выбранного режима scale. */
+/** Returns the variables for the selected scaling mode. */
 function getModeVariables({
   mode
 }: {
@@ -705,7 +705,7 @@ function getModeVariables({
   return UNIFORM_PROJECTION_VARIABLES
 }
 
-/** Выбирает коэффициенты грани, необходимые выбранному режиму scale. */
+/** Selects the edge coefficients required by the selected scaling mode. */
 function resolveModeCoefficients({
   edge,
   mode
@@ -720,12 +720,12 @@ function resolveModeCoefficients({
   return Object.freeze([edge.multiplierX + edge.multiplierY])
 }
 
-/** Проверяет, что выбранный режим действительно перемещает грань. */
+/** Checks that the selected mode actually moves the edge. */
 function hasActiveModeCoefficient({ coefficients }: { coefficients: readonly number[] }): boolean {
   return coefficients.some((coefficient) => Math.abs(coefficient) > RECTANGULAR_SCALE_PROJECTION_EPSILON)
 }
 
-/** Возвращает расчёт перемещаемой грани или null для неподвижной. */
+/** Returns the moving edge calculation, or null for a fixed edge. */
 function createModeEdgeProjection({
   edge,
   mode
@@ -745,8 +745,8 @@ function createModeEdgeProjection({
 }
 
 /**
- * Возвращает расчёт перемещаемых граней для выбранного режима scale.
- * Положение грани считается от исходной позиции до пересечения неподвижной точки.
+ * Returns the moving edge calculation for the selected scaling mode.
+ * The edge position is calculated from its initial position up to crossing the fixed point.
  */
 export function resolveRectangularScaleModeProjection({
   projection,
@@ -771,7 +771,7 @@ export function resolveRectangularScaleModeProjection({
   })
 }
 
-/** Возвращает вклад каждой переменной scale в перемещение активной ручки. */
+/** Returns each scale variable's contribution to active control movement. */
 function resolveScaleVariableWeights({
   projection,
   mode
@@ -796,7 +796,7 @@ function resolveScaleVariableWeights({
   return Object.freeze([getVectorLength({ vector: uniformVector })])
 }
 
-/** Преобразует прямоугольную модель в формат общего scale resolver. */
+/** Converts the rectangular model to the shared scale resolver format. */
 function createScaleProjectionModeInput({
   projection,
   modeProjection
@@ -824,7 +824,7 @@ function createScaleProjectionModeInput({
   })
 }
 
-/** Возвращает режимы ручки; домен может явно включить пропорциональный скейлинг боковой ручкой. */
+/** Returns the control's modes; the domain may explicitly enable proportional scaling with a side control. */
 export function createRectangularScaleProjectionModes({
   projection,
   includeUniformSideScale = false
@@ -851,7 +851,7 @@ export function createRectangularScaleProjectionModes({
   }))
 }
 
-/** Возвращает все scene edges, которые может перемещать выбранная ручка. */
+/** Returns all scene edges that the selected control can move. */
 export function resolveRectangularScaleMovingEdges({
   projectionModes
 }: {

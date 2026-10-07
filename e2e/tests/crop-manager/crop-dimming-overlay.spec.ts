@@ -1,15 +1,15 @@
 import { test, expect } from '../../fixtures/editor.fixture'
 
-/** Непрозрачный фон для контрастной проверки затемнения внутри montage area. */
+/** Opaque background for a high-contrast dimming check inside the artboard. */
 const CROP_DIMMING_BACKGROUND_COLOR = '#ffffff'
 
-/** Маленькая crop-область, оставляющая достаточно места для затемнённой области. */
+/** Small crop area leaving enough space for the dimmed region. */
 const SMALL_CROP_SIZE = {
   width: 180,
   height: 180
 }
 
-/** Угол поворота image crop для проверки геометрии маски. */
+/** Image-crop rotation angle for testing mask geometry. */
 const ROTATED_IMAGE_ANGLE = 27
 
 test.describe('Затемнение вне crop-области', () => {

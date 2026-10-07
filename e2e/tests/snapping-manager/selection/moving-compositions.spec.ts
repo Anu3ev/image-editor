@@ -4,7 +4,7 @@ import {
   type ActiveSelectionCompositionKind
 } from '../../../fixtures/active-selection-moving.fixture'
 
-/** Поддерживаемые составы общего выделения и их подготовка перед перемещением. */
+/** Supported active-selection compositions and their preparation before movement. */
 const MOVEMENT_COMPOSITIONS = [
   { kind: 'shapes', label: 'шейпов', scaleBeforeMove: false },
   { kind: 'images', label: 'изображений', scaleBeforeMove: false },

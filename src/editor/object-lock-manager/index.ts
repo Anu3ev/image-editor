@@ -15,7 +15,7 @@ type unlockObjectOptions = {
 
 export default class ObjectLockManager {
   /**
-   * Ссылка на редактор, содержащий canvas.
+   * Reference to the editor containing the canvas.
    */
   editor: ImageEditor
 
@@ -24,12 +24,12 @@ export default class ObjectLockManager {
   }
 
   /**
-   * Блокирует объект (или группу объектов) на канвасе.
-   * Если передан внутренний объект shape-группы, блокировка применяется к владеющей группе.
+   * Locks an object (or group of objects) on the canvas.
+   * If an internal object of a shape group is provided, the lock is applied to its owning group.
    * @param options
-   * @param options.object - объект, который нужно заблокировать
-   * @param options.skipInnerObjects - не блокировать внутренние объекты
-   * @param options.withoutSave - не сохранять состояние
+   * @param options.object - Object to lock
+   * @param options.skipInnerObjects - Do not lock internal objects
+   * @param options.withoutSave - Do not save the state
    * @fires editor:object-locked
    */
   lockObject(
@@ -78,11 +78,11 @@ export default class ObjectLockManager {
   }
 
   /**
-   * Разблокирует объект (или группу объектов) на канвасе.
-   * Если передан внутренний объект shape-группы, разблокировка применяется к владеющей группе.
+   * Unlocks an object (or group of objects) on the canvas.
+   * If an internal object of a shape group is provided, the unlock is applied to its owning group.
    * @param options
-   * @param options.object - объект, который нужно разблокировать
-   * @param options.withoutSave - не сохранять состояние в истории изменений
+   * @param options.object - Object to unlock
+   * @param options.withoutSave - Do not save the state to the change history
    * @fires editor:object-unlocked
    */
   unlockObject({ object, withoutSave }: unlockObjectOptions = {}): void {
@@ -128,7 +128,7 @@ export default class ObjectLockManager {
   }
 
   /**
-   * Собирает объект и всех его вложенных потомков, чтобы lock-state применялся консистентно.
+   * Collects the object and all nested descendants so lock state is applied consistently.
    */
   private static _collectLockTargets({ object }: { object: FabricObject }): FabricObject[] {
     const lockTargets = [object]
@@ -152,7 +152,7 @@ export default class ObjectLockManager {
   }
 
   /**
-   * Завершает активное редактирование у всех текстовых объектов до применения lock-флагов.
+   * Finishes active editing on all text objects before applying lock flags.
    */
   private static _exitEditingInTextboxes({ objects }: { objects: FabricObject[] }): void {
     for (let index = 0; index < objects.length; index += 1) {

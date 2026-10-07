@@ -37,19 +37,19 @@ type InjectFontFaceParams = {
 }
 
 /**
- * Менеджер загрузки пользовательских шрифтов.
+ * Custom font loading manager.
  */
 export default class FontManager {
   /**
-   * Уникальное множество зарегистрированных шрифтов (семейство + источник + дескрипторы).
-   * Нужен, чтобы не инициировать повторную загрузку одного и того же файла.
+   * Unique set of registered fonts (family + source + descriptors).
+   * Prevents loading the same file more than once.
    */
   private static registeredFontKeys = new Set<string>()
 
   /**
-   * Значения по умолчанию соответствуют спецификации CSS Fonts.
-   * Это позволяет сопоставлять дескрипторы, считанные из FontFaceSet,
-   * с нашими локальными настройками без ложных расхождений.
+   * Default values conform to the CSS Fonts specification.
+   * This allows descriptors read from FontFaceSet to be compared
+   * with our local settings without false mismatches.
    */
   private static readonly descriptorDefaults: DescriptorSnapshot = {
     style: 'normal',

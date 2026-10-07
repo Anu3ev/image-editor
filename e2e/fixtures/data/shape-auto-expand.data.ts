@@ -1,6 +1,6 @@
 import type { ShapeAddParams } from '../../types'
 
-/** Базовая фигура для e2e-сценариев авторасширения текста. */
+/** Base shape for text auto-expansion e2e scenarios. */
 export const SHAPE_AUTO_EXPAND_BASE_OPTIONS: NonNullable<ShapeAddParams['options']> = {
   width: 220,
   height: 220,
@@ -10,39 +10,39 @@ export const SHAPE_AUTO_EXPAND_BASE_OPTIONS: NonNullable<ShapeAddParams['options
   }
 }
 
-/** Новая базовая ширина после явного обновления размеров фигуры. */
+/** New base width after explicitly updating the shape dimensions. */
 export const SHAPE_AUTO_EXPAND_UPDATED_WIDTH = 280
 
-/** Коэффициент ручного расширения фигуры через скейлинг по ширине. */
+/** Manual shape-expansion factor for width scaling. */
 export const SHAPE_AUTO_EXPAND_RESIZE_SCALE_X = 1.6
 
-/** Короткий текст, который должен умещаться без сужения фигуры. */
+/** Short text that should fit without shrinking the shape. */
 export const SHAPE_AUTO_EXPAND_SHORT_TEXT = 'T'
 
-/** Текст, который при авторасширении должен оставаться в одну строку. */
+/** Text that should remain on one line during auto-expansion. */
 export const SHAPE_AUTO_EXPAND_LONG_TEXT = 'TEST TEST'
 
-/** Более длинный текст для проверки расширения и обратного сужения. */
+/** Longer text for testing expansion and subsequent shrinkage. */
 export const SHAPE_AUTO_EXPAND_LONGER_TEXT = 'TEST TEST TEST'
 
-/** Очень длинный текст для сценариев с уже расширенной ручной базой. */
+/** Very long text for scenarios with an already expanded manual base. */
 export const SHAPE_AUTO_EXPAND_VERY_LONG_TEXT = 'TEST TEST TEST TEST'
 
-/** Базовая ширина для atomic update-сценариев с явной ручной базой. */
+/** Base width for atomic-update scenarios with an explicit manual base. */
 export const SHAPE_AUTO_EXPAND_ATOMIC_UPDATE_WIDTH = 220
 
 const SHAPE_AUTO_EXPAND_LIMIT_TEXT_FRAGMENT = 'один два три четыре пять шесть семь восемь девять десять '
 
-/** Очень длинный текст, который должен упереться в ширину монтажной области. */
+/** Very long text that should reach the artboard width limit. */
 export const SHAPE_AUTO_EXPAND_LIMIT_TEXT = SHAPE_AUTO_EXPAND_LIMIT_TEXT_FRAGMENT.repeat(10).trim()
 
-/** Уменьшенное разрешение монтажной области для проверки упора в максимальную ширину фигуры. */
+/** Reduced artboard resolution for testing the maximum shape-width limit. */
 export const SHAPE_AUTO_EXPAND_LIMIT_RESOLUTION = {
   width: 320,
   height: 480
 }
 
-/** Последовательность ввода около границы переноса строки. */
+/** Input sequence near the line-wrap boundary. */
 export const SHAPE_AUTO_EXPAND_TYPING_SEQUENCE = [
   'TEST',
   'TEST T',
@@ -51,12 +51,12 @@ export const SHAPE_AUTO_EXPAND_TYPING_SEQUENCE = [
   'TEST TEST'
 ]
 
-/** Последовательность ввода для arrow-up-fat около границы переноса строки. */
+/** Input sequence for arrow-up-fat near the line-wrap boundary. */
 export const SHAPE_AUTO_EXPAND_ARROW_UP_FAT_TYPING_SEQUENCE = [
   'TEST',
   'TEST ',
   'TEST X'
 ]
 
-/** Допуск для сравнений ширины shape в e2e. */
+/** Tolerance for shape-width comparisons in e2e tests. */
 export const SHAPE_AUTO_EXPAND_WIDTH_TOLERANCE = 2

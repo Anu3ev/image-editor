@@ -1,7 +1,7 @@
 import { test, expect } from '../../../fixtures/editor.fixture'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Шейп с текстом и опорный объект для проверки геометрии перемещения. */
+/** Shape with text and a reference object for testing movement geometry. */
 type ShapeMovementGeometrySetup = {
   activeShapeId: string
   reference: SnappingObjectSnapshot

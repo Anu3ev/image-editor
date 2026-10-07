@@ -14,13 +14,13 @@ import {
 } from '../../fixtures/data/shape-multi-scaling.data'
 import type { ShapeTextInfo } from '../../types'
 
-/** Минимальный размер общего выделения для проверки верхнего угла. */
+/** Minimum active-selection size for testing the top corner. */
 const MINIMUM_TARGET_SIZE = 1
 
-/** Смещение правого верхнего угла дальше минимального размера. */
+/** Top-right corner offset beyond the minimum size. */
 const BEYOND_MINIMUM_CORNER_DELTA = Object.freeze({ x: -120, y: 120 })
 
-/** Угловые ручки пропорционального скейлинга. */
+/** Corner handles for proportional scaling. */
 const PROPORTIONAL_CORNER_CASES = [
   {
     method: 'scaleDiagonallyFromTopRight',
@@ -40,7 +40,7 @@ const PROPORTIONAL_CORNER_CASES = [
   }
 ] as const
 
-/** Угловые ручки свободного скейлинга одинаковых шейпов. */
+/** Corner handles for free scaling of identical shapes. */
 const FREE_CORNER_CASES = [
   {
     method: 'scaleDiagonallyFromTopRight',
@@ -54,7 +54,7 @@ const FREE_CORNER_CASES = [
   }
 ] as const
 
-/** Проверяет наличие текстовых узлов и возвращает суженный тип. */
+/** Checks for text nodes and returns a narrowed type. */
 function requireShapeTexts({
   stage,
   texts

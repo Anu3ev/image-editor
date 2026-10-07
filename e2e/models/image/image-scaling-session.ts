@@ -11,10 +11,10 @@ import type {
 } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
-/** Состояние клавиш, которое сохраняется на протяжении всего scale-жеста. */
+/** Key state maintained throughout the scaling gesture. */
 type ImageScaleModifierState = Required<ImageScaleModifiers>
 
-/** Незавершённый pointer-жест изменения размера изображения. */
+/** Unfinished pointer gesture for resizing an image. */
 type ActiveImageScaleInteraction = {
   control: ImageScaleControl
   modifiers: ImageScaleModifierState
@@ -26,13 +26,13 @@ type ActiveImageScaleInteraction = {
   id?: string
 }
 
-/** Состояние активного Fabric transform для fail-fast проверки test-support. */
+/** Active Fabric transform state for fail-fast test-support validation. */
 type ActiveImageScaleTransform = {
   corner: string | null
   targetMatches: boolean
 }
 
-/** Стандартные controls, через которые Fabric меняет размер прямоугольного объекта. */
+/** Standard controls through which Fabric resizes a rectangular object. */
 const IMAGE_SCALE_CONTROLS: readonly ImageScaleControl[] = [
   'tl',
   'mt',
@@ -44,24 +44,24 @@ const IMAGE_SCALE_CONTROLS: readonly ImageScaleControl[] = [
   'br'
 ]
 
-/** Неподвижные controls для ручек, которые двигают правую внешнюю границу. */
+/** Fixed controls for handles that move the right outer boundary. */
 const IMAGE_SCALE_RIGHT_EDGE_FIXED_CONTROLS: Partial<Record<ImageScaleControl, ImageScaleControl>> = {
   tr: 'bl',
   mr: 'ml',
   br: 'tl'
 }
 
-/** Минимальный сдвиг внешней границы, достаточный для калибровки pointer-жеста. */
+/** Minimum outer-boundary displacement sufficient to calibrate the pointer gesture. */
 const IMAGE_SCALE_CALIBRATION_EPSILON = 0.001
 
-/** Соответствие DOM-модификатора и клавиши Playwright. */
+/** Mapping between DOM modifiers and Playwright keys. */
 const IMAGE_SCALE_MODIFIER_KEYS = [
   { name: 'altKey', key: 'Alt' },
   { name: 'ctrlKey', key: 'Control' },
   { name: 'shiftKey', key: 'Shift' }
 ] as const
 
-/** Состояние scale-жеста без зажатых клавиш-модификаторов. */
+/** Scaling-gesture state with no modifier keys held. */
 const RELEASED_IMAGE_SCALE_MODIFIERS: ImageScaleModifierState = {
   altKey: false,
   ctrlKey: false,
@@ -69,22 +69,22 @@ const RELEASED_IMAGE_SCALE_MODIFIERS: ImageScaleModifierState = {
 }
 
 /**
- * Воспроизводит полный browser pointer lifecycle изменения размера изображения.
+ * Reproduces the complete browser-pointer lifecycle for resizing an image.
  *
- * Сессия хранит только transient-состояние текущего жеста. Геометрия изображения
- * остаётся source of truth в Fabric canvas и читается после каждого pointer-step.
+ * The session stores only transient state of the current gesture. Image geometry
+ * remains the source of truth in the Fabric canvas and is read after each pointer step.
  */
 export class ImageScalingSession {
   private activeInteraction: ActiveImageScaleInteraction | null = null
 
   private readonly page: Page
 
-  /** Создаёт scale-сессию для указанной browser page. */
+  /** Creates a scaling session for the specified browser page. */
   constructor(page: Page) {
     this.page = page
   }
 
-  /** Зажимает указанную ручку выбранного изображения реальной мышью. */
+  /** Presses the specified handle of the selected image with a real mouse. */
   async startFromControl({
     control,
     altKey = false,
@@ -132,10 +132,10 @@ export class ImageScalingSession {
   }
 
   /**
-   * Двигает активную ручку на заданное расстояние в viewport-пикселях.
+   * Moves the active handle by the specified distance in viewport pixels.
    *
-   * Переданные модификаторы действуют только на этот pointer-step. Модификаторы,
-   * с которыми начался жест, восстанавливаются перед следующим шагом.
+   * The supplied modifiers apply only to this pointer step. The modifiers
+   * used when the gesture began are restored before the next step.
    */
   async dragControlBy({
     deltaX,
@@ -163,10 +163,10 @@ export class ImageScalingSession {
   }
 
   /**
-   * Двигает активную ручку к точке в координатах canvas-сцены.
+   * Moves the active handle to a point in canvas-scene coordinates.
    *
-   * Переданные модификаторы действуют только на этот pointer-step. Модификаторы,
-   * с которыми начался жест, восстанавливаются перед следующим шагом.
+   * The supplied modifiers apply only to this pointer step. The modifiers
+   * used when the gesture began are restored before the next step.
    */
   async dragControlToScenePoint({
     point,
@@ -189,10 +189,10 @@ export class ImageScalingSession {
   }
 
   /**
-   * Двигает правую ручку повёрнутого изображения до заданной внешней границы.
+   * Moves a rotated image's right handle to the specified outer boundary.
    *
-   * У повёрнутого объекта control и край axis-aligned bounds движутся с разным
-   * коэффициентом, поэтому сессия сначала измеряет один реальный pointer-step.
+   * For a rotated object, the control and the axis-aligned bounds edge move at different
+   * rates, so the session first measures one real pointer step.
    */
   async dragRotatedControlToBoundsRight({
     boundsRight
@@ -251,7 +251,7 @@ export class ImageScalingSession {
     })
   }
 
-  /** Перемещает активную правую ручку к X-координате bounds в canvas-сцене. */
+  /** Moves the active right handle to the bounds' X coordinate in the canvas scene. */
   async dragRightEdgeTo({
     boundsRight,
     ctrlKey = false
@@ -284,7 +284,7 @@ export class ImageScalingSession {
     return this._getActiveSnapshot()
   }
 
-  /** Выполняет один полный жест скейлинга справа до заданного абсолютного scaleX. */
+  /** Performs one complete right-side scaling gesture to the specified absolute scaleX. */
   async resizeFromRight({
     scaleX,
     ...target
@@ -305,7 +305,7 @@ export class ImageScalingSession {
     return this.finish(target)
   }
 
-  /** Отпускает мышь и возвращает сохранённое состояние изображения. */
+  /** Releases the mouse and returns the saved image state. */
   async finish(params: ObjectTargetParams = {}): Promise<ImageScaleSnapshot> {
     const interaction = this._getActiveInteraction()
 
@@ -334,7 +334,7 @@ export class ImageScalingSession {
     }
   }
 
-  /** Прерывает скейлинг изображения событием отмены указателя. */
+  /** Interrupts image scaling with a pointer-cancel event. */
   async cancelWithPointerEvent(
     params: ObjectTargetParams = {}
   ): Promise<ImageScaleSnapshot> {
@@ -366,7 +366,7 @@ export class ImageScalingSession {
     }
   }
 
-  /** Завершает незакрытый scale-жест во время teardown теста. */
+  /** Finishes an unclosed scaling gesture during test teardown. */
   async finishIfActive(): Promise<ImageScaleSnapshot | null> {
     if (!this.activeInteraction) return null
 
@@ -376,7 +376,7 @@ export class ImageScalingSession {
     })
   }
 
-  /** Читает геометрию изображения и его controls в координатах canvas-сцены. */
+  /** Reads image geometry and controls in canvas-scene coordinates. */
   async getSnapshot(
     params: ObjectTargetParams = {}
   ): Promise<ImageScaleSnapshot> {
@@ -387,7 +387,7 @@ export class ImageScalingSession {
 
       target.setCoords()
 
-      /** Читает одну reference-точку Fabric object в координатах canvas-сцены. */
+      /** Reads one reference point of a Fabric object in canvas-scene coordinates. */
       const getScenePoint = (originX: string, originY: string) => {
         const point = target.getPointByOrigin(originX, originY)
         if (!Number.isFinite(point?.x) || !Number.isFinite(point?.y)) return null
@@ -427,7 +427,7 @@ export class ImageScalingSession {
     return snapshot as ImageScaleSnapshot
   }
 
-  /** Возвращает активный жест или падает на нарушении lifecycle. */
+  /** Returns the active gesture or fails on a lifecycle violation. */
   private _getActiveInteraction(): ActiveImageScaleInteraction {
     expect(this.activeInteraction, 'для движения ручки нужен активный scale-жест').not.toBeNull()
 
@@ -438,7 +438,7 @@ export class ImageScalingSession {
     return this.activeInteraction
   }
 
-  /** Возвращает актуальную геометрию изображения из активного жеста. */
+  /** Returns current image geometry from the active gesture. */
   private _getActiveSnapshot(): Promise<ImageScaleSnapshot> {
     const interaction = this._getActiveInteraction()
 
@@ -448,7 +448,7 @@ export class ImageScalingSession {
     })
   }
 
-  /** Возвращает viewport-координаты указанной ручки изображения. */
+  /** Returns viewport coordinates of the specified image handle. */
   private async _resolveControlPoint({
     control,
     ...targetParams
@@ -488,7 +488,7 @@ export class ImageScalingSession {
     return point as { x: number, y: number }
   }
 
-  /** Переводит точку canvas-сцены в viewport текущего Fabric canvas. */
+  /** Converts a canvas-scene point to the current Fabric canvas viewport. */
   private async _resolveViewportPoint({
     point
   }: {
@@ -522,7 +522,7 @@ export class ImageScalingSession {
     return viewportPoint as { x: number, y: number }
   }
 
-  /** Двигает мышь и временно применяет модификаторы одного pointer-step. */
+  /** Moves the mouse and temporarily applies modifiers for one pointer step. */
   private async _movePointer({
     modifiers,
     point,
@@ -561,7 +561,7 @@ export class ImageScalingSession {
     }
   }
 
-  /** Проверяет target и control активного Fabric transform. */
+  /** Checks the target and control of the active Fabric transform. */
   private async _expectActiveTransform(): Promise<void> {
     const interaction = this._getActiveInteraction()
     const transform = await this.page.evaluate(({ objectIndex, id }) => {
@@ -590,7 +590,7 @@ export class ImageScalingSession {
     ).toBe(interaction.control)
   }
 
-  /** Синхронизирует реально зажатые клавиши с требуемым состоянием жеста. */
+  /** Synchronizes physically held keys with the required gesture state. */
   private async _setModifierState({
     current,
     next
@@ -610,7 +610,7 @@ export class ImageScalingSession {
     }
   }
 
-  /** Проверяет, что параметры указывают на объект активного жеста. */
+  /** Checks that the parameters refer to the active gesture's object. */
   private _matchesTarget({
     interaction,
     target

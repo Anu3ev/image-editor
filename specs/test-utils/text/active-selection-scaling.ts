@@ -22,20 +22,20 @@ import {
   type TextActiveSelectionScaleHarness
 } from '../selection/active-selection-scale-interaction'
 
-/** Реальный измеритель и геометрия одного тестового выделения из текстов. */
+/** Real measurer and geometry for one test selection of text objects. */
 export type ActiveSelectionTextScaleMeasurerSetup = Readonly<{
   harness: TextActiveSelectionScaleHarness
   measurer: ActiveSelectionTextScaleMeasurer
 }>
 
-/** Общие минимальные множители всех текстов тестового выделения. */
+/** Shared minimum factors for all text objects in the test selection. */
 export type ActiveSelectionTextScaleMinimums = Readonly<{
   font: number
   proportional: number
   width: number
 }>
 
-/** Данные двухмерной локальной проекции с заранее известными коэффициентами. */
+/** Two-dimensional local projection data with known coefficients. */
 export type ActiveSelectionTextScaleProjectionSetup = Readonly<{
   expectedBottomCoefficients: readonly number[]
   expectedRightCoefficients: readonly number[]
@@ -43,7 +43,7 @@ export type ActiveSelectionTextScaleProjectionSetup = Readonly<{
   values: readonly number[]
 }>
 
-/** Создаёт точные границы из положения правой и нижней граней. */
+/** Creates exact bounds from the positions of the right and bottom edges. */
 function createBounds({ bottom, right }: { bottom: number; right: number }): ObjectBounds {
   const left = 100
   const top = 80
@@ -58,7 +58,7 @@ function createBounds({ bottom, right }: { bottom: number; right: number }): Obj
   })
 }
 
-/** Создаёт ограничение одной направляющей для текстового уточнения плана. */
+/** Creates a single-guide constraint for text-based plan refinement. */
 function createConstraint({
   axis,
   position,
@@ -85,7 +85,7 @@ function createConstraint({
   })
 }
 
-/** Устанавливает в Fabric mock перенос строк, зависящий от ширины и размера шрифта. */
+/** Sets up line wrapping in the Fabric mock based on width and font size. */
 export function installTextWrappingMeasurementContract(): jest.SpyInstance {
   return jest.spyOn(BackgroundTextbox.prototype, 'initDimensions').mockImplementation(function(
     this: BackgroundTextbox
@@ -105,7 +105,7 @@ export function installTextWrappingMeasurementContract(): jest.SpyInstance {
   })
 }
 
-/** Создаёт реальный измеритель выбранной боковой или угловой ручки. */
+/** Creates a real measurer for the selected side or corner handle. */
 export function createActiveSelectionTextScaleMeasurerSetup({
   controlKey = 'mr',
   uniformScaling = true
@@ -125,7 +125,7 @@ export function createActiveSelectionTextScaleMeasurerSetup({
   return Object.freeze({ harness, measurer })
 }
 
-/** Рассчитывает самый строгий минимум среди всех текстов выделения. */
+/** Calculates the strictest minimum across all text objects in the selection. */
 export function resolveActiveSelectionTextScaleMinimums({
   children
 }: {
@@ -142,7 +142,7 @@ export function resolveActiveSelectionTextScaleMinimums({
   })
 }
 
-/** Создаёт план с одной или двумя кандидатами для реального текстового уточнения. */
+/** Creates a plan with one or two candidates for real text-based refinement. */
 export function createActiveSelectionTextScalePlan({
   measurement,
   transition = 'acquired',
@@ -186,7 +186,7 @@ export function createActiveSelectionTextScalePlan({
   })
 }
 
-/** Создаёт двухмерную проекцию, в которой обе переменные влияют на обе грани. */
+/** Creates a two-dimensional projection in which both variables affect both edges. */
 export function createActiveSelectionTextScaleProjectionSetup(): ActiveSelectionTextScaleProjectionSetup {
   const bounds = createBounds({ bottom: 200, right: 300 })
   const values = Object.freeze([1, 1])

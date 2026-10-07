@@ -5,8 +5,8 @@ import {
 } from 'fabric'
 
 /**
- * Выполняет сериализацию дочернего объекта с временно применённым преобразованием ActiveSelection.
- * После завершения сериализации свойства объекта восстанавливаются, а выделение остаётся без изменений.
+ * Serializes a child object with the ActiveSelection transformation temporarily applied.
+ * After serialization, the object's properties are restored and the selection remains unchanged.
  */
 export function withActiveSelectionTransformForSerialization<T>({
   object,

@@ -3,7 +3,7 @@ import {
   expect
 } from '../../../fixtures/group-moving.fixture'
 
-/** Смещения указателя внутри области удержания равноудалённого прилипания. */
+/** Pointer offsets within the equal-spacing snap-hold area. */
 const SPACING_HOLD_OFFSETS = [2, 3, 4] as const
 
 test('при микродвижениях верхнеуровневая группа сохраняет равноудалённость по горизонтали', async({

@@ -6,12 +6,12 @@ import {
 import type { CropFrame } from '../domain/crop-frame'
 import { resolveCropGuardedScalingStep } from './crop-scale-snap-guards'
 
-/** Пиксельное округление crop с размером в исходном изображении. */
+/** Pixel rounding for a crop whose size is measured in the source image. */
 interface CropScalingStepOptions extends ScalingStepOptions {
   target: CropFrame
 }
 
-/** Округляет прежний resize в пикселях источника, сохраняя направляющие и неподвижную сторону. */
+/** Rounds the legacy resize in source pixels, preserving the guides and fixed side. */
 export function applyCropScalingStep({
   target, transform, preservePlacement, snapGuards = []
 }: CropScalingStepOptions): void {

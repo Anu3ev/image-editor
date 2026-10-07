@@ -80,7 +80,7 @@ import {
  */
 
 /**
- * Инициализирует listeners и синхронизацию для фигур.
+ * Initializes listeners and synchronization for shapes.
  * @param {{ editorInstance: any, controls: ShapeControls }} params
  */
 export default ({ editorInstance, controls }) => {
@@ -121,7 +121,7 @@ export default ({ editorInstance, controls }) => {
   const verticalAlignOptions = ['top', 'middle', 'bottom']
 
   /**
-   * Возвращает ширину обводки фигуры из input.
+   * Returns the shape stroke width from the input.
    */
   const getShapeStrokeWidthFromInput = () => {
     const rawWidth = Number(shapeStrokeWidthInput.value)
@@ -129,7 +129,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает активное значение кнопочной группы выравнивания.
+   * Returns the active value of the alignment button group.
    */
   const getShapeAlignValue = ({ buttons, options, fallback }) => {
     const activeButton = buttons.find((button) => button.classList.contains('active'))
@@ -139,7 +139,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Синхронизирует активную кнопку в группе выравнивания.
+   * Synchronizes the active button in the alignment group.
    */
   const setShapeAlignButtonsState = ({ buttons, value, options, fallback }) => {
     const resolvedValue = options.includes(value) ? value : fallback
@@ -153,7 +153,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Проверяет, является ли объект группой фигуры.
+   * Checks whether the object is a shape group.
     * @param {ShapeObject | null | undefined} object
    */
   const isShapeGroupObject = (object) => {
@@ -164,7 +164,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает активную фигуру, включая вложенный объект внутри группы.
+   * Returns the active shape, including when one of its child objects is selected.
    */
   const getActiveShape = () => {
     const activeObject = editorInstance.canvas.getActiveObject()
@@ -179,7 +179,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Переключает доступность контролов обводки фигуры.
+   * Toggles the availability of shape stroke controls.
    */
   const setShapeStrokeControlsEnabled = ({ enabled }) => {
     shapeStrokeInput.disabled = !enabled
@@ -190,7 +190,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Обновляет UI ширины обводки фигуры.
+   * Updates the shape stroke width UI.
    */
   const setShapeStrokeWidthUI = ({ width }) => {
     const normalized = Math.max(0, Math.round(width))
@@ -202,7 +202,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Переключает доступность shape-контролов.
+   * Toggles the availability of shape controls.
    */
   const setShapeControlsEnabled = ({ enabled }) => {
     shapeFillInput.disabled = false
@@ -220,7 +220,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Считывает процент непрозрачности фигуры из input.
+   * Reads the shape opacity percentage from the input.
    */
   const getShapeOpacityPercentFromInput = () => parseNumberInput({
     input: shapeOpacityInput,
@@ -230,7 +230,7 @@ export default ({ editorInstance, controls }) => {
   })
 
   /**
-   * Считывает внутренний отступ фигуры из input.
+   * Reads the shape padding from the input.
    * @param {ShapeInputElement} input
    */
   const getShapePaddingFromInput = (input) => parseNumberInput({
@@ -240,7 +240,7 @@ export default ({ editorInstance, controls }) => {
   })
 
   /**
-   * Возвращает текущие внутренние отступы фигуры из контролов.
+   * Returns the current shape padding from the controls.
    */
   const getShapeTextPaddingFromControls = () => ({
     top: getShapePaddingFromInput(shapePaddingTopInput),
@@ -250,7 +250,7 @@ export default ({ editorInstance, controls }) => {
   })
 
   /**
-   * Считывает скругление фигуры из input.
+   * Reads the shape corner-rounding amount from the input.
    */
   const getShapeRoundingFromInput = () => parseNumberInput({
     input: shapeRoundingInput,
@@ -260,7 +260,7 @@ export default ({ editorInstance, controls }) => {
   })
 
   /**
-   * Синхронизирует shape-контролы с текущей активной фигурой.
+   * Synchronizes shape controls with the currently active shape.
     * @param {ShapeObject | null} shapeGroup
    */
   const syncShapeControls = (shapeGroup) => {
@@ -337,7 +337,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет fill к активной фигуре.
+   * Applies fill to the active shape.
    */
   const applyShapeFill = ({ fill, withoutSave = false }) => {
     const shapeGroup = getActiveShape()
@@ -354,7 +354,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет stroke к активной фигуре.
+   * Applies stroke to the active shape.
    */
   const applyShapeStroke = ({ stroke, strokeWidth, withoutSave = false }) => {
     const shapeGroup = getActiveShape()
@@ -372,7 +372,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет opacity к активной фигуре.
+   * Applies opacity to the active shape.
    */
   const applyShapeOpacity = ({
     opacity,
@@ -394,7 +394,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет выравнивание контента к активной фигуре.
+   * Applies content alignment to the active shape.
    */
   const applyShapeTextAlign = ({ horizontal, vertical, withoutSave = false }) => {
     const shapeGroup = getActiveShape()
@@ -415,7 +415,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет скругление к активной фигуре.
+   * Applies corner rounding to the active shape.
    */
   const applyShapeRounding = async({ rounding, withoutSave = false }) => {
     const shapeGroup = getActiveShape()
@@ -432,7 +432,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет режим shapeTextAutoExpand к активной фигуре.
+   * Applies shapeTextAutoExpand mode to the active shape.
    */
   const applyShapeTextAutoExpand = async({ shapeTextAutoExpand, withoutSave = false }) => {
     const shapeGroup = getActiveShape()
@@ -454,7 +454,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Возвращает фигуру для live-изменения или его завершающего сохранения.
+   * Returns the shape for a live update or its final save.
    * @param {{ withoutSave: boolean }} params
    */
   const resolveShapePaddingTarget = ({ withoutSave }) => {
@@ -472,7 +472,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Применяет внутренний отступ текста к фигуре, на которой началось изменение.
+   * Applies text padding to the shape where the change began.
    * @param {{ side: 'top' | 'right' | 'bottom' | 'left', value: number, withoutSave?: boolean }} params
    */
   const applyShapePadding = async({ side, value, withoutSave = false }) => {
@@ -495,7 +495,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Собирает опции фигуры из текущих контролов.
+   * Builds shape options from the current controls.
    */
   const getShapeOptionsFromControls = () => {
     const fill = normalizeColor({ color: shapeFillInput.value, fallback: '#B0B5BF' })
@@ -533,7 +533,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Переключает состояние popup-меню фигур.
+   * Toggles the shape popup menu state.
    */
   const setPickerMenuOpen = ({ menu, triggerButton, isOpen }) => {
     if (!menu || !triggerButton) return
@@ -543,7 +543,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Переключает состояние меню добавления фигуры.
+   * Toggles the add-shape menu state.
    */
   const setShapeMenuOpen = ({ isOpen }) => {
     setPickerMenuOpen({
@@ -554,7 +554,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Переключает состояние меню замены фигуры.
+   * Toggles the replace-shape menu state.
    */
   const setReplaceShapeMenuOpen = ({ isOpen }) => {
     setPickerMenuOpen({
@@ -565,21 +565,21 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Закрывает меню добавления фигуры.
+   * Closes the add-shape menu.
    */
   const closeShapeMenu = () => {
     setShapeMenuOpen({ isOpen: false })
   }
 
   /**
-   * Закрывает меню замены фигуры.
+   * Closes the replace-shape menu.
    */
   const closeReplaceShapeMenu = () => {
     setReplaceShapeMenuOpen({ isOpen: false })
   }
 
   /**
-   * Закрывает все popup-меню фигур.
+   * Closes all shape popup menus.
    */
   const closeShapePickerMenus = () => {
     closeShapeMenu()
@@ -587,7 +587,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Проверяет, был ли клик внутри конкретного popup-меню фигур.
+   * Checks whether the click occurred inside a specific shape popup menu.
    */
   const isClickInsideShapeMenu = ({ menu, triggerButton, target }) => {
     if (!menu || !triggerButton) return false
@@ -599,7 +599,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Инициализирует палитры фигур.
+   * Initializes the shape palettes.
    */
   const initShapePalettes = () => {
     shapeFillButtons = renderPalette({
@@ -640,7 +640,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает обработчики на палитры фигур.
+   * Registers handlers for the shape palettes.
    */
   const initShapePaletteListeners = () => {
     const fillButtons = shapeFillButtons
@@ -675,7 +675,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает обработчики на popup-меню фигур.
+   * Registers handlers for the shape popup menus.
    */
   const initShapeMenuListeners = () => {
     addShapeBtn?.addEventListener('click', (event) => {
@@ -725,7 +725,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает обработчики на изменения контролов фигур.
+   * Registers handlers for shape control changes.
    */
   const initShapeControlListeners = () => {
     shapeFillInput.addEventListener('input', (event) => {
@@ -880,7 +880,7 @@ export default ({ editorInstance, controls }) => {
   }
 
   /**
-   * Подписывает обработчики на пресеты фигур.
+   * Registers handlers for shape presets.
    */
   const initShapePresetListeners = () => {
     for (const button of shapePresetButtons) {

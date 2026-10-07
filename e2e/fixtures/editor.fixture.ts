@@ -66,7 +66,7 @@ interface EditorDemoWindow extends Window {
   __EDITOR_DEMO_INIT_OPTIONS?: EditorDemoInitOptions
 }
 
-/** Передаёт настройки редактора в браузер до загрузки демонстрационной страницы. */
+/** Passes editor settings to the browser before loading the demo page. */
 async function installEditorInitOptions({
   page,
   initOptions
@@ -83,7 +83,7 @@ async function installEditorInitOptions({
   })
 }
 
-/** Подключает ответы тестового окружения и локальные файлы шрифтов. */
+/** Sets up test-environment responses and local font files. */
 async function installEditorRoutes({
   page,
   routeMocks
@@ -127,7 +127,7 @@ async function installEditorRoutes({
   })
 }
 
-/** Открывает демонстрационную страницу и ждёт готовности редактора. */
+/** Opens the demo page and waits for the editor to be ready. */
 async function openEditorPage({
   model,
   page
@@ -142,7 +142,7 @@ async function openEditorPage({
   await model.waitForReady()
 }
 
-/** Завершает браузерные взаимодействия, которые тест оставил активными. */
+/** Finishes browser interactions that the test left active. */
 async function finishEditorInteractions({ model }: { model: EditorModel }): Promise<void> {
   await model.selection.scaling.finishIfActive()
   await model.snapping.finishPointerInteractionIfActive()

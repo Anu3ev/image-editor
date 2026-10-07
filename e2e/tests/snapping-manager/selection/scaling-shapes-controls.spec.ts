@@ -17,7 +17,7 @@ import {
 } from '../../../helpers/rotated-shape-selection-scaling.helper'
 import type { SnappingGuideInfo } from '../../../types'
 
-/** Поля точных границ общего выделения по именам сценических граней. */
+/** Exact active-selection bounds fields keyed by scene-edge names. */
 const ACTIVE_SELECTION_BOUNDS_FIELDS = {
   bottom: 'boundsBottom',
   left: 'boundsLeft',

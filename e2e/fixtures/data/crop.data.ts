@@ -6,7 +6,7 @@ import {
 } from '../../../src/editor/constants'
 
 /**
- * Минимальный размер crop-области, который должен соблюдаться во время live resize.
+ * Minimum crop-area size that must be maintained during live resize.
  */
 export const CROP_MIN_SIZE = {
   width: CANVAS_MIN_WIDTH,
@@ -14,7 +14,7 @@ export const CROP_MIN_SIZE = {
 }
 
 /**
- * Максимальный размер crop-области, который должен соблюдаться во время live resize.
+ * Maximum crop-area size that must be maintained during live resize.
  */
 export const CROP_MAX_SIZE = {
   width: CANVAS_MAX_WIDTH,
@@ -22,7 +22,7 @@ export const CROP_MAX_SIZE = {
 }
 
 /**
- * Угловые controls crop-области для проверки диагонального resize.
+ * Crop-area corner controls for testing diagonal resize.
  */
 export const CROP_CORNER_CASES = [
   {
@@ -48,7 +48,7 @@ export const CROP_CORNER_CASES = [
 ] as const
 
 /**
- * Боковые controls crop-области для проверки горизонтального и вертикального resize.
+ * Crop-area side controls for testing horizontal and vertical resize.
  */
 export const CROP_SIDE_CASES = [
   {
@@ -74,7 +74,7 @@ export const CROP_SIDE_CASES = [
 ] as const
 
 /**
- * Все resize-controls crop-области для проверки быстрого shrink через opposite side.
+ * All crop-area resize controls for testing rapid shrinkage past the opposite side.
  */
 export const CROP_RESIZE_CASES = [
   ...CROP_CORNER_CASES,

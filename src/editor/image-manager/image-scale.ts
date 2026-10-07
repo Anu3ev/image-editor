@@ -4,10 +4,10 @@ import type {
   Rect
 } from 'fabric'
 
-/** Режим масштабирования, который влияет на расчёт scale factor. */
+/** Scaling mode that affects the scale factor calculation. */
 export type ImageScaleType = 'contain' | 'cover' | 'image-contain' | 'image-cover'
 
-/** Рассчитывает scale factor изображения относительно монтажной области. */
+/** Calculates the image scale factor relative to the artboard. */
 export function calculateImageScaleFactor({
   montageArea,
   imageObject,

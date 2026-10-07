@@ -7,7 +7,7 @@ import {
   createMovementBounds
 } from './movement-snapping-core'
 
-/** Геометрия для выбора между двумя цепочками одного активного объекта. */
+/** Geometry for choosing between two chains for one active object. */
 export type AmbiguousSpacingChainScenario = Readonly<{
   activeBounds: ObjectBounds
   movedBounds: ObjectBounds
@@ -17,7 +17,7 @@ export type AmbiguousSpacingChainScenario = Readonly<{
   primarySelection: ResolvedSpacingSelection
 }>
 
-/** Собирает основной spacing-вариант по опорному интервалу правой цепочки. */
+/** Builds the primary spacing candidate from the right chain's reference gap. */
 function createRightChainSelection({
   activeBounds,
   fourthBounds,
@@ -59,7 +59,7 @@ function createRightChainSelection({
   }
 }
 
-/** Создаёт сценарий, где active завершает цепочку 10 слева и начинает цепочку 20 справа. */
+/** Creates a scenario where active ends a chain with spacing 10 on the left and starts a chain with spacing 20 on the right. */
 export function createAmbiguousSpacingChainScenario(): AmbiguousSpacingChainScenario {
   const firstBounds = createMovementBounds({ left: 0, top: 0, width: 10, height: 10 })
   const secondBounds = createMovementBounds({ left: 20, top: 0, width: 10, height: 10 })

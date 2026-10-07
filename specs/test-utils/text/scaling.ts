@@ -49,7 +49,7 @@ export type TextScalingRuntimeSetup = ReturnType<typeof createTextManagerTestSet
 }
 
 /**
- * Создаёт тестовый setup для TextScalingController с обычным текстовым объектом.
+ * Creates a TextScalingController test setup with a standard text object.
  */
 export const createTextScalingRuntimeSetup = (
   {
@@ -91,7 +91,7 @@ export const createTextScalingRuntimeSetup = (
 }
 
 /**
- * Создаёт transform-стаб для unit-сценариев object:scaling и mouse:move.
+ * Creates a transform stub for object:scaling and mouse:move unit scenarios.
  */
 export const createTextScalingTransform = (
   {
@@ -128,7 +128,7 @@ export const createTextScalingTransform = (
 } as never)
 
 /**
- * Подменяет локальную точку transform для unit-сценариев с движением мыши.
+ * Substitutes the local transform point for unit scenarios with mouse movement.
  */
 export const mockTextScalingLocalPoint = (
   {
@@ -143,7 +143,7 @@ export const mockTextScalingLocalPoint = (
 }
 
 /**
- * Помещает transform в текущее состояние canvas для сценариев mouse:move.
+ * Places the transform in the current canvas state for mouse:move scenarios.
  */
 export const setCurrentTextScalingTransform = (
   {
@@ -158,7 +158,7 @@ export const setCurrentTextScalingTransform = (
 }
 
 /**
- * Создаёт текстовый узел внутри фигуры для проверок, что standalone scaling его не трогает.
+ * Creates a text node inside a shape to verify that standalone scaling leaves it untouched.
  */
 export const createShapeOwnedScalingTextbox = (): ReturnType<typeof createMockShapeTextbox> => {
   const textbox = createMockShapeTextbox({
@@ -175,7 +175,7 @@ export const createShapeOwnedScalingTextbox = (): ReturnType<typeof createMockSh
 }
 
 /**
- * Создаёт текстовый объект с разными размерами строк и фоновыми отступами.
+ * Creates a text object with different line sizes and background padding.
  */
 export const createStyledScalingTextbox = (
   {

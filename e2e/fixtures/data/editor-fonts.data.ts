@@ -45,7 +45,7 @@ const CYRILLIC_RANGE = [
 
 const TEST_FONT_PATH_PREFIX = '/__e2e/fonts'
 
-/** Локальный набор шрифтов для e2e, чтобы ready-path редактора не зависел от внешней сети. */
+/** Local font set for e2e tests so the editor's ready path does not depend on an external network. */
 export const E2E_EDITOR_FONTS: EditorFontDefinition[] = [
   {
     family: 'Arial',
@@ -138,7 +138,7 @@ export const E2E_EDITOR_FONTS: EditorFontDefinition[] = [
   }
 ]
 
-/** Разрешённые локальные файлы test-only шрифтов, которые fixture может отдать браузеру. */
+/** Allowed local test-only font files that the fixture can serve to the browser. */
 export const E2E_EDITOR_FONT_FILES = new Set([
   'exo2-cyrillic.woff2',
   'exo2-latin.woff2',

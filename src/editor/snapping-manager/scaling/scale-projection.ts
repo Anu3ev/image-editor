@@ -1,31 +1,31 @@
-/* eslint-disable no-use-before-define -- экспортируемые функции объявлены перед внутренними расчётами. */
+/* eslint-disable no-use-before-define -- Exported functions are declared before internal calculations. */
 import type { ObjectBounds } from '../../utils/geometry'
 
-/** Ось координат, по которой проверяется направляющая. */
+/** Coordinate axis along which a guide is checked. */
 export type ScaleSceneAxis = 'x' | 'y'
 
-/** Грань видимой ограничивающей рамки, положение которой меняется вместе с размером объекта. */
+/** Edge of the visible bounding box whose position changes with the object's size. */
 export type ScaleSceneEdge = 'left' | 'right' | 'top' | 'bottom'
 
-/** Канонический параметр, которым конкретный менеджер изменяет размер объекта. */
+/** Canonical parameter used by a specific manager to resize an object. */
 export type ScaleProjectionVariable = 'scale-x' | 'scale-y' | 'uniform-scale' | 'text-width'
 
-/** Коэффициенты зависимости положения проверяемой грани от канонических параметров размера. */
+/** Coefficients relating the checked edge's position to canonical size parameters. */
 export type ScaleProjectionEdgeInput = Readonly<{
   edge: ScaleSceneEdge
   coefficients: readonly number[]
 }>
 
-/** Исходные данные линейной модели выбранного режима изменения размера. */
+/** Inputs to the linear model for the selected resizing mode. */
 export type ScaleProjectionInput = Readonly<{
   variables: readonly ScaleProjectionVariable[]
   baselineValues: readonly number[]
-  /** Расстояние ручки в координатах сцены при изменении параметра на единицу. */
+  /** Control travel in scene coordinates per unit change in a parameter. */
   variableSceneWeights: readonly number[]
   edges: readonly ScaleProjectionEdgeInput[]
 }>
 
-/** Проверенная линейная модель одной участвующей грани. */
+/** Validated linear model of one participating edge. */
 export type ScaleProjectionEdge = Readonly<{
   axis: ScaleSceneAxis
   edge: ScaleSceneEdge
@@ -33,7 +33,7 @@ export type ScaleProjectionEdge = Readonly<{
   coefficients: readonly number[]
 }>
 
-/** Модель участвующих граней и веса для сравнения смещений. */
+/** Participating edge model and weights for comparing offsets. */
 export type ScaleProjection = Readonly<{
   variables: readonly ScaleProjectionVariable[]
   baselineValues: readonly number[]
@@ -41,7 +41,7 @@ export type ScaleProjection = Readonly<{
   edges: readonly ScaleProjectionEdge[]
 }>
 
-/** Положения всех граней, участвующих в выбранном режиме изменения размера. */
+/** Positions of all edges participating in the selected resizing mode. */
 export type ProjectedScaleEdgePositions = Readonly<{
   left: number | null
   right: number | null
@@ -49,26 +49,26 @@ export type ProjectedScaleEdgePositions = Readonly<{
   bottom: number | null
 }>
 
-/** Ограничение, совмещающее конкретную проверяемую грань с направляющей. */
+/** Constraint aligning a specific checked edge with a guide. */
 export type ScaleProjectionConstraint = Readonly<{
   axis: ScaleSceneAxis
   edge: ScaleSceneEdge
   position: number
 }>
 
-/** Канонические значения и положения граней после применения ограничений. */
+/** Canonical values and edge positions after applying constraints. */
 export type ScaleProjectionSolution = Readonly<{
   values: readonly number[]
   positions: ProjectedScaleEdgePositions
 }>
 
-/** Минимальный относительный допуск для проверки ранга линейной проекции. */
+/** Minimum relative tolerance for checking the rank of a linear projection. */
 const PROJECTION_RANK_EPSILON = 0.000000001
 
-/** Максимальное число степеней свободы поддерживаемого изменения размера. */
+/** Maximum number of supported resizing degrees of freedom. */
 const MAX_SCALE_PROJECTION_VARIABLES = 2
 
-/** Пустые позиции до расчёта участвующих граней. */
+/** Empty positions before calculating participating edges. */
 const EMPTY_PROJECTED_EDGE_POSITIONS: ProjectedScaleEdgePositions = Object.freeze({
   left: null,
   right: null,
@@ -77,7 +77,7 @@ const EMPTY_PROJECTED_EDGE_POSITIONS: ProjectedScaleEdgePositions = Object.freez
 })
 
 /**
- * Строит и проверяет линейную модель от точной геометрии начала жеста.
+ * Builds and validates a linear model from the exact gesture-start geometry.
  */
 export function createScaleProjection({
   bounds,
@@ -111,7 +111,7 @@ export function createScaleProjection({
 }
 
 /**
- * Возвращает модель конкретной грани или null, если она не участвует в выбранном режиме.
+ * Returns a specific edge's model, or null if it does not participate in the selected mode.
  */
 export function getScaleProjectionEdge({
   projection,
@@ -124,7 +124,7 @@ export function getScaleProjectionEdge({
 }
 
 /**
- * Рассчитывает положения всех участвующих граней для указанных канонических значений.
+ * Calculates all participating edge positions for the given canonical values.
  */
 export function projectScaleEdgePositions({
   projection,
@@ -144,7 +144,7 @@ export function projectScaleEdgePositions({
 }
 
 /**
- * Подбирает канонические значения, при которых выполняются одно или два ограничения.
+ * Finds canonical values satisfying one or two constraints.
  */
 export function resolveScaleProjection({
   projection,
@@ -171,7 +171,7 @@ export function resolveScaleProjection({
 }
 
 /**
- * Возвращает величину изменения канонических параметров, необходимую для одного ограничения.
+ * Returns the canonical parameter change required for one constraint.
  */
 export function getScaleProjectionCorrectionMagnitude({
   projection,
@@ -196,14 +196,14 @@ export function getScaleProjectionCorrectionMagnitude({
 }
 
 /**
- * Возвращает ось координат конкретной грани.
+ * Returns the coordinate axis of a specific edge.
  */
 export function resolveScaleSceneEdgeAxis({ edge }: { edge: ScaleSceneEdge }): ScaleSceneAxis {
   return edge === 'left' || edge === 'right' ? 'x' : 'y'
 }
 
 /**
- * Проверяет канонические параметры размера, их исходные значения и веса.
+ * Validates canonical size parameters, their initial values, and weights.
  */
 function assertProjectionVariables({ input }: { input: ScaleProjectionInput }): void {
   const { variables, baselineValues, variableSceneWeights } = input
@@ -228,7 +228,7 @@ function assertProjectionVariables({ input }: { input: ScaleProjectionInput }): 
 }
 
 /**
- * Создаёт и проверяет линейную модель одной участвующей грани.
+ * Creates and validates a linear model of one participating edge.
  */
 function createProjectionEdge({
   bounds,
@@ -254,7 +254,7 @@ function createProjectionEdge({
   })
 }
 
-/** Проверяет, что каждый канонический параметр меняет хотя бы одну грань. */
+/** Checks that each canonical parameter changes at least one edge. */
 function assertProjectionVariablesAffectGeometry({
   edges,
   variables
@@ -273,7 +273,7 @@ function assertProjectionVariablesAffectGeometry({
 }
 
 /**
- * Проверяет количество и конечность переданных значений scale.
+ * Validates the number and finiteness of the supplied scale values.
  */
 function assertProjectionValues({
   projection,
@@ -291,7 +291,7 @@ function assertProjectionValues({
 }
 
 /**
- * Проверяет ограничения для граней и допустимую погрешность решения.
+ * Validates edge constraints and the allowed solution error.
  */
 function assertProjectionConstraints({
   projection,
@@ -324,7 +324,7 @@ function assertProjectionConstraints({
 }
 
 /**
- * Вычисляет положение одной участвующей грани.
+ * Calculates the position of one participating edge.
  */
 function projectEdgePosition({
   projection,
@@ -344,7 +344,7 @@ function projectEdgePosition({
 }
 
 /**
- * Находит ближайшие исходным значения scale, которые выполняют одно ограничение.
+ * Finds scale values that satisfy one constraint while staying closest to the raw input values.
  */
 function resolveSingleConstraint({
   projection,
@@ -390,7 +390,7 @@ function resolveSingleConstraint({
 }
 
 /**
- * Пытается выполнить два ограничения с одним или двумя параметрами scale.
+ * Attempts to satisfy two constraints with one or two scale parameters.
  */
 function resolveConstraintPair({
   projection,
@@ -419,7 +419,7 @@ function resolveConstraintPair({
 }
 
 /**
- * Решает невырожденную систему двух ограничений для двух параметров scale.
+ * Solves a nonsingular system of two constraints for two scale parameters.
  */
 function resolveTwoVariableConstraintPair({
   projection,
@@ -467,7 +467,7 @@ function resolveTwoVariableConstraintPair({
 }
 
 /**
- * Проверяет, что рассчитанное решение выполняет все ограничения.
+ * Checks that the calculated solution satisfies all constraints.
  */
 function areConstraintsSatisfied({
   solution,
@@ -487,7 +487,7 @@ function areConstraintsSatisfied({
 }
 
 /**
- * Создаёт неизменяемый результат проекции.
+ * Creates an immutable projection result.
  */
 function createProjectionSolution({
   projection,
@@ -505,7 +505,7 @@ function createProjectionSolution({
 }
 
 /**
- * Возвращает расстояние между двумя наборами значений с учётом их веса на сцене.
+ * Returns the distance between two sets of values, accounting for their scene weights.
  */
 function resolveVectorDistance({
   projection,

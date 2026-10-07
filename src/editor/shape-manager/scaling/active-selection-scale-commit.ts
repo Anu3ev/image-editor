@@ -23,19 +23,19 @@ import {
 import type { ShapeScalingStartDimensions } from './shape-scaling-layout'
 import { resolveShapeScaleActionAxes } from './shape-scaling-transform'
 
-/** Множители, применённые к внутренней компоновке одного шейпа. */
+/** Multipliers applied to the internal layout of a single shape. */
 export type ActiveSelectionShapeLayoutScale = Readonly<{
   scaleX: number
   scaleY: number
 }>
 
-/** Подготовленная фиксация шейпов, завершаемая после успешной фиксации всего выделения. */
+/** Prepared shape commit, finalized after the entire selection is successfully committed. */
 export type ActiveSelectionShapeScaleCommit = Readonly<{
   groups: readonly ShapeGroup[]
   selection: ActiveSelection
 }>
 
-/** Восстанавливает исходные размеры и оси, затронутые завершаемым преобразованием. */
+/** Restores the original dimensions and axes affected by the transform being finalized. */
 function resolveCommitStartDimensions({
   group,
   scaleX,
@@ -63,7 +63,7 @@ function resolveCommitStartDimensions({
   }
 }
 
-/** Фиксирует канонические размеры одного шейпа после скейлинга общего выделения. */
+/** Commits a single shape's canonical dimensions after scaling the selection. */
 export function commitActiveSelectionShapeGroupScaling({
   group,
   layoutScale,

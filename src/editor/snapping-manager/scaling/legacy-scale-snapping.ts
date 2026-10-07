@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- публичный контракт модуля держится выше внутренних расчётов. */
+/* eslint-disable no-use-before-define -- The module's public contract is kept above internal calculations. */
 import {
   FabricObject,
   Textbox,
@@ -25,7 +25,7 @@ type AxisSnapResult = {
   candidate: AxisSnapCandidate | null
 }
 
-/** Допуск сравнения uniform scale-factor для осей одного scaling-step. */
+/** Tolerance for comparing uniform scale factors on the axes of one scaling step. */
 const UNIFORM_SCALE_FACTOR_EPSILON = 0.000001
 
 export type ScalingAxisState = {
@@ -69,7 +69,7 @@ type ScaleSnapContext = {
   horizontalSnap: AxisSnapResult
 }
 
-/** Входные данные прежнего геометрического расчёта масштаба. */
+/** Inputs to the legacy geometric scale calculation. */
 export interface ScaleUpdatePlanParams extends ScaleSnapContext {
   shouldUseUniformScaleSnap: boolean
 }
@@ -93,7 +93,7 @@ type UniformScaleSnap = {
 }
 
 /**
- * Определяет активные оси масштабирования по углу и действию трансформации.
+ * Determines active scaling axes from the transform corner and action.
  */
 export function resolveScalingAxisState({ transform }: { transform: Transform }): ScalingAxisState {
   const { corner = '', action = '' } = transform
@@ -112,7 +112,7 @@ export function resolveScalingAxisState({ transform }: { transform: Transform })
   }
 }
 
-/** Возвращает активные origin и scale из transform с fallback в состояние target. */
+/** Returns active origins and scales from the transform, falling back to target state. */
 export function resolveScalingTransformState({
   target,
   transform
@@ -139,7 +139,7 @@ export function resolveScalingTransformState({
   }
 }
 
-/** Находит активные axis-snap кандидаты для текущего scaling-step. */
+/** Finds active axis-snap candidates for the current scaling step. */
 export function resolveScaleAxisSnaps({
   bounds,
   corner,
@@ -192,7 +192,7 @@ export function resolveScaleAxisSnaps({
   }
 }
 
-/** Рассчитывает scale-обновления и соответствующие направляющие для текущего scaling-step. */
+/** Calculates scale updates and corresponding guides for the current scaling step. */
 export function resolveScaleUpdatePlan(params: ScaleUpdatePlanParams): ScaleUpdatePlan | null {
   if (params.shouldUseUniformScaleSnap) {
     return resolveUniformScaleUpdatePlan(params)
@@ -201,7 +201,7 @@ export function resolveScaleUpdatePlan(params: ScaleUpdatePlanParams): ScaleUpda
   return resolveAxisScaleUpdatePlan(params)
 }
 
-/** Рассчитывает прежний план прилипания при горизонтальном изменении ширины текста. */
+/** Calculates the legacy snapping plan for horizontal text width resizing. */
 export function resolveTextResizeSnapPlan({
   target,
   bounds,
@@ -244,7 +244,7 @@ export function resolveTextResizeSnapPlan({
   }
 }
 
-/** Рассчитывает единый множитель масштаба для выбранных направляющих. */
+/** Calculates a uniform scale factor for the selected guides. */
 function resolveUniformScaleUpdatePlan({
   bounds, originX, originY, scaleX, scaleY, verticalSnap, horizontalSnap
 }: ScaleSnapContext): ScaleUpdatePlan | null {
@@ -381,7 +381,7 @@ function resolveScaleYUpdate({
 }
 
 /**
- * Собирает кандидаты на вертикальное прилипания по текущему originX.
+ * Collects vertical snapping candidates for the current originX.
  */
 function collectVerticalSnapCandidates({
   bounds,
@@ -442,7 +442,7 @@ function collectVerticalSnapCandidates({
 }
 
 /**
- * Собирает кандидаты на горизонтальное прилипания по текущему originY.
+ * Collects horizontal snapping candidates for the current originY.
  */
 function collectHorizontalSnapCandidates({
   bounds,
@@ -502,7 +502,7 @@ function collectHorizontalSnapCandidates({
   return candidates
 }
 
-/** Возвращает X-грань, которую пользователь двигает текущим resize-control. */
+/** Returns the X edge moved by the user with the current resize control. */
 function resolveControlMovingXEdge({ controlKey }: { controlKey: string }): 'left' | 'right' | null {
   if (controlKey === 'tl' || controlKey === 'bl' || controlKey === 'ml') return 'left'
   if (controlKey === 'tr' || controlKey === 'br' || controlKey === 'mr') return 'right'
@@ -510,7 +510,7 @@ function resolveControlMovingXEdge({ controlKey }: { controlKey: string }): 'lef
   return null
 }
 
-/** Возвращает Y-грань, которую пользователь двигает текущим resize-control. */
+/** Returns the Y edge moved by the user with the current resize control. */
 function resolveControlMovingYEdge({ controlKey }: { controlKey: string }): 'top' | 'bottom' | null {
   if (controlKey === 'tl' || controlKey === 'tr' || controlKey === 'mt') return 'top'
   if (controlKey === 'bl' || controlKey === 'br' || controlKey === 'mb') return 'bottom'
@@ -519,7 +519,7 @@ function resolveControlMovingYEdge({ controlKey }: { controlKey: string }): 'top
 }
 
 /**
- * Находит ближайший кандидат прилипания с учетом порога и возвращает дельту.
+ * Finds the nearest snap candidate within the threshold and returns the delta.
  */
 function findAxisSnapCandidate({
   anchors,
@@ -557,7 +557,7 @@ function findAxisSnapCandidate({
 }
 
 /**
- * Рассчитывает коэффициент равномерного масштаба и соответствующий гайд.
+ * Calculates the uniform scale factor and corresponding guide.
  */
 function resolveUniformScale({
   bounds,
@@ -625,7 +625,7 @@ function resolveUniformScale({
 }
 
 /**
- * Создаёт snap-результат для одной оси uniform scaling.
+ * Creates a snap result for one axis of uniform scaling.
  */
 function createUniformScaleSnap({
   type,
@@ -656,7 +656,7 @@ function createUniformScaleSnap({
 }
 
 /**
- * Собирает guards для осей, которые совпадают с выбранным uniform scale-factor.
+ * Collects guards for axes matching the selected uniform scale factor.
  */
 function collectMatchingUniformScaleSnapGuards({
   scaleFactor,
@@ -692,7 +692,7 @@ function collectMatchingUniformScaleSnapGuards({
 }
 
 /**
- * Добавляет guard только если ось реально попала в выбранный uniform scale.
+ * Adds a guard only if the axis actually matches the selected uniform scale.
  */
 function addUniformScaleSnapGuardIfMatching({
   snapGuards,
@@ -720,7 +720,7 @@ function addUniformScaleSnapGuardIfMatching({
 }
 
 /**
- * Создаёт guard для последующего pixel-grid округления уже удерживаемой грани.
+ * Creates a guard for subsequent pixel-grid rounding of an already held edge.
  */
 function createScaleSnapGuard({
   type,
@@ -807,7 +807,7 @@ function chooseUniformScaleAxis({
 }
 
 /**
- * Рассчитывает требуемую ширину bounding-box для прилипания по X.
+ * Calculates the bounding box width required for snapping on X.
  */
 function resolveDesiredWidth({
   bounds,
@@ -850,7 +850,7 @@ function resolveDesiredWidth({
 }
 
 /**
- * Рассчитывает требуемую высоту bounding-box для прилипания по Y.
+ * Calculates the bounding box height required for snapping on Y.
  */
 function resolveDesiredHeight({
   bounds,
@@ -893,7 +893,7 @@ function resolveDesiredHeight({
 }
 
 /**
- * Возвращает базовые размеры объекта без учета масштаба, включая отступы текста.
+ * Returns the unscaled base object dimensions, including text padding.
  */
 function resolveBaseDimensions({ target }: { target: FabricObject }): { width: number; height: number } {
   const {
@@ -922,7 +922,7 @@ function resolveBaseDimensions({ target }: { target: FabricObject }): { width: n
 }
 
 /**
- * Рассчитывает масштаб по оси X для заданной ширины bounding-box.
+ * Calculates the X-axis scale for a given bounding box width.
  */
 function resolveScaleForWidth({
   desiredWidth,
@@ -946,7 +946,7 @@ function resolveScaleForWidth({
 }
 
 /**
- * Рассчитывает масштаб по оси Y для заданной высоты bounding-box.
+ * Calculates the Y-axis scale for a given bounding box height.
  */
 function resolveScaleForHeight({
   desiredHeight,
@@ -970,7 +970,7 @@ function resolveScaleForHeight({
 }
 
 /**
- * Рассчитывает scale по одной оси для целевого размера повёрнутого bounding-box.
+ * Calculates scale on one axis for the target size of a rotated bounding box.
  */
 function resolveScaleForRotatedBoundsSize({
   desiredSize,
@@ -997,7 +997,7 @@ function resolveScaleForRotatedBoundsSize({
   return nextScale
 }
 
-/** Преобразует ширину рамки текста в его каноническую ширину. */
+/** Converts the text frame width to its canonical width. */
 function resolveTextWidthForBounds({
   target,
   boundsWidth

@@ -4,7 +4,7 @@ import { ShapeModel } from '../models/shape/shape.model'
 import { SnappingModel } from '../models/snapping.model'
 import type { SnappingObjectSnapshot } from '../types'
 
-/** Геометрия отдельного текста и опорных объектов для равноудалённого прилипания. */
+/** Geometry of standalone text and reference objects for equal-spacing snapping. */
 export type TextMovingSpacingSetup = Readonly<{
   activeTextId: string
   active: SnappingObjectSnapshot
@@ -16,12 +16,12 @@ export type TextMovingSpacingSetup = Readonly<{
   top: SnappingObjectSnapshot
 }>
 
-/** Дополнительный fixture для горизонтальной и вертикальной равноудалённости текста. */
+/** Additional fixture for horizontal and vertical equal spacing of text. */
 interface TextMovingSpacingFixtures {
   textMovingSpacingSetup: TextMovingSpacingSetup
 }
 
-/** Исходные границы одного опорного шейпа. */
+/** Initial bounds of one reference shape. */
 type TextSpacingReferenceBounds = Readonly<{
   id: string
   height: number
@@ -30,7 +30,7 @@ type TextSpacingReferenceBounds = Readonly<{
   width: number
 }>
 
-/** Добавляет опорные шейпы и возвращает их точные границы. */
+/** Adds reference shapes and returns their exact bounds. */
 async function addTextSpacingReferences({
   bounds,
   shapes,
@@ -64,7 +64,7 @@ async function addTextSpacingReferences({
   return references
 }
 
-/** Editor fixture с отдельным текстом между горизонтальными и вертикальными опорами. */
+/** Editor fixture with standalone text and reference pairs for horizontal and vertical spacing. */
 export const test = editorTest.extend<TextMovingSpacingFixtures>({
   textMovingSpacingSetup: async({
     editorModel,

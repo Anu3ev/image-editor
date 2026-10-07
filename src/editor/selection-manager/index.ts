@@ -20,46 +20,46 @@ type TextEditingExitedEvent = CanvasEvents['text:editing:exited']
 
 export default class SelectionManager {
   /**
-   * Ссылка на редактор, содержащий холст.
+   * Reference to the editor containing the canvas.
    */
   public editor: ImageEditor
 
   /**
-   * Ключи для мультивыделения на канвасе.
+   * Keys for multiselection on the canvas.
    */
   private selectionKey: CanvasOptions['selectionKey']
 
   /**
-   * Последнее активное выделение на канвасе.
-   * Используется для восстановления при сбросе выделения с зажатым Ctrl/Cmd.
+   * Last active selection on the canvas.
+   * Used for restoration when the selection is cleared while Ctrl/Cmd is held down.
    */
   private lastSelection: FabricObject[] = []
 
   /**
-   * Флаг, что активировано выделение областью с зажатым Ctrl/Cmd.
+   * Flag indicating that area selection with Ctrl/Cmd held down is active.
    */
   private isCtrlSelectionBoxActive: boolean = false
 
   /**
-   * Флаг, предотвращающий повторное слияние выделения.
+   * Flag preventing repeated selection merging.
    */
   private isSelectionMergeInProgress: boolean = false
 
-  /** Управляет унифицированным скейлингом поддерживаемого общего выделения. */
+  /** Controls unified scaling of supported active selections. */
   private readonly scaleInteractionController: ActiveSelectionScaleInteractionController
 
   /**
-   * Обработчик входа в редактирование текста.
+   * Handler for entering text editing.
    */
   private handleTextEditingEnteredBound: (event: TextEditingEnteredEvent) => void
 
   /**
-   * Обработчик выхода из редактирования текста.
+   * Handler for exiting text editing.
    */
   private handleTextEditingExitedBound: (event: TextEditingExitedEvent) => void
 
   /**
-   * Обработчик фильтрации залоченного выделения.
+   * Handler for filtering locked selections.
    */
   private handleLockedSelectionBound: (options: {
     selected: FabricObject[]
@@ -68,31 +68,31 @@ export default class SelectionManager {
   }) => void
 
   /**
-   * Обработчик объединения выделений при выделении областью.
+   * Handler for merging selections during area selection.
    */
   private handleSelectionMergeBound: (options: { selected: FabricObject[], e?: TPointerEvent }) => void
 
   /**
-   * Обработчик сохранения активного выделения.
+   * Handler for saving the active selection.
    */
   private handleSelectionChangeBound: () => void
 
   /**
-   * Обработчик восстановления выделения после клика по пустой области.
+   * Handler for restoring the selection after clicking an empty area.
    */
   private handleSelectionClearedBound: ({ e }: { e?: TPointerEvent }) => void
 
   /**
-   * Обработчик начала выделения областью.
+   * Handler for starting area selection.
    */
   private handleSelectionBoxStartBound: (options: TPointerEventInfo<TPointerEvent>) => void
 
   /**
-   * Обработчик завершения выделения областью.
+   * Handler for ending area selection.
    */
   private handleSelectionBoxEndBound: (options: TPointerEventInfo<TPointerEvent>) => void
 
-  /** Создаёт менеджер выделения и подключает его обработчики к холсту. */
+  /** Creates the selection manager and attaches its handlers to the canvas. */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
     this.scaleInteractionController = new ActiveSelectionScaleInteractionController({ editor })
@@ -114,7 +114,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Выделить все объекты
+   * Select all objects
    * @fires editor:all-objects-selected
    */
   public selectAll(): void {
@@ -129,7 +129,7 @@ export default class SelectionManager {
       ? new ActiveSelection(canvasManager.getObjects(), { canvas })
       : activeObjects[0]
 
-    // Если есть заблокированные объекты, то блокируем выделенный объект
+    // If there are locked objects, lock the selected object
     if (hasLockedObjects) {
       objectLockManager.lockObject({ object, skipInnerObjects: true, withoutSave: true })
     }
@@ -140,7 +140,7 @@ export default class SelectionManager {
     canvas.fire('editor:all-objects-selected', { selected: object })
   }
 
-  /** Передаёт шаг скейлинга выделения из шейпов единому владельцу до прежней обработки. */
+  /** Passes a shape selection scaling step to the unified owner before the legacy handler runs. */
   public handleShapeSelectionScaleStep({
     event,
     intentSource
@@ -156,7 +156,7 @@ export default class SelectionManager {
     })
   }
 
-  /** Выполняет фиксацию шейпов, не позволяя внутренним событиям смены выделения прервать сессию. */
+  /** Commits shapes without allowing internal selection change events to interrupt the session. */
   public commitShapeSelectionScale({
     selection,
     commit
@@ -182,7 +182,7 @@ export default class SelectionManager {
     return true
   }
 
-  /** Фиксирует выделение с текстами и все подключённые домены в рамках одной общей сессии. */
+  /** Commits a selection containing text and all connected domains within a single shared session. */
   public commitTextSelectionScale({
     selection,
     transform
@@ -193,7 +193,7 @@ export default class SelectionManager {
     return this.scaleInteractionController.commitTextDrivenSelectionScale({ selection, transform })
   }
 
-  /** Проверяет, должен ли ShapeManager пропустить отдельную фиксацию полного смешанного состава. */
+  /** Checks whether ShapeManager should skip a separate commit of the full mixed composition. */
   public shouldSkipShapeSelectionScaleCommit({
     selection
   }: {
@@ -203,7 +203,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Снимает подписки SelectionManager.
+   * Removes SelectionManager subscriptions.
    */
   public destroy(): void {
     const { canvas } = this.editor
@@ -222,7 +222,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Назначает ключ для мультивыделения.
+   * Assigns the multiselection key.
    */
   private _applySelectionKey({ selectionKey }: { selectionKey: CanvasOptions['selectionKey'] }): void {
     const { canvas } = this.editor
@@ -230,7 +230,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Подписывается на события редактирования текста и выделения объектов.
+   * Subscribes to text editing and object selection events.
    */
   private _bindEvents(): void {
     const { canvas } = this.editor
@@ -248,14 +248,14 @@ export default class SelectionManager {
   }
 
   /**
-   * Отключает мультивыделение при входе в режим редактирования текста.
+   * Disables multiselection when entering text editing mode.
    */
   private _handleTextEditingEntered(_event: TextEditingEnteredEvent): void {
     this._applySelectionKey({ selectionKey: null })
   }
 
   /**
-   * Восстанавливает мультивыделение после выхода из редактирования текста.
+   * Restores multiselection after exiting text editing mode.
    */
   private _handleTextEditingExited(_event: TextEditingExitedEvent): void {
     const { selectionKey } = this
@@ -263,16 +263,16 @@ export default class SelectionManager {
   }
 
   /**
-   * При массовом выделении объектов удаляет из него залоченные.
-   * @param params - параметры события
-   * @param params.selected - массив выделенных объектов
-   * @param params.e - событие указателя (опционально)
+   * Removes locked objects from a multi-object selection.
+   * @param params - Event parameters
+   * @param params.selected - Array of selected objects
+   * @param params.e - Pointer event (optional)
    */
   private _filterLockedSelection({ selected, e }: { selected: FabricObject[], e?: TPointerEvent }): void {
     const { editor } = this
     const { canvas } = editor
 
-    // Если это не событие мыши, то ничего не делаем
+    // Do nothing if this is not a mouse event
     if (!(e instanceof MouseEvent)) return
 
     const activeObject = canvas.getActiveObject()
@@ -283,7 +283,7 @@ export default class SelectionManager {
 
     const { lockedObjects, unlockedObjects } = SelectionManager._splitLockedObjects({ objects: currentSelection })
 
-    // Если нет заблокированных объектов, то ничего не делаем
+    // Do nothing if there are no locked objects
     if (lockedObjects.length === 0) return
 
     if (unlockedObjects.length > 0) {
@@ -310,10 +310,10 @@ export default class SelectionManager {
   }
 
   /**
-   * Объединяет выделение при выделении областью с зажатым Ctrl/Cmd.
-   * @param params - параметры события
-   * @param params.selected - массив новых объектов выделения
-   * @param params.e - событие указателя (опционально)
+   * Merges selections during area selection with Ctrl/Cmd held down.
+   * @param params - Event parameters
+   * @param params.selected - Array of newly selected objects
+   * @param params.e - Pointer event (optional)
    */
   private _handleSelectionMerge({
     selected,
@@ -370,8 +370,8 @@ export default class SelectionManager {
   }
 
   /**
-   * Обрабатывает начало выделения областью при зажатом Ctrl/Cmd.
-   * @param options - объект события fabric
+   * Handles the start of area selection with Ctrl/Cmd held down.
+   * @param options - Fabric event object
    */
   private _handleSelectionBoxStart({ e, target }: TPointerEventInfo<TPointerEvent>): void {
     if (!(e instanceof MouseEvent)) return
@@ -396,8 +396,8 @@ export default class SelectionManager {
   }
 
   /**
-   * Сбрасывает флаг выделения областью при зажатом Ctrl/Cmd.
-   * @param options - объект события fabric
+   * Resets the flag for area selection with Ctrl/Cmd held down.
+   * @param options - Fabric event object
    */
   private _handleSelectionBoxEnd({ e }: TPointerEventInfo<TPointerEvent>): void {
     if (!(e instanceof MouseEvent)) return
@@ -406,7 +406,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Сохраняет текущее выделение для возможного восстановления.
+   * Saves the current selection for possible restoration.
    */
   private _handleSelectionChange(): void {
     const { canvas } = this.editor
@@ -416,9 +416,9 @@ export default class SelectionManager {
   }
 
   /**
-   * Восстанавливает выделение при клике по пустой области с зажатым Ctrl/Cmd.
-   * @param params - параметры события
-   * @param params.e - событие указателя (опционально)
+   * Restores the selection when clicking an empty area with Ctrl/Cmd held down.
+   * @param params - Event parameters
+   * @param params.e - Pointer event (optional)
    */
   private _handleSelectionCleared({ e }: { e?: TPointerEvent }): void {
     const { lastSelection } = this
@@ -448,7 +448,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Собирает объекты активного выделения.
+   * Collects the active selection's objects.
    */
   private static _collectSelectionObjects({ activeObject }: { activeObject?: FabricObject | null }): FabricObject[] {
     if (!activeObject) return []
@@ -461,7 +461,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Проверяет, что выборка состоит только из заблокированных объектов.
+   * Checks whether the set contains only locked objects.
    */
   private static _isSelectionLockedOnly({ objects }: { objects: FabricObject[] }): boolean {
     if (objects.length === 0) return false
@@ -474,7 +474,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Оставляет только заблокированные объекты в выборке.
+   * Keeps only locked objects in the set.
    */
   private static _filterLockedSelectionObjects({ objects }: { objects: FabricObject[] }): FabricObject[] {
     const lockedObjects: FabricObject[] = []
@@ -488,7 +488,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Фильтрует объекты, которые ещё существуют на канвасе.
+   * Filters for objects that still exist on the canvas.
    */
   private _filterExistingObjects({ objects }: { objects: FabricObject[] }): FabricObject[] {
     const { canvasManager } = this.editor
@@ -504,7 +504,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Проверяет равенство двух выборок без учёта порядка.
+   * Checks whether two sets are equal regardless of order.
    */
   private static _areSelectionsEqual({
     left,
@@ -524,7 +524,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Объединяет список объектов без дубликатов.
+   * Merges object lists without duplicates.
    */
   private static _mergeSelections({
     baseSelection,
@@ -551,7 +551,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Делит объекты на заблокированные и доступные для редактирования.
+   * Splits objects into locked and editable objects.
    */
   private static _splitLockedObjects({
     objects
@@ -574,7 +574,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Определяет, нужно ли сохранить только заблокированное выделение при попытке добавить обычные объекты.
+   * Determines whether to retain only the locked selection when attempting to add regular objects.
    */
   private static _shouldKeepLockedSelection({
     addedObjects,
@@ -618,7 +618,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Применяет выделение и блокирует его, если в нём есть заблокированные объекты.
+   * Applies the selection and locks it if it contains locked objects.
    */
   private _applySelectionObjects({ objects }: { objects: FabricObject[] }): void {
     const { editor } = this
@@ -647,7 +647,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Проверяет, есть ли среди объектов заблокированные.
+   * Checks whether any of the objects are locked.
    */
   private static _hasLockedObjects({ objects }: { objects: FabricObject[] }): boolean {
     for (const object of objects) {
@@ -658,7 +658,7 @@ export default class SelectionManager {
   }
 
   /**
-   * Определяет ключи для мультивыделения.
+   * Determines the multiselection keys.
    */
   private _resolveSelectionKey(): CanvasOptions['selectionKey'] {
     const { options } = this.editor

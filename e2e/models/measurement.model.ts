@@ -8,28 +8,28 @@ import type {
   MeasurementGuideState
 } from '../types'
 
-/** Координаты точки указателя в клиентской системе браузера. */
+/** Pointer-point coordinates in the browser's client coordinate system. */
 type MeasurementClientPoint = Readonly<{
   x: number
   y: number
 }>
 
-/** Маршрут указателя от свободной точки canvas до цели измерения. */
+/** Pointer route from a free canvas point to the measurement target. */
 type MeasurementPointerRoute = Readonly<{
   canvasEntry: MeasurementClientPoint
   target: MeasurementClientPoint
 }>
 
-/** Выполняет пользовательское Alt-измерение между двумя объектами canvas. */
+/** Performs a user Alt measurement between two canvas objects. */
 export class MeasurementModel {
   private readonly page: Page
 
-  /** Создаёт модель Alt-измерений для указанной Playwright-страницы. */
+  /** Creates an Alt-measurement model for the specified Playwright page. */
   constructor(page: Page) {
     this.page = page
   }
 
-  /** Зажимает Alt, наводит указатель на цель и возвращает показанные расстояния. */
+  /** Holds Alt, hovers over the target, and returns the displayed distances. */
   async showDistanceBetweenObjects(
     params: MeasurementBetweenObjectsParams
   ): Promise<MeasurementGuideState> {
@@ -77,7 +77,7 @@ export class MeasurementModel {
     })
   }
 
-  /** Выбирает active и возвращает маршрут указателя до цели. */
+  /** Selects the active object and returns the pointer route to the target. */
   private async _selectActiveObjectAndResolvePointerRoute({
     active,
     target

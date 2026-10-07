@@ -1,9 +1,9 @@
 import type { Page } from '@playwright/test'
 
 /**
- * Обходит Chrome interstitial-страницу с предупреждением о самоподписанном сертификате.
- * Если страница содержит кнопку "Advanced" — кликает по ней и затем по "Proceed".
- * Если interstitial не появился — ничего не делает.
+ * Bypasses Chrome's interstitial warning page for a self-signed certificate.
+ * If the page contains an "Advanced" button, clicks it and then "Proceed".
+ * Does nothing if no interstitial appears.
  */
 export async function bypassCertificateWarning({ page }: { page: Page }): Promise<void> {
   const advancedButton = page.locator('#details-button')

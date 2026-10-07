@@ -3,7 +3,7 @@
 /** @typedef {{ value: string | number }} InputLike */
 
 /**
- * Нормализует числовое значение из input с учетом границ и fallback.
+ * Normalizes a numeric input value using bounds and a fallback.
  * @param {{ input: InputLike, fallback?: number, min?: number, max?: number }} params
  */
 export const parseNumberInput = ({
@@ -21,7 +21,7 @@ export const parseNumberInput = ({
 }
 
 /**
- * Рендерит палитру кнопок для выбора цвета.
+ * Renders a palette of color selection buttons.
  * @param {{ container: HTMLElement, colors: string[] }} params
  */
 export const renderPalette = ({ container, colors }) => {
@@ -44,7 +44,7 @@ export const renderPalette = ({ container, colors }) => {
 }
 
 /**
- * Приводит цвет к шестнадцатеричному формату.
+ * Converts a color to hexadecimal format.
  * @param {{ color: unknown, fallback?: string | null }} params
  */
 export const normalizeColor = ({ color, fallback = '#000000' }) => {
@@ -78,7 +78,7 @@ export const normalizeColor = ({ color, fallback = '#000000' }) => {
 }
 
 /**
- * Нормализует цвет и возвращает undefined вместо невалидного значения.
+ * Normalizes a color and returns undefined for an invalid value.
  * @param {{ color: unknown }} params
  */
 export const normalizeColorOptional = ({ color }) => {
@@ -89,7 +89,7 @@ export const normalizeColorOptional = ({ color }) => {
 }
 
 /**
- * Подсвечивает активный цвет в палитре.
+ * Highlights the active color in the palette.
  * @param {{ buttons: HTMLButtonElement[], color: unknown }} params
  */
 export const setPaletteSelection = ({ buttons, color }) => {
@@ -105,7 +105,7 @@ export const setPaletteSelection = ({ buttons, color }) => {
 }
 
 /**
- * Переключает активное состояние кнопки.
+ * Toggles a button's active state.
  * @param {{ button: HTMLElement, isActive: boolean }} params
  */
 export const setToggleActive = ({ button, isActive }) => {
@@ -116,7 +116,7 @@ export const setToggleActive = ({ button, isActive }) => {
 }
 
 /**
- * Проверяет, активна ли кнопка.
+ * Checks whether a button is active.
  * @param {HTMLElement} button
  */
 export const isButtonActive = (button) => button.classList.contains('active')

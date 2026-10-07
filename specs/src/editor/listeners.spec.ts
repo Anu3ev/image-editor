@@ -25,7 +25,7 @@ const ALWAYS_HISTORY_EVENTS = [
 
 const ALWAYS_REQUIRED_EVENTS = [
   ...ALWAYS_HISTORY_EVENTS,
-  // overlay/background используют selection:created всегда
+  // overlay/background always use selection:created
   'selection:created'
 ]
 
@@ -41,7 +41,7 @@ const DISABLED_OPTIONAL_CANVAS_EVENTS = [
 const getOnEvents = (editor: ReturnType<typeof createEditorStub>) => (editor.canvas.on as jest.Mock).mock.calls.map((c) => c[0])
 
 /**
- * Создаёт pointer-like событие, которое не является MouseEvent.
+ * Creates a pointer-like event that is not a MouseEvent.
  */
 const pointerLike = ({
   clientX,
@@ -63,7 +63,7 @@ const pointerLike = ({
 }
 
 /**
- * Создаёт editor stub с тем же pan write-path, который использует production PanConstraintManager.
+ * Creates an editor stub with the same pan write path as the production PanConstraintManager.
  */
 const createEditorStubWithPanDelta = (): ReturnType<typeof createEditorStub> => {
   const editor = createEditorStub()
@@ -91,7 +91,7 @@ const createEditorStubWithPanDelta = (): ReturnType<typeof createEditorStub> => 
 }
 
 /**
- * Создаёт editor stub, где монтажная область уже достаточно близко к краям viewport для pan.
+ * Creates an editor stub whose artboard is already close enough to the viewport edges for panning.
  */
 const createEditorStubWithViewportPanRange = (): ReturnType<typeof createEditorStub> => {
   const editor = createEditorStub()
@@ -177,7 +177,7 @@ describe('Listeners', () => {
 
     it('всегда подписывается на историю и overlay события', () => {
       const editor = createEditorStub()
-      // Без опций — только обязательные подписки
+      // Without options: only required subscriptions
       // eslint-disable-next-line no-new
       new Listeners({ editor, options: {} })
       const onCalls = getOnEvents(editor)
@@ -191,13 +191,13 @@ describe('Listeners', () => {
 
       const listeners = new Listeners({ editor, options: {} })
 
-      // canvas.on не должен содержать события, зависящие от опций
+      // canvas.on should not include events that depend on options
       const onEvents = getOnEvents(editor)
       for (const ev of DISABLED_OPTIONAL_CANVAS_EVENTS) {
         expect(onEvents).not.toContain(ev)
       }
 
-      // DOM addEventListener не должен быть вызван для опциональных обработчиков
+      // DOM addEventListener should not be called for optional handlers
       expect(editor.canvas.wrapperEl.addEventListener).not.toHaveBeenCalledWith('wheel', listeners.handleCanvasWheelInputBound, {
         capture: true,
         passive: false
@@ -542,40 +542,40 @@ describe('Listeners', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { canvasDragging: true } })
 
-      // Подготовка: создаем объекты, один из которых заблокирован
+      // Setup: create objects, one of which is locked
       const obj1 = { set: jest.fn(), locked: false } as any
       const obj2 = { set: jest.fn(), locked: true } as any
       const objects = [obj1, obj2];
 
-      // Мокаем getObjects, чтобы _restoreSelection считал их валидными (существующими на канвасе)
+      // Mock getObjects so _restoreSelection considers them valid (present on the canvas)
       (editor.canvasManager.getObjects as jest.Mock).mockReturnValue(objects)
 
-      // Мокаем текущее выделение перед нажатием пробела
-      // Используем ActiveSelection из мока fabric, чтобы сработал instanceof в handleSpaceKeyDown
+      // Mock the current selection before pressing Space
+      // Use ActiveSelection from the fabric mock so the instanceof check in handleSpaceKeyDown succeeds
       const activeSelection = new ActiveSelection([], {})
       jest.spyOn(activeSelection, 'getObjects').mockReturnValue(objects);
       (editor.canvas.getActiveObject as jest.Mock).mockReturnValue(activeSelection)
 
-      // 1. Нажимаем пробел (сохранение выделения и переход в режим drag)
+      // 1. Press Space (save the selection and enter drag mode)
       const eSpaceDown = keyDown({ code: 'Space' })
       Object.defineProperty(eSpaceDown, 'preventDefault', { value: jest.fn() })
       listeners.handleSpaceKeyDown(eSpaceDown)
 
-      // Проверяем, что выделение было сброшено
+      // Check that the selection was cleared
       expect(editor.canvas.discardActiveObject).toHaveBeenCalled()
 
-      // 2. Отпускаем пробел (выход из режима drag и восстановление выделения)
+      // 2. Release Space (exit drag mode and restore the selection)
       const eSpaceUp = keyUp({ code: 'Space' })
       listeners.handleSpaceKeyUp(eSpaceUp)
 
-      // Проверяем, что lockObject был вызван для восстановленного выделения,
-      // так как один из объектов (obj2) был заблокирован
+      // Check that lockObject was called for the restored selection,
+      // because one of the objects (obj2) was locked
       expect(editor.objectLockManager.lockObject).toHaveBeenCalledWith(expect.objectContaining({
         skipInnerObjects: true,
         withoutSave: true
       }))
 
-      // Проверяем, что setActiveObject был вызван (выделение восстановлено)
+      // Check that setActiveObject was called (the selection was restored)
       expect(editor.canvas.setActiveObject).toHaveBeenCalled()
     })
   })
@@ -746,7 +746,7 @@ describe('Listeners', () => {
       listeners.handleObjectModifiedHistory()
       expect(scheduleSaveStateMock).not.toHaveBeenCalled()
 
-      // Проверяем что isTextEditingActive также блокирует сохранение
+      // Check that isTextEditingActive also prevents saving
       scheduleSaveStateMock.mockClear()
       historyManager.skipHistory = false
       textManager.isTextEditingActive = true
@@ -771,16 +771,16 @@ describe('Listeners', () => {
       const editor = createEditorStub()
       const listeners = new Listeners({ editor, options: { keyboardIgnoreSelectors: ['.ignore-me'] } })
 
-      // Тест для input - должен работать через event.target
+      // Test for input: should work through event.target
       const input = document.createElement('input')
       expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, input))).toBe(true)
 
-      // Тест для contenteditable - должен работать через event.target
+      // Test for contenteditable: should work through event.target
       const div = document.createElement('div')
       div.contentEditable = 'true'
       expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, div))).toBe(true)
 
-      // Селекторы теперь работают через Selection API - создаём выделение текста
+      // Selectors now use the Selection API: create a text selection
       const wrap = document.createElement('div')
       wrap.className = 'ignore-me'
       wrap.innerHTML = 'Test text content'
@@ -789,7 +789,7 @@ describe('Listeners', () => {
       wrap.appendChild(child)
       document.body.appendChild(wrap)
 
-      // Имитируем выделение текста в элементе
+      // Simulate selecting text in the element
       const range = document.createRange()
       range.selectNodeContents(child)
       const selection = window.getSelection()
@@ -798,11 +798,11 @@ describe('Listeners', () => {
 
       expect(listeners._shouldIgnoreKeyboardEvent(keyDown({}, wrap))).toBe(true)
 
-      // Очищаем выделение и DOM
+      // Clear the selection and DOM
       selection?.removeAllRanges()
       document.body.removeChild(wrap)
 
-      // Тест без выделенного текста - селекторы не должны срабатывать
+      // Test without selected text: selectors should not match
       const listeners2 = new Listeners({ editor: createEditorStub(), options: { keyboardIgnoreSelectors: ['.ignore-me'] } })
       const span = document.createElement('span')
       expect(listeners2._shouldIgnoreKeyboardEvent(keyDown({}, span))).toBe(false)
@@ -923,10 +923,10 @@ describe('Listeners', () => {
       const inputTypes = ['input', 'textarea', 'select'] as const
 
       describe('event.target !== activeElement - событие редактора НЕ игнорируется', () => {
-        // Когда event.target и activeElement разные элементы,
-        // это означает баг браузера: событие приходит на элемент ввода,
-        // но фокус находится на body/canvas. В этом случае событие
-        // должно обработаться редактором.
+        // When event.target and activeElement are different elements,
+        // this indicates a browser bug: the event arrives at an input element,
+        // but focus is on the body/canvas. In this case, the event
+        // should be handled by the editor.
 
         inputTypes.forEach((elementType) => {
           it(`${elementType} как event.target, но activeElement = body → редактор обрабатывает`, () => {
@@ -936,7 +936,7 @@ describe('Listeners', () => {
             const event = createPasteEvent(element, body)
             const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
 
-            // События редактора НЕ игнорируются, так как элементы не совпадают
+            // Editor events are NOT ignored because the elements do not match
             expect(shouldIgnore).toBe(false)
           })
 
@@ -953,10 +953,10 @@ describe('Listeners', () => {
       })
 
       describe('event.target === activeElement - событие редактора игнорируется', () => {
-        // Когда event.target и activeElement это один и тот же элемент,
-        // это означает что пользователь действительно работает с полем ввода.
-        // В этом случае событие должно игнорироваться редактором,
-        // чтобы не мешать нативному поведению браузера.
+        // When event.target and activeElement are the same element,
+        // this means the user is actually interacting with the input field.
+        // In this case, the editor should ignore the event
+        // to avoid interfering with native browser behavior.
 
         inputTypes.forEach((elementType) => {
           it(`${elementType} как event.target И activeElement → редактор игнорирует`, () => {
@@ -965,7 +965,7 @@ describe('Listeners', () => {
             const event = createPasteEvent(element, element)
             const shouldIgnore = listeners._shouldIgnoreKeyboardEvent(event)
 
-            // События редактора игнорируются, так как пользователь работает с полем
+            // Editor events are ignored because the user is interacting with the field
             expect(shouldIgnore).toBe(true)
           })
 

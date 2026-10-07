@@ -14,7 +14,7 @@ import type {
 } from '../../types'
 import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
-/** Открытое перетаскивание боковой ручки текста. */
+/** Open drag of a text side handle. */
 type ActiveTextResizeInteraction = {
   point: {
     x: number
@@ -28,40 +28,40 @@ type ActiveTextResizeInteraction = {
   id?: string
 }
 
-/** Координаты ручки в окне браузера. */
+/** Handle coordinates in the browser window. */
 type TextResizeControlPoint = {
   x: number
   y: number
 }
 
-/** Движущаяся внешняя грань и её смещение при изменении канонической ширины. */
+/** Moving outer edge and its offset when changing canonical width. */
 type TextResizeGuideGeometry = Readonly<{
   coefficient: number
   edge: 'boundsBottom' | 'boundsLeft' | 'boundsRight' | 'boundsTop'
 }>
 
-/** Ближайшие состояния по разные стороны от границы переноса строк. */
+/** Nearest states on opposite sides of the line-wrap boundary. */
 type TextWrapWidthRange = {
   unwrapped: TextResizeSnapshot
   wrapped: TextResizeSnapshot
 }
 
-/** Управляет изменением ширины отдельного текста через настоящие события мыши. */
+/** Manages standalone-text width changes through real mouse events. */
 export default class TextResizeSession {
   /**
-   * Playwright page с открытым demo-редактором.
+   * Playwright page with the demo editor open.
    */
   private readonly page: Page
 
-  /** Текущее незавершённое перетаскивание боковой ручки. */
+  /** Current unfinished side-handle drag. */
   private activeInteraction: ActiveTextResizeInteraction | null = null
 
-  /** Создаёт модель изменения ширины текста. */
+  /** Creates a text-width-change model. */
   constructor(page: Page) {
     this.page = page
   }
 
-  /** Возвращает текущее состояние текста при изменении ширины. */
+  /** Returns the current text state during width changes. */
   async getResizeSnapshot(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -80,7 +80,7 @@ export default class TextResizeSession {
     return snapshot
   }
 
-  /** Изменяет ширину текста справа до заданного значения. */
+  /** Changes text width from the right to the specified value. */
   async resizeFromRightToWidth(params: TextResizeFromRightParams): Promise<TextResizeSnapshot> {
     const {
       width,
@@ -102,7 +102,7 @@ export default class TextResizeSession {
     })
   }
 
-  /** Изменяет ширину текста слева до заданного значения. */
+  /** Changes text width from the left to the specified value. */
   async resizeFromLeftToWidth(params: TextResizeFromLeftParams): Promise<TextResizeSnapshot> {
     const {
       width,
@@ -125,7 +125,7 @@ export default class TextResizeSession {
   }
 
   /**
-   * Подводит правую границу текста к заданной вертикальной направляющей.
+   * Brings the text's right boundary to the specified vertical guide.
    */
   async resizeFromRightToGuide(
     params: {
@@ -144,7 +144,7 @@ export default class TextResizeSession {
   }
 
   /**
-   * Подводит левую границу текста к заданной вертикальной направляющей.
+   * Brings the text's left boundary to the specified vertical guide.
    */
   async resizeFromLeftToGuide(
     params: {
@@ -162,13 +162,13 @@ export default class TextResizeSession {
     })
   }
 
-  /** Подводит внешнюю грань выбранной боковой ручки к направляющей. */
+  /** Brings the selected side handle's outer edge to a guide. */
   async resizeSideToGuide(params: TextResizeToGuideParams): Promise<TextResizeSnapshot> {
     return this._resizeToGuide(params)
   }
 
   /**
-   * Сужает текстовый объект справа до первого состояния, где текст переносится на новую строку.
+   * Narrows the text object from the right to the first state where text wraps onto a new line.
    */
   async resizeFromRightUntilTextWraps(
     params: TextResizeUntilWrapParams = {}
@@ -180,7 +180,7 @@ export default class TextResizeSession {
   }
 
   /**
-   * Сужает текстовый объект слева до первого состояния, где текст переносится на новую строку.
+   * Narrows the text object from the left to the first state where text wraps onto a new line.
    */
   async resizeFromLeftUntilTextWraps(
     params: TextResizeUntilWrapParams = {}
@@ -191,7 +191,7 @@ export default class TextResizeSession {
     })
   }
 
-  /** Завершает перетаскивание ручки или отправляет итоговое событие для уже изменённого объекта. */
+  /** Finishes the handle drag or sends a final event for an already modified object. */
   async finishResize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     if (this.activeInteraction && this._matchesActiveTarget(params)) {
       return this._finishActiveResize()
@@ -200,7 +200,7 @@ export default class TextResizeSession {
     return this._finishModifiedTransform(params)
   }
 
-  /** Закрывает текущее перетаскивание настоящим отпусканием кнопки мыши. */
+  /** Closes the current drag with a real mouse-button release. */
   private async _finishActiveResize(): Promise<TextResizeSnapshot> {
     const interaction = this.activeInteraction
     expect(interaction, 'боковая ручка текста должна быть захвачена').not.toBeNull()
@@ -222,7 +222,7 @@ export default class TextResizeSession {
     })
   }
 
-  /** Завершает изменение ширины, если боковая ручка ещё захвачена. */
+  /** Finishes the width change if the side handle is still captured. */
   async finishResizeIfActive(): Promise<TextResizeSnapshot | null> {
     if (!this.activeInteraction) return null
 
@@ -237,7 +237,7 @@ export default class TextResizeSession {
     })
   }
 
-  /** Продолжает перетаскивание боковой ручки относительным движением указателя. */
+  /** Continues the side-handle drag with relative pointer movement. */
   async continueResizeHandleBy(params: TextResizeContinueParams): Promise<TextResizeSnapshot> {
     const interaction = this.activeInteraction
     expect(interaction, 'боковая ручка текста должна быть захвачена').not.toBeNull()
@@ -271,7 +271,7 @@ export default class TextResizeSession {
     })
   }
 
-  /** Выполняет одно изменение ширины через настоящее перетаскивание ручки Fabric. */
+  /** Performs one width change through a real Fabric-handle drag. */
   private async _performInteractiveResizeStep(params: TextResizeStepParams): Promise<TextResizeSnapshot> {
     await this._startResizeInteractionIfNeeded(params)
 
@@ -307,7 +307,7 @@ export default class TextResizeSession {
     })
   }
 
-  /** Рассчитывает положение ручки для заданной ширины без изменения объекта. */
+  /** Calculates the handle position for the specified width without modifying the object. */
   private async _resolveResizeControlPoint(params: TextResizeStepParams): Promise<TextResizeControlPoint> {
     const point = await this.page.evaluate((payload) => {
       const {
@@ -360,7 +360,7 @@ export default class TextResizeSession {
     return point
   }
 
-  /** Двигает указатель в рассчитанную точку и подтверждает, что выбранный текст существует. */
+  /** Moves the pointer to the calculated point and confirms that the selected text exists. */
   private async _moveResizePointer(
     params: {
       point: TextResizeControlPoint
@@ -396,7 +396,7 @@ export default class TextResizeSession {
     }, params)
   }
 
-  /** Сужает текст до первого состояния, в котором увеличилось число строк. */
+  /** Narrows text to the first state where the line count increases. */
   private async _resizeUntilTextWraps(
     params: {
       edge: 'left' | 'right'
@@ -426,7 +426,7 @@ export default class TextResizeSession {
     return this._refineTextWrapWidthRange({ edge, ctrlKey, range, objectIndex, id })
   }
 
-  /** Находит соседние ширины до и после появления новой строки. */
+  /** Finds adjacent widths before and after a new line appears. */
   private async _findTextWrapWidthRange({
     edge,
     ctrlKey,
@@ -453,7 +453,7 @@ export default class TextResizeSession {
     return null
   }
 
-  /** Сужает интервал границы переноса строк последовательным делением пополам. */
+  /** Narrows the line-wrap boundary interval through successive bisection. */
   private async _refineTextWrapWidthRange({
     edge,
     ctrlKey,
@@ -485,7 +485,7 @@ export default class TextResizeSession {
     })
   }
 
-  /** Изменяет ширину через выбранную боковую ручку. */
+  /** Changes width through the selected side handle. */
   private _resizeFromSideToWidth({
     edge,
     width,
@@ -504,7 +504,7 @@ export default class TextResizeSession {
     return this.resizeFromLeftToWidth({ width, ctrlKey, objectIndex, id })
   }
 
-  /** Подводит выбранную внешнюю грань текста к направляющей по заданной оси. */
+  /** Brings the text's selected outer edge to a guide along the specified axis. */
   private async _resizeToGuide(params: TextResizeToGuideParams): Promise<TextResizeSnapshot> {
     const {
       position,
@@ -537,7 +537,7 @@ export default class TextResizeSession {
       })
   }
 
-  /** Читает из Fabric матрицу и определяет внешнюю грань выбранной ручки. */
+  /** Reads the matrix from Fabric and determines the selected handle's outer edge. */
   private async _resolveResizeGuideGeometry(
     params: {
       axis: TextResizeGuideAxis
@@ -572,7 +572,7 @@ export default class TextResizeSession {
     return geometry
   }
 
-  /** Завершает изменение ширины без захваченной ручки через итоговое событие Fabric. */
+  /** Finishes a width change without a captured handle through a final Fabric event. */
   private async _finishModifiedTransform(params: ObjectTargetParams): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -596,7 +596,7 @@ export default class TextResizeSession {
     return snapshot
   }
 
-  /** Захватывает боковую ручку текста настоящим нажатием кнопки мыши. */
+  /** Captures the text's side handle with a real mouse-button press. */
   private async _startResizeInteractionIfNeeded(params: TextResizeStepParams): Promise<void> {
     if (this.activeInteraction) {
       this._expectActiveInteractionMatches(params)
@@ -621,7 +621,7 @@ export default class TextResizeSession {
     }
   }
 
-  /** Проверяет, что нажатие на ручку не изменило текст до движения указателя. */
+  /** Checks that pressing the handle did not change the text before pointer movement. */
   private _expectMouseDownPreservedGeometry({
     beforeMouseDown,
     afterMouseDown
@@ -645,7 +645,7 @@ export default class TextResizeSession {
     ])
   }
 
-  /** Начинает изменение ширины Fabric нажатием на нужную ручку. */
+  /** Starts a Fabric width change by pressing the required handle. */
   private async _openResizeInteraction(params: TextResizeStepParams): Promise<TextResizeControlPoint> {
     const point = await this._resolveInitialResizeControlPoint(params)
 
@@ -663,7 +663,7 @@ export default class TextResizeSession {
     return point
   }
 
-  /** Возвращает положение выбранной боковой ручки в окне браузера. */
+  /** Returns the selected side handle's position in the browser window. */
   private async _resolveInitialResizeControlPoint(
     params: TextResizeStepParams
   ): Promise<TextResizeControlPoint> {
@@ -707,7 +707,7 @@ export default class TextResizeSession {
     return point
   }
 
-  /** Проверяет, что Fabric начал изменять ширину нужного текста выбранной ручкой. */
+  /** Checks that Fabric started changing the required text's width with the selected handle. */
   private async _assertResizeInteractionStarted(params: TextResizeStepParams): Promise<void> {
     const state = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -729,7 +729,7 @@ export default class TextResizeSession {
     expect(state.corner, 'Fabric должен захватить выбранную боковую ручку').toBe(params.corner)
   }
 
-  /** Проверяет, что продолжается то же перетаскивание боковой ручки. */
+  /** Checks that the same side-handle drag is continuing. */
   private _expectActiveInteractionMatches(params: TextResizeStepParams): void {
     const interaction = this.activeInteraction
     expect(interaction, 'боковая ручка текста должна быть захвачена').not.toBeNull()
@@ -759,7 +759,7 @@ export default class TextResizeSession {
     ).toBe(Boolean(params.centered))
   }
 
-  /** Проверяет, относится ли текущее перетаскивание к тому же тексту. */
+  /** Checks whether the current drag belongs to the same text. */
   private _matchesActiveTarget(params: ObjectTargetParams): boolean {
     if (!this.activeInteraction) return false
 

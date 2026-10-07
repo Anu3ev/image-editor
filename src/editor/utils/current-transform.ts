@@ -6,8 +6,8 @@ import {
 } from 'fabric'
 
 /**
- * Проверяет, затрагивает ли удаление объектов текущее преобразование Fabric.
- * Дочерние объекты учитываются только для временного общего выделения.
+ * Checks whether deleting objects affects the current Fabric transformation.
+ * Child objects are considered only for a temporary active selection.
  */
 export function isCurrentTransformAffectedByRemoval({
   canvas,

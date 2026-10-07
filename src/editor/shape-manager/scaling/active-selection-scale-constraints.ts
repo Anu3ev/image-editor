@@ -10,7 +10,7 @@ import {
   SHAPE_SCALING_MIN_SIZE
 } from './shape-scaling-layout'
 
-/** Ограничения одного шейпа, влияющие на пропорциональный масштаб общей рамки. */
+/** Constraints of a single shape that affect the shared frame's proportional scale. */
 type ActiveSelectionShapeScaleConstraint = Readonly<{
   availableHeight: number
   availableWidth: number
@@ -20,7 +20,7 @@ type ActiveSelectionShapeScaleConstraint = Readonly<{
   minimumWidth: number
 }>
 
-/** Стартовые размеры и разрешённые оси компоновки одного шейпа. */
+/** Initial dimensions and permitted layout axes for a single shape. */
 type ActiveSelectionShapeScaleLimits = Readonly<{
   canScaleHeight: boolean
   canScaleWidth: boolean
@@ -28,7 +28,7 @@ type ActiveSelectionShapeScaleLimits = Readonly<{
   startWidth: number
 }>
 
-/** Возвращает доступную ширину общей рамки для конкретного шейпа. */
+/** Returns the available width of the shared frame for a specific shape. */
 export function resolveSelectionAvailableWidth({
   originX,
   selectionBounds,
@@ -58,7 +58,7 @@ export function resolveSelectionAvailableWidth({
   )
 }
 
-/** Возвращает доступную высоту общей рамки для конкретного шейпа. */
+/** Returns the available height of the shared frame for a specific shape. */
 export function resolveSelectionAvailableHeight({
   selectionBounds,
   shapeBounds,
@@ -87,7 +87,7 @@ export function resolveSelectionAvailableHeight({
   )
 }
 
-/** Собирает ограничение одного шейпа в координатах общей рамки. */
+/** Builds a single shape's constraint in the shared frame's coordinates. */
 export function resolveActiveSelectionShapeScaleConstraint({
   layoutMinimumScale,
   limits,
@@ -125,7 +125,7 @@ export function resolveActiveSelectionShapeScaleConstraint({
   }
 }
 
-/** Переводит минимальный размер шейпа в минимальный масштаб общей рамки. */
+/** Converts the shape's minimum size into the shared frame's minimum scale. */
 export function resolveMinimumSelectionScaleForSize({
   allowGrowth,
   minimumSize,
@@ -145,7 +145,7 @@ export function resolveMinimumSelectionScaleForSize({
   return Math.min(1, minimumScale)
 }
 
-/** Возвращает масштаб общей рамки, достаточный для ограничений всех шейпов. */
+/** Returns a shared-frame scale sufficient to satisfy all shape constraints. */
 export function resolveProportionalSelectionScale({
   allowGrowthX,
   allowGrowthY,

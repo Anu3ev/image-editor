@@ -18,7 +18,7 @@ import {
 import type { SelectionMinimumScaleState } from '../../types'
 import type { ShapeModel } from '../../models/shape/shape.model'
 
-/** Поля устойчивой геометрии, которые сравниваются после каждого уменьшения. */
+/** Stable-geometry fields compared after each shrink operation. */
 const STABLE_MINIMUM_GEOMETRY_FIELDS: readonly Readonly<{
   field: keyof StableMinimumGeometry
   label: string
@@ -35,7 +35,7 @@ const STABLE_MINIMUM_GEOMETRY_FIELDS: readonly Readonly<{
   { field: 'textHeight', label: 'высота текста' }
 ])
 
-/** Проверяет неизменность геометрии обоих шейпов после первого достижения ограничения. */
+/** Checks that both shapes' geometry remains unchanged after first reaching the limit. */
 function expectStableMinimumStates({
   shapes,
   states

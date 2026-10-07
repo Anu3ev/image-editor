@@ -101,7 +101,7 @@ export function renderRotationControl(
   const size = ROTATE_DIAMETER
   const radius = size / 2
 
-  // Рисуем круглый фон
+  // Draw a circular background
   ctx.save()
   ctx.translate(left, top)
   ctx.rotate(util.degreesToRadians(fabricObject.angle))

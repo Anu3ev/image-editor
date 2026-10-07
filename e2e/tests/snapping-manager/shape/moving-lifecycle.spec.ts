@@ -2,7 +2,7 @@ import { test, expect } from '../../../fixtures/editor.fixture'
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Исходное состояние отдельного сценария перемещения шейпа. */
+/** Initial state of an isolated shape-movement scenario. */
 type ShapeMovementLifecycleSetup = {
   activeShapeId: string
   baseline: SnappingObjectSnapshot

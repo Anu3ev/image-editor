@@ -40,7 +40,7 @@ describe('constructor и базовые аксессоры', () => {
     historyManager.resumeHistory()
     expect(historyManager.skipHistory).toBe(false)
 
-    // повторный вызов resumeHistory не должен сделать счётчик отрицательным
+    // Calling resumeHistory again should not make the counter negative
     historyManager.resumeHistory()
     expect(historyManager.skipHistory).toBe(false)
   })
@@ -48,19 +48,19 @@ describe('constructor и базовые аксессоры', () => {
   it('корректно работает с вложенными вызовами suspend/resume', () => {
     const { historyManager } = createHistoryManagerTestSetup()
 
-    // Первый уровень приостановки
+    // First level of suspension
     historyManager.suspendHistory()
     expect(historyManager.skipHistory).toBe(true)
 
-    // Второй уровень приостановки
+    // Second level of suspension
     historyManager.suspendHistory()
     expect(historyManager.skipHistory).toBe(true)
 
-    // Первый resume - история всё ещё приостановлена
+    // First resume: history is still suspended
     historyManager.resumeHistory()
     expect(historyManager.skipHistory).toBe(true)
 
-    // Второй resume - история возобновлена
+    // Second resume: history has resumed
     historyManager.resumeHistory()
     expect(historyManager.skipHistory).toBe(false)
   })

@@ -13,28 +13,28 @@ import { calculateHorizontalSpacing } from '../../../../src/editor/snapping-mana
 import { getObjectExactBounds } from '../../../../src/editor/utils/geometry'
 import { resolveDisplayDistance } from '../../../../src/editor/utils/distance'
 
-/** Минимальная форма mouse:move события, которую реально использует MeasurementManager. */
+/** Minimal shape of the mouse:move event actually used by MeasurementManager. */
 type MeasurementMouseMoveEvent = {
   e: { altKey: boolean }
   target: FabricObject | null
 }
 
-/** Canvas-события, через которые MeasurementManager получает runtime-сигналы в unit-тестах. */
+/** Canvas events through which MeasurementManager receives runtime signals in unit tests. */
 type MeasurementCanvasEventName = 'mouse:move' | 'after:render'
 
-/** Обработчик canvas-события, сохранённый canvas-стабом после подписки manager'а. */
+/** Canvas event handler saved by the canvas stub after the manager subscribes. */
 type MeasurementCanvasHandler = (event?: MeasurementMouseMoveEvent) => void
 
-/** Минимальный canvas-стаб с event registry для проверки подписанного lifecycle. */
+/** Minimal canvas stub with an event registry for testing the subscribed lifecycle. */
 type MeasurementCanvasStub = {
   __handlers: Partial<Record<MeasurementCanvasEventName, MeasurementCanvasHandler[]>>
 }
 
-/** Boolean-поля runtime-состояния, которые тесты читают как наблюдаемый итог lifecycle. */
+/** Boolean runtime-state fields that tests read as the observable lifecycle outcome. */
 type MeasurementManagerStateKey = 'isAltPressed' | 'isToolbarHidden'
 
 describe('MeasurementManager', () => {
-  /** Восстановление requestAnimationFrame после каждого теста. */
+  /** Restores requestAnimationFrame after each test. */
   let restoreRaf: (() => void) | null = null
 
   beforeEach(() => {
@@ -48,7 +48,7 @@ describe('MeasurementManager', () => {
   })
 
   /**
-   * Возвращает активные направляющие manager'а через проверяемую test-only границу.
+   * Returns the manager's active guides through a validated test-only boundary.
    */
   const getActiveGuides = ({ manager }: { manager: MeasurementManager }): MeasurementGuide[] => {
     const guides = Reflect.get(manager, 'activeGuides')
@@ -64,7 +64,7 @@ describe('MeasurementManager', () => {
   }
 
   /**
-   * Возвращает boolean-состояние manager'а через проверяемую test-only границу.
+   * Returns the manager's boolean state through a validated test-only boundary.
    */
   const getBooleanManagerState = ({
     manager,
@@ -86,7 +86,7 @@ describe('MeasurementManager', () => {
   }
 
   /**
-   * Возвращает подписанный canvas handler и явно валидирует тестовый event registry.
+   * Returns the subscribed canvas handler and explicitly validates the test event registry.
    */
   const getCanvasHandler = ({
     canvas,
@@ -109,7 +109,7 @@ describe('MeasurementManager', () => {
   }
 
   /**
-   * Собирает минимальное событие движения мыши для MeasurementManager.
+   * Builds a minimal mouse movement event for MeasurementManager.
    */
   const buildEvent = (target: FabricObject | null, altKey = true): MeasurementMouseMoveEvent => ({
     e: { altKey },
@@ -117,7 +117,7 @@ describe('MeasurementManager', () => {
   })
 
   /**
-   * Отправляет mouse:move через тот же canvas handler, который использует runtime.
+   * Sends mouse:move through the same canvas handler used at runtime.
    */
   const fireCanvasMouseMove = ({
     canvas,
@@ -133,7 +133,7 @@ describe('MeasurementManager', () => {
   }
 
   /**
-   * Запускает отрисовку направляющих через подписанный after:render handler.
+   * Triggers guide rendering through the subscribed after:render handler.
    */
   const fireCanvasAfterRender = ({
     canvas
@@ -145,7 +145,7 @@ describe('MeasurementManager', () => {
   }
 
   /**
-   * Возвращает первое горизонтальное расстояние из активных направляющих.
+   * Returns the first horizontal distance from the active guides.
    */
   const getHorizontalDistance = ({ manager }: { manager: MeasurementManager }): number => {
     const horizontalGuide = getActiveGuides({ manager }).find(({ type }) => type === 'horizontal')
@@ -161,7 +161,7 @@ describe('MeasurementManager', () => {
   }
 
   /**
-   * Создаёт три объекта в линию с равными зазорами.
+   * Creates three objects in a row with equal gaps.
    */
   const createEqualSpacingHorizontalScene = () => {
     const { editor, canvas, objects } = createSnappingTestContext()

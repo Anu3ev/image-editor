@@ -4,7 +4,7 @@ import type { EditorTextbox } from '../../../src/editor/text-manager/types'
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 import type { TextWidthResizeControlKey } from '../../../src/editor/text-manager/scaling/text-width-resize-projection'
 
-/** Параметры геометрии для модульной проверки изменения ширины текста. */
+/** Geometry parameters for unit testing text width changes. */
 type TextWidthResizeProjectionFixtureParams = Readonly<{
   angle?: number
   centered?: boolean
@@ -13,20 +13,20 @@ type TextWidthResizeProjectionFixtureParams = Readonly<{
   width?: number
 }>
 
-/** Управляемое исходное состояние изменения ширины текста. */
+/** Controllable initial state for text width resizing. */
 export type TextWidthResizeProjectionFixture = Readonly<{
   bounds: ObjectBounds
   textbox: EditorTextbox
   transform: Transform
 }>
 
-/** Центр согласованной тестовой геометрии в координатах сцены. */
+/** Center of consistent test geometry in scene coordinates. */
 const TEXT_WIDTH_RESIZE_CENTER = Object.freeze({ x: 200, y: 260 })
 
-/** Каноническая высота тестового текста. */
+/** Canonical height of the test text. */
 const TEXT_WIDTH_RESIZE_HEIGHT = 60
 
-/** Рассчитывает видимую рамку из той же матрицы, которая передаётся в проекцию. */
+/** Calculates the visible frame from the same matrix supplied to the projection. */
 function createTextWidthResizeBounds({
   angle,
   scaleX,
@@ -53,7 +53,7 @@ function createTextWidthResizeBounds({
   })
 }
 
-/** Создаёт полное преобразование Fabric для боковой ручки. */
+/** Creates a full Fabric transform for a side handle. */
 function createTextWidthResizeTransform({
   angle,
   centered,
@@ -113,7 +113,7 @@ function createTextWidthResizeTransform({
   }
 }
 
-/** Создаёт Textbox с управляемой матрицей, границами и неподвижной точкой. */
+/** Creates a Textbox with a controllable matrix, bounds, and fixed point. */
 export function createTextWidthResizeProjectionFixture({
   angle = 0,
   centered = false,

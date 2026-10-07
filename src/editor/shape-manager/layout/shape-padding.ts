@@ -4,7 +4,7 @@ import {
 } from '../types'
 
 /**
- * Минимальный размер текстового фрейма внутри фигуры.
+ * Minimum text-frame size inside a shape.
  */
 export const MIN_SHAPE_TEXT_FRAME_SIZE = 1
 
@@ -33,7 +33,7 @@ function hasVisibleShapeStroke({
 }
 
 /**
- * Нормализует layout-level padding в px без округления до целых значений.
+ * Normalizes layout-level padding to px without rounding to integers.
  */
 export function normalizeShapeLayoutPadding({
   padding
@@ -49,7 +49,7 @@ export function normalizeShapeLayoutPadding({
 }
 
 /**
- * Нормализует пользовательский padding в целые пиксели.
+ * Normalizes user-defined padding to integer pixels.
  */
 export function normalizeShapeUserPadding({
   padding
@@ -65,9 +65,9 @@ export function normalizeShapeUserPadding({
 }
 
 /**
- * Возвращает внутренний inset обводки для текстового фрейма.
- * Текущая geometry model shape уменьшает внутренний размер фигуры на весь strokeWidth,
- * поэтому для текста нужно исключать полный strokeWidth по каждой стороне.
+ * Returns the stroke's internal inset for the text frame.
+ * The current shape geometry model reduces the inner shape dimensions by the full strokeWidth,
+ * so the text must exclude the full strokeWidth on each side.
  */
 export function resolveShapeStrokeTextInset({
   stroke,
@@ -96,7 +96,7 @@ export function resolveShapeStrokeTextInset({
 }
 
 /**
- * Мержит partial override в текущее пользовательское padding-состояние.
+ * Merges a partial override into the current user-defined padding state.
  */
 export function mergeShapePadding({
   base,
@@ -118,7 +118,7 @@ export function mergeShapePadding({
 }
 
 /**
- * Складывает derived inset и пользовательский padding по сторонам.
+ * Adds the derived inset and user-defined padding for each side.
  */
 export function sumShapePadding({
   base,
@@ -143,7 +143,7 @@ export function sumShapePadding({
 }
 
 /**
- * Собирает полный внутренний inset текстового фрейма из пресета фигуры и видимой обводки.
+ * Builds the text frame's full internal inset from the shape preset and visible stroke.
  */
 export function resolveShapeTextContentInset({
   baseInset,
@@ -164,7 +164,7 @@ export function resolveShapeTextContentInset({
 }
 
 /**
- * Собирает карту полей padding, которые пришли в override явно.
+ * Builds a map of padding fields explicitly supplied in the override.
  */
 export function getShapePaddingChangeMap({
   padding

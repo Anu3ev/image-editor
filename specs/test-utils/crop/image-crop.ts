@@ -7,14 +7,14 @@ import {
 import type { ImageEditor } from '../../../src/editor'
 import { createEditorStub } from '../editor/editor-stub'
 
-/** Горизонтальный origin, поддержанный FabricImage в image crop unit-тестах. */
+/** Horizontal origin supported by FabricImage in image crop unit tests. */
 type CropOriginX = 'left' | 'center' | 'right'
 
-/** Вертикальный origin, поддержанный FabricImage в image crop unit-тестах. */
+/** Vertical origin supported by FabricImage in image crop unit tests. */
 type CropOriginY = 'top' | 'center' | 'bottom'
 
 /**
- * Image target с runtime-методами, которые использует image crop mutation.
+ * Image target with the runtime methods used by image crop mutation.
  */
 export type CropImageTarget = FabricImage & {
   width: number
@@ -33,14 +33,14 @@ export type CropImageTarget = FabricImage & {
 }
 
 /**
- * Frame с минимальным контрактом, нужным для позиционирования результата crop.
+ * Frame with the minimal contract required to position the crop result.
  */
 export type CropFrameStub = Rect & {
   getCenterPoint: () => Point
 }
 
 /**
- * Контекст canvas из общего jest setup с mock-функцией drawImage.
+ * Canvas context from the shared jest setup with a mock drawImage function.
  */
 export type CropCanvasContext = CanvasRenderingContext2D & {
   beginPath: jest.Mock
@@ -54,7 +54,7 @@ export type CropCanvasContext = CanvasRenderingContext2D & {
 }
 
 /**
- * Возвращает общий mock 2d-контекст из jest setup.
+ * Returns the shared mock 2D context from the jest setup.
  */
 export function getCropCanvasContext(): CropCanvasContext {
   const canvas = document.createElement('canvas')
@@ -68,7 +68,7 @@ export function getCropCanvasContext(): CropCanvasContext {
 }
 
 /**
- * Сбрасывает mock-вызовы canvas context, который переиспользуется jest setup.
+ * Resets mock calls on the canvas context reused by the jest setup.
  */
 export function resetCropCanvasContext(): CropCanvasContext {
   const context = getCropCanvasContext()
@@ -86,7 +86,7 @@ export function resetCropCanvasContext(): CropCanvasContext {
 }
 
 /**
- * Создаёт источник изображения для unit-тестов crop mutation.
+ * Creates an image source for crop mutation unit tests.
  */
 export function createCropImageSource({
   width,
@@ -104,7 +104,7 @@ export function createCropImageSource({
 }
 
 /**
- * Создаёт FabricImage с контрактом, достаточным для проверки image crop mutation.
+ * Creates a FabricImage with a contract sufficient for testing image crop mutation.
  */
 export function createCropImageTarget({
   width,
@@ -154,7 +154,7 @@ export function createCropImageTarget({
 }
 
 /**
- * Создаёт frame с фиксированным центром для проверки позиционирования результата.
+ * Creates a frame with a fixed center for testing result positioning.
  */
 export function createCropFrameStub({
   centerX,

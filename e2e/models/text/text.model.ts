@@ -30,7 +30,7 @@ import {
 import TextResizeSession from './text-resize-session'
 import TextScalingSession from './text-scaling-session'
 
-/** Незавершённый скейлинг отдельного текстового объекта. */
+/** Unfinished scaling of a standalone text object. */
 type ActiveTextScaleInteraction = {
   point: {
     x: number
@@ -46,7 +46,7 @@ export class TextModel {
 
   private readonly resizeSession: TextResizeSession
 
-  /** Полный цикл браузерного скейлинга отдельного текста. */
+  /** Complete browser-scaling lifecycle for standalone text. */
   readonly scaling: TextScalingSession
 
   private activeScaleInteraction: ActiveTextScaleInteraction | null
@@ -58,7 +58,7 @@ export class TextModel {
     this.activeScaleInteraction = null
   }
 
-  /** Возвращает viewport-координаты центра текста для реальных mouse-событий. */
+  /** Returns viewport coordinates of the text center for real mouse events. */
   private async _resolveTargetCenterPoint(params: ObjectTargetParams = {}): Promise<{ x: number, y: number }> {
     const point = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -99,7 +99,7 @@ export class TextModel {
     }
   }
 
-  /** Добавляет текстовый объект на холст. */
+  /** Adds a text object to the canvas. */
   async add(params: TextAddParams = {}): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate((payload) => {
       const {
@@ -121,7 +121,7 @@ export class TextModel {
     return this.getObject({ id: textObject.id })
   }
 
-  /** Добавляет regression text-объект в том же состоянии, что и новый отдельный текстовый объект. */
+  /** Adds a regression text object in the same state as a new standalone text object. */
   async addRegressionText(params: { left?: number, top?: number } = {}): Promise<TextObjectInfo> {
     const textObject = await this.page.evaluate((payload) => {
       const {
@@ -170,7 +170,7 @@ export class TextModel {
     return this.checkCreation({ textObject: settledTextObject })
   }
 
-  /** Применяет regression template текстового объекта и возвращает вставленный объект. */
+  /** Applies a regression text-object template and returns the inserted object. */
   async applyRegressionTemplate(): Promise<TextObjectInfo> {
     const textObject = await this.applyTemplate({
       template: TEXT_RESIZING_REGRESSION_TEMPLATE
@@ -179,7 +179,7 @@ export class TextModel {
     return this.checkCreation({ textObject })
   }
 
-  /** Применяет text-only template и возвращает первый вставленный текстовый объект. */
+  /** Applies a text-only template and returns the first inserted text object. */
   async applyTemplate(params: TextTemplateApplyParams): Promise<TextObjectInfo | null> {
     const appliedTextObject = await this.page.evaluate(async({ template }) => {
       const {
@@ -207,7 +207,7 @@ export class TextModel {
     return this.getObject({ id: appliedTextObject.id })
   }
 
-  /** Возвращает текстовый объект по id или индексу на холсте. */
+  /** Returns a text object by ID or canvas index. */
   async getObject(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     return this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -221,7 +221,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Делает текстовый объект активным объектом холста. */
+  /** Makes a text object the active canvas object. */
   async select(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -249,7 +249,7 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Нажимает на текстовый объект настоящей мышью в координатах окна браузера. */
+  /** Clicks a text object with a real mouse in browser-window coordinates. */
   async clickOnCanvas(
     params: ({
       point?: 'center' | 'bottom-right'
@@ -296,7 +296,7 @@ export class TextModel {
     await waitForCanvasRender({ page: this.page })
   }
 
-  /** Открывает редактирование текста настоящим двойным нажатием на холст. */
+  /** Opens text editing with a real double-click on the canvas. */
   async openTextEditingFromCanvas(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     const point = await this._resolveTargetCenterPoint(params)
 
@@ -306,7 +306,7 @@ export class TextModel {
     return this.getObject(params)
   }
 
-  /** Обновляет стиль текстового объекта через публичный API TextManager. */
+  /** Updates a text object's style through the public TextManager API. */
   async updateStyle(params: TextUpdateStyleParams): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({
       style,
@@ -343,7 +343,7 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Включает режим редактирования текста у отдельного текстового объекта. */
+  /** Enables text-editing mode for a standalone text object. */
   async enterTextEditing(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -373,7 +373,7 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Меняет текст в активном режиме редактирования текстового объекта. */
+  /** Changes text in a text object's active editing mode. */
   async updateEditingText(params: TextEditingUpdateParams): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate((payload) => {
       const {
@@ -424,7 +424,7 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Завершает режим редактирования текстового объекта. */
+  /** Finishes a text object's editing mode. */
   async exitTextEditing(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({ objectIndex, id }) => {
       const {
@@ -452,7 +452,7 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Устанавливает диапазон выделения текста в режиме редактирования. */
+  /** Sets the text selection range in editing mode. */
   async setTextSelection(params: TextSelectionParams): Promise<TextObjectInfo | null> {
     return this.page.evaluate(({ start, end, objectIndex, id }) => {
       const {
@@ -485,7 +485,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Удаляет выделенный текст через реальное keyboard-событие. */
+  /** Deletes selected text through a real keyboard event. */
   async deleteSelectedText(params: ObjectTargetParams = {}): Promise<TextObjectInfo | null> {
     await this.page.keyboard.press('Delete')
     await waitForCanvasRender({ page: this.page })
@@ -493,7 +493,7 @@ export class TextModel {
     return this.getObject(params)
   }
 
-  /** Вводит текст в текущую позицию курсора через реальные keyboard-события. */
+  /** Types text at the current cursor position through real keyboard events. */
   async typeText(params: { text: string } & ObjectTargetParams): Promise<TextObjectInfo | null> {
     const {
       text,
@@ -517,7 +517,7 @@ export class TextModel {
     return this.getObject(targetParams)
   }
 
-  /** Возвращает стиль текущего или явного выделенного диапазона текста. */
+  /** Returns the style of the current or explicit text selection range. */
   async getSelectionStyles(
     params: Partial<TextSelectionParams> & ObjectTargetParams = {}
   ): Promise<TextSelectionStyleInfo | null> {
@@ -530,7 +530,7 @@ export class TextModel {
     }, params)
   }
 
-  /** Поворачивает текстовый объект на заданный угол. */
+  /** Rotates a text object to the specified angle. */
   async rotate(params: TextRotateParams): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({ angle, objectIndex, id }) => {
       const {
@@ -559,7 +559,7 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Применяет inline-стиль к диапазону текстового объекта. */
+  /** Applies an inline style to a text-object range. */
   async setRangeStyle(params: TextRangeStyleParams): Promise<TextObjectInfo | null> {
     const textObject = await this.page.evaluate(({ start, end, style, objectIndex, id }) => {
       const {
@@ -588,27 +588,27 @@ export class TextModel {
     return this.getObject(settledParams)
   }
 
-  /** Возвращает текущее состояние текста при изменении ширины. */
+  /** Returns the current text state during width changes. */
   async getResizeSnapshot(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     return this.resizeSession.getResizeSnapshot(params)
   }
 
-  /** Изменяет ширину текста справа до заданного значения. */
+  /** Changes text width from the right to the specified value. */
   async resizeFromRightToWidth(params: TextResizeFromRightParams): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromRightToWidth(params)
   }
 
-  /** Изменяет ширину текста слева до заданного значения. */
+  /** Changes text width from the left to the specified value. */
   async resizeFromLeftToWidth(params: TextResizeFromLeftParams): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromLeftToWidth(params)
   }
 
-  /** Продолжает перетаскивание боковой ручки относительным движением указателя. */
+  /** Continues the side-handle drag with relative pointer movement. */
   async continueResizeHandleBy(params: TextResizeContinueParams): Promise<TextResizeSnapshot> {
     return this.resizeSession.continueResizeHandleBy(params)
   }
 
-  /** Подводит правую границу текста к заданной вертикальной направляющей. */
+  /** Brings the text's right boundary to the specified vertical guide. */
   async resizeFromRightToGuide(
     params: {
       centered?: boolean
@@ -618,7 +618,7 @@ export class TextModel {
     return this.resizeSession.resizeFromRightToGuide(params)
   }
 
-  /** Подводит левую границу текста к заданной вертикальной направляющей. */
+  /** Brings the text's left boundary to the specified vertical guide. */
   async resizeFromLeftToGuide(
     params: {
       centered?: boolean
@@ -628,36 +628,36 @@ export class TextModel {
     return this.resizeSession.resizeFromLeftToGuide(params)
   }
 
-  /** Подводит внешнюю грань выбранной боковой ручки к направляющей. */
+  /** Brings the selected side handle's outer edge to a guide. */
   async resizeSideToGuide(params: TextResizeToGuideParams): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeSideToGuide(params)
   }
 
-  /** Сужает текстовый объект справа до первого состояния, где текст переносится на новую строку. */
+  /** Narrows the text object from the right to the first state where text wraps onto a new line. */
   async resizeFromRightUntilTextWraps(
     params: TextResizeUntilWrapParams = {}
   ): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromRightUntilTextWraps(params)
   }
 
-  /** Сужает текстовый объект слева до первого состояния, где текст переносится на новую строку. */
+  /** Narrows the text object from the left to the first state where text wraps onto a new line. */
   async resizeFromLeftUntilTextWraps(
     params: TextResizeUntilWrapParams = {}
   ): Promise<TextResizeSnapshot> {
     return this.resizeSession.resizeFromLeftUntilTextWraps(params)
   }
 
-  /** Завершает перетаскивание ручки или отправляет итоговое событие для уже изменённого объекта. */
+  /** Finishes the handle drag or sends a final event for an already modified object. */
   async finishResize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     return this.resizeSession.finishResize(params)
   }
 
-  /** Завершает изменение ширины, если боковая ручка ещё захвачена. */
+  /** Finishes the width change if the side handle is still captured. */
   async finishResizeIfActive(): Promise<TextResizeSnapshot | null> {
     return this.resizeSession.finishResizeIfActive()
   }
 
-  /** Масштабирует текстовый объект по вертикали через правый нижний угол, не меняя ширину. */
+  /** Scales a text object vertically from the bottom-right corner without changing its width. */
   async scaleVerticallyFromBottom(
     params: { scaleY: number } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
@@ -676,7 +676,7 @@ export class TextModel {
     })
   }
 
-  /** Масштабирует текстовый объект по горизонтали за правую ручку. */
+  /** Scales a text object horizontally with the right handle. */
   async scaleHorizontallyFromRight(
     params: { scaleX: number, ctrlKey?: boolean } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
@@ -697,7 +697,7 @@ export class TextModel {
     })
   }
 
-  /** Масштабирует текстовый объект по диагонали за правый нижний угол. */
+  /** Scales a text object diagonally from the bottom-right corner. */
   async scaleDiagonallyFromBottomRight(
     params: { scaleX: number, scaleY: number } & ObjectTargetParams
   ): Promise<TextResizeSnapshot> {
@@ -717,7 +717,7 @@ export class TextModel {
     })
   }
 
-  /** Сужает текст по диагонали до состояния, после которого он больше не уменьшается. */
+  /** Narrows text diagonally to the state beyond which it no longer shrinks. */
   async shrinkDiagonallyToMinimumSize(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     const {
       objectIndex,
@@ -754,7 +754,7 @@ export class TextModel {
     return currentSnapshot
   }
 
-  /** Завершает скейлинг текста, начатый прямым вызовом обработчика Fabric. */
+  /** Finishes text scaling started through a direct Fabric-handler call. */
   async finishScale(params: ObjectTargetParams = {}): Promise<TextResizeSnapshot> {
     if (this.activeScaleInteraction && this._matchesActiveScaleTarget(params)) {
       const interaction = this.activeScaleInteraction
@@ -771,7 +771,7 @@ export class TextModel {
     return this._finishModifiedTransform(params)
   }
 
-  /** Завершает скейлинг текста, начатый прямым вызовом обработчика Fabric. */
+  /** Finishes text scaling started through a direct Fabric-handler call. */
   private async _finishFabricScaleInteraction(
     interaction: ActiveTextScaleInteraction
   ): Promise<TextResizeSnapshot> {
@@ -807,7 +807,7 @@ export class TextModel {
     return snapshot as TextResizeSnapshot
   }
 
-  /** Завершает скейлинг, если ручка текста ещё захвачена. */
+  /** Finishes scaling if the text handle is still captured. */
   async finishScaleIfActive(): Promise<TextResizeSnapshot | null> {
     if (!this.activeScaleInteraction) return null
 
@@ -822,7 +822,7 @@ export class TextModel {
     })
   }
 
-  /** Двигает указатель мыши в сторону от текстового объекта и возвращает его текущее состояние. */
+  /** Moves the mouse pointer away from the text object and returns its current state. */
   async movePointerAwayFromObject(
     params: {
       offsetX?: number
@@ -892,7 +892,7 @@ export class TextModel {
     })
   }
 
-  /** Проверяет что текстовый объект был создан и возвращает non-null объект. */
+  /** Checks that the text object was created and returns a non-null object. */
   checkCreation(params: { textObject: TextObjectInfo | null }): TextObjectInfo {
     const { textObject } = params
 
@@ -901,7 +901,7 @@ export class TextModel {
     return textObject as TextObjectInfo
   }
 
-  /** Выполняет один шаг скейлинга текста без отпускания ручки. */
+  /** Performs one text-scaling step without releasing the handle. */
   private async _performInteractiveScaleStep(
     params: {
       scaleX: number
@@ -1083,7 +1083,7 @@ export class TextModel {
     return snapshot
   }
 
-  /** Завершает интерактивную трансформацию текстового объекта через object:modified. */
+  /** Finishes a text object's interactive transform through object:modified. */
   private async _finishModifiedTransform(params: ObjectTargetParams): Promise<TextResizeSnapshot> {
     const snapshot = await this.page.evaluate(({ objectIndex, id }) => {
       const {

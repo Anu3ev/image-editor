@@ -23,10 +23,10 @@ import {
   type TextActiveSelectionScaleHarnessOptions
 } from './active-selection-scale-interaction'
 
-/** Параметры тестовой сессии полного смешанного выделения. */
+/** Parameters for a test session with a complete mixed selection. */
 type MixedActiveSelectionScaleHarnessOptions = TextActiveSelectionScaleHarnessOptions
 
-/** Наблюдаемые методы доменного источника шейпов в смешанной сессии. */
+/** Observable methods of the shape domain source in a mixed session. */
 type MixedSelectionDomainSourceMocks = Readonly<{
   applyDomainMeasurementMock: jest.MockedFunction<ActiveSelectionScaleDomainSource['apply']>
   confirmDomainMeasurementMock: jest.MockedFunction<ActiveSelectionScaleDomainSource['confirmAppliedState']>
@@ -35,7 +35,7 @@ type MixedSelectionDomainSourceMocks = Readonly<{
   restoreConfirmedDomainMock: jest.MockedFunction<ActiveSelectionScaleDomainSource['restoreConfirmedState']>
 }>
 
-/** Локальная прямоугольная геометрия объекта в тестовом выделении. */
+/** Local rectangular geometry of an object in the test selection. */
 interface MixedSelectionDomainShapeState {
   readonly height: number
   readonly left: number
@@ -45,17 +45,17 @@ interface MixedSelectionDomainShapeState {
   readonly width: number
 }
 
-/** Геометрия тестовой рамки вместе с её поворотом. */
+/** Test frame geometry including its rotation. */
 interface MixedSelectionFrameTransactionState extends MixedSelectionDomainShapeState {
   readonly angle: number
 }
 
-/** Геометрия отдельного текста вместе с каноническим размером шрифта. */
+/** Standalone text geometry including the canonical font size. */
 interface MixedSelectionTextTransactionState extends MixedSelectionDomainShapeState {
   readonly fontSize: number
 }
 
-/** Наблюдаемое состояние всех объектов перед общей фиксацией или после её отката. */
+/** Observable state of all objects before a joint commit or after its rollback. */
 type MixedSelectionTransactionState = Readonly<{
   image: MixedSelectionDomainShapeState
   selection: MixedSelectionFrameTransactionState
@@ -63,7 +63,7 @@ type MixedSelectionTransactionState = Readonly<{
   texts: readonly MixedSelectionTextTransactionState[]
 }>
 
-/** Наблюдаемые зависимости полноценного смешанного состава. */
+/** Observable dependencies of a complete mixed composition. */
 type MixedActiveSelectionScaleHarness = Readonly<{
   finishShapeCommitMock: jest.MockedFunction<
     ImageEditor['shapeManager']['finishActiveSelectionScaleCommit']
@@ -84,7 +84,7 @@ type MixedActiveSelectionScaleHarness = Readonly<{
   shape: ShapeGroupObject
 }>
 
-/** Наблюдаемые зависимости неподдерживаемого состава с обычным Fabric-объектом. */
+/** Observable dependencies of an unsupported composition containing a standard Fabric object. */
 type UnknownActiveSelectionScaleHarness = Readonly<{
   createDomainSourceMock: jest.MockedFunction<
     ImageEditor['shapeManager']['createActiveSelectionScaleDomainSource']
@@ -93,7 +93,7 @@ type UnknownActiveSelectionScaleHarness = Readonly<{
   unknownObject: Rect
 }>
 
-/** Создаёт каноническое изображение внутри тестового общего выделения. */
+/** Creates a canonical image inside the test multi-object selection. */
 function createSelectionImage({
   interaction
 }: {
@@ -122,7 +122,7 @@ function createSelectionImage({
   return image
 }
 
-/** Создаёт канонический шейп внутри тестового общего выделения. */
+/** Creates a canonical shape inside the test multi-object selection. */
 function createSelectionShape({
   interaction
 }: {
@@ -166,7 +166,7 @@ function createSelectionShape({
   return shape
 }
 
-/** Создаёт рассчитанную геометрию одного шейпа для текущих множителей. */
+/** Creates calculated geometry for one shape using the current factors. */
 function createDomainMeasurement({
   multipliers,
   shape
@@ -195,7 +195,7 @@ function createDomainMeasurement({
   })
 }
 
-/** Сохраняет локальную прямоугольную геометрию одного тестового объекта. */
+/** Saves the local rectangular geometry of one test object. */
 function captureRectangularState({
   target
 }: {
@@ -211,7 +211,7 @@ function captureRectangularState({
   })
 }
 
-/** Восстанавливает локальную прямоугольную геометрию тестового шейпа. */
+/** Restores the test shape's local rectangular geometry. */
 function restoreDomainShapeState({
   shape,
   state
@@ -223,7 +223,7 @@ function restoreDomainShapeState({
   shape.setCoords()
 }
 
-/** Создаёт наблюдаемый источник геометрии шейпа для смешанной сессии. */
+/** Creates an observable shape geometry source for a mixed session. */
 function createDomainSourceMocks({
   shape
 }: {
@@ -281,7 +281,7 @@ function createDomainSourceMocks({
   })
 }
 
-/** Подключает настоящий контроллер TextManager к тестовой сессии смешанного выделения. */
+/** Connects the real TextManager controller to a mixed-selection test session. */
 export function installMixedSelectionTextScalingController({
   harness
 }: {
@@ -307,7 +307,7 @@ export function installMixedSelectionTextScalingController({
   return controller
 }
 
-/** Сохраняет локальную геометрию полного смешанного состава для проверки общего отката. */
+/** Saves the local geometry of the complete mixed composition to test a joint rollback. */
 export function captureMixedSelectionTransactionState({
   harness
 }: {
@@ -327,7 +327,7 @@ export function captureMixedSelectionTransactionState({
   })
 }
 
-/** Дополняет текстовое измерение рассчитанной геометрией шейпов. */
+/** Supplements the text measurement with calculated shape geometry. */
 function attachDomainMeasurement({
   domain,
   measurement,
@@ -348,7 +348,7 @@ function attachDomainMeasurement({
   })
 }
 
-/** Подключает доменный источник к наблюдаемому TextManager тестового контроллера. */
+/** Connects the domain source to the test controller's observable TextManager. */
 function installMixedTextManagerContract({
   domain,
   interaction,
@@ -386,7 +386,7 @@ function installMixedTextManagerContract({
   })
 }
 
-/** Устанавливает наблюдаемые методы ShapeManager для смешанной сессии. */
+/** Sets up observable ShapeManager methods for a mixed session. */
 function installMixedShapeManagerContract({
   domain,
   interaction,
@@ -439,7 +439,7 @@ function installMixedShapeManagerContract({
   })
 }
 
-/** Создаёт полноценный состав из изображения, шейпа и двух отдельных текстов. */
+/** Creates a complete composition containing an image, a shape, and two standalone text objects. */
 export function createMixedActiveSelectionScaleHarness(
   options: MixedActiveSelectionScaleHarnessOptions = {}
 ): MixedActiveSelectionScaleHarness {
@@ -478,7 +478,7 @@ export function createMixedActiveSelectionScaleHarness(
   })
 }
 
-/** Создаёт состав с обычным Fabric-объектом, который должен остаться на прежнем пути. */
+/** Creates a composition containing a standard Fabric object that should stay on the previous path. */
 export function createUnknownActiveSelectionScaleHarness(): UnknownActiveSelectionScaleHarness {
   const interaction = createTextActiveSelectionScaleHarness({ controlKey: 'mr' })
   const image = createSelectionImage({ interaction })

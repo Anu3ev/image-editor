@@ -14,7 +14,7 @@ import {
   type ShapeScalingTransformStub
 } from './scaling'
 
-/** Повторяемая подготовка двух шейпов для проверки общей сессии скейлинга. */
+/** Repeatable setup of two shapes for testing a shared scaling session. */
 type ShapeActiveSelectionScaleDomainSetup = Readonly<{
   editor: ReturnType<typeof createShapeManagerEditorStub>
   first: ShapeGroup
@@ -26,13 +26,13 @@ type ShapeActiveSelectionScaleDomainSetup = Readonly<{
   transform: ShapeScalingTransformStub
 }>
 
-/** Подтверждённый горизонтальный шаг шейпов и применённая к нему общая рамка. */
+/** Confirmed horizontal shape step and the shared frame applied to it. */
 type ConfirmedShapeActiveSelectionScale = Readonly<{
   frame: ActiveSelectionScaleFrame
   source: ActiveSelectionScaleDomainSource
 }>
 
-/** Создаёт два шейпа и общую рамку с горизонтальным преобразованием. */
+/** Creates two shapes and a shared frame with a horizontal transform. */
 export async function createShapeActiveSelectionScaleDomainSetup(): Promise<ShapeActiveSelectionScaleDomainSetup> {
   const editor = createShapeManagerEditorStub()
   const manager = new ShapeManager({ editor: editor as never })
@@ -61,7 +61,7 @@ export async function createShapeActiveSelectionScaleDomainSetup(): Promise<Shap
   }
 }
 
-/** Применяет и подтверждает один горизонтальный шаг доменной сессии шейпов. */
+/** Applies and confirms one horizontal step of the shape domain session. */
 export function applyConfirmedShapeActiveSelectionScale({
   manager,
   scaleX,
@@ -90,7 +90,7 @@ export function applyConfirmedShapeActiveSelectionScale({
   return { frame, source }
 }
 
-/** Останавливает фиксацию на втором шейпе после фактического изменения первого. */
+/** Stops the commit at the second shape after the first has actually changed. */
 export function failSecondShapeMaterializationAfterFirst({
   first,
   scalingController,

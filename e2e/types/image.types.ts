@@ -1,7 +1,7 @@
 import type { ObjectTargetParams } from './editor.types'
 import type { SnappingObjectSnapshot } from './snapping.types'
 
-/** Стандартная ручка изменения размера Fabric image. */
+/** Standard Fabric image-resize handle. */
 export type ImageScaleControl =
   | 'tl'
   | 'mt'
@@ -12,38 +12,38 @@ export type ImageScaleControl =
   | 'mb'
   | 'br'
 
-/** Точка геометрии изображения в координатах canvas-сцены. */
+/** Image-geometry point in canvas-scene coordinates. */
 export interface ImageScalePoint {
   x: number
   y: number
 }
 
-/** Клавиши-модификаторы реального pointer-жеста изменения размера изображения. */
+/** Modifier keys for a real image-resize pointer gesture. */
 export interface ImageScaleModifiers {
   altKey?: boolean
   ctrlKey?: boolean
   shiftKey?: boolean
 }
 
-/** Параметры начала изменения размера изображения через конкретную ручку. */
+/** Options for starting image resize through a specific handle. */
 export interface ImageScaleStartParams extends ObjectTargetParams, ImageScaleModifiers {
   control: ImageScaleControl
 }
 
-/** Параметры движения активной ручки в viewport-пикселях. */
+/** Options for active-handle movement in viewport pixels. */
 export interface ImageScaleMoveByParams extends ImageScaleModifiers {
   deltaX: number
   deltaY: number
   pointerSteps?: number
 }
 
-/** Параметры движения активной ручки к точке canvas-сцены. */
+/** Options for moving the active handle to a canvas-scene point. */
 export interface ImageScaleMoveToParams extends ImageScaleModifiers {
   point: ImageScalePoint
   pointerSteps?: number
 }
 
-/** Геометрия image-объекта и его стандартных controls во время scale-жеста. */
+/** Image-object geometry and standard controls during a scaling gesture. */
 export interface ImageScaleSnapshot extends SnappingObjectSnapshot {
   centerPoint: ImageScalePoint
   controlPoints: Record<ImageScaleControl, ImageScalePoint>

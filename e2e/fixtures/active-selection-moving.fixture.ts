@@ -12,17 +12,17 @@ import type {
   SnappingObjectSnapshot
 } from '../types'
 
-/** Состав общего выделения для проверки унифицированного перемещения. */
+/** Composition of the active selection for testing unified movement. */
 export type ActiveSelectionCompositionKind = 'images' | 'mixed' | 'shapes' | 'texts'
 
-/** Параметры сцены с одним из поддерживаемых составов общего выделения. */
+/** Scene options for one of the supported active-selection compositions. */
 export type ActiveSelectionCompositionOptions = Readonly<{
   kind: ActiveSelectionCompositionKind
   rotated?: boolean
   scaleBeforeMove?: boolean
 }>
 
-/** Сцена с общим выделением и близкими направляющими опорного шейпа. */
+/** Scene with an active selection and nearby reference-shape guides. */
 export type ActiveSelectionMovingSetup = Readonly<{
   childIds: readonly string[]
   initialComposition: SelectionCompositionSnapshot
@@ -30,7 +30,7 @@ export type ActiveSelectionMovingSetup = Readonly<{
   referenceId: string
 }>
 
-/** Сцена для проверки горизонтальной равноудалённости общего выделения. */
+/** Scene for testing horizontal equal spacing of an active selection. */
 export type ActiveSelectionHorizontalSpacingSetup = Readonly<{
   active: SelectionCompositionSnapshot
   expectedLeft: number
@@ -38,7 +38,7 @@ export type ActiveSelectionHorizontalSpacingSetup = Readonly<{
   right: SnappingObjectSnapshot
 }>
 
-/** Сцена для проверки вертикальной равноудалённости общего выделения. */
+/** Scene for testing vertical equal spacing of an active selection. */
 export type ActiveSelectionVerticalSpacingSetup = Readonly<{
   active: SelectionCompositionSnapshot
   bottom: SnappingObjectSnapshot
@@ -46,7 +46,7 @@ export type ActiveSelectionVerticalSpacingSetup = Readonly<{
   top: SnappingObjectSnapshot
 }>
 
-/** Модели, необходимые для создания сцены с общим выделением. */
+/** Models required to create an active-selection scene. */
 type ActiveSelectionSceneModels = Readonly<{
   editorModel: EditorModel
   images: ImageModel
@@ -56,13 +56,13 @@ type ActiveSelectionSceneModels = Readonly<{
   text: TextModel
 }>
 
-/** Общее выделение двух шейпов и границы монтажной области. */
+/** Active selection of two shapes and the artboard bounds. */
 type ShapeSelectionScene = Readonly<{
   active: SelectionCompositionSnapshot
   montage: MontageAreaBoundsInfo
 }>
 
-/** Дополнительные fixtures для перемещения общего выделения. */
+/** Additional fixtures for moving an active selection. */
 interface ActiveSelectionMovingFixtures {
   activeSelectionMovingSetup: ActiveSelectionMovingSetup
   activeSelectionHorizontalSpacingSetup: ActiveSelectionHorizontalSpacingSetup
@@ -72,7 +72,7 @@ interface ActiveSelectionMovingFixtures {
   ) => Promise<ActiveSelectionMovingSetup>
 }
 
-/** Добавляет два шейпа, которые войдут в общее выделение. */
+/** Adds two shapes to include in the active selection. */
 async function addShapeChildren({
   montage,
   rotated,
@@ -109,7 +109,7 @@ async function addShapeChildren({
   return childIds
 }
 
-/** Добавляет два изображения и размещает их внутри монтажной области. */
+/** Adds two images and places them inside the artboard. */
 async function addImageChildren({
   images,
   montage
@@ -140,7 +140,7 @@ async function addImageChildren({
   return [first.id, second.id]
 }
 
-/** Добавляет два отдельных текстовых объекта. */
+/** Adds two standalone text objects. */
 async function addTextChildren({
   montage,
   text
@@ -169,7 +169,7 @@ async function addTextChildren({
   return childIds
 }
 
-/** Добавляет изображение, шейп и отдельный текст. */
+/** Adds an image, a shape, and standalone text. */
 async function addMixedChildren({
   images,
   montage,
@@ -218,7 +218,7 @@ async function addMixedChildren({
   return [image.id, shapeId, textId]
 }
 
-/** Добавляет дочерние объекты указанного поддерживаемого состава. */
+/** Adds child objects of the specified supported composition. */
 async function addCompositionChildren({
   kind,
   models,
@@ -242,7 +242,7 @@ async function addCompositionChildren({
   })
 }
 
-/** Добавляет опорный шейп, не меняя текущее общее выделение. */
+/** Adds a reference shape without changing the current active selection. */
 async function addReferenceShape({
   id,
   height = 8,
@@ -269,7 +269,7 @@ async function addReferenceShape({
   return snapping.getObjectSnapshot({ id })
 }
 
-/** Создаёт сцену с поддерживаемым общим выделением и отдельным опорным шейпом. */
+/** Creates a scene with a supported active selection and a separate reference shape. */
 async function createCompositionScene({
   kind,
   models,
@@ -304,7 +304,7 @@ async function createCompositionScene({
   return { childIds, initialComposition, reference, referenceId }
 }
 
-/** Создаёт общее выделение из двух шейпов для spacing-сцен. */
+/** Creates an active selection of two shapes for spacing scenes. */
 async function createShapeSelection(
   models: ActiveSelectionSceneModels
 ): Promise<ShapeSelectionScene> {
@@ -319,7 +319,7 @@ async function createShapeSelection(
   return { active, montage }
 }
 
-/** Создаёт сцену с двумя опорными шейпами по сторонам общего выделения. */
+/** Creates a scene with two reference shapes on either side of the active selection. */
 async function createHorizontalSpacingScene(
   models: ActiveSelectionSceneModels
 ): Promise<ActiveSelectionHorizontalSpacingSetup> {
@@ -352,7 +352,7 @@ async function createHorizontalSpacingScene(
   return { active, expectedLeft, left, right }
 }
 
-/** Создаёт сцену с двумя опорными шейпами сверху и снизу общего выделения. */
+/** Creates a scene with two reference shapes above and below the active selection. */
 async function createVerticalSpacingScene(
   models: ActiveSelectionSceneModels
 ): Promise<ActiveSelectionVerticalSpacingSetup> {
@@ -385,7 +385,7 @@ async function createVerticalSpacingScene(
   return { active, bottom, expectedTop, top }
 }
 
-/** Editor fixture со сценами для перемещения общего выделения. */
+/** Editor fixture with scenes for moving an active selection. */
 export const test = editorTest.extend<ActiveSelectionMovingFixtures>({
   createActiveSelectionComposition: async({
     editorModel,

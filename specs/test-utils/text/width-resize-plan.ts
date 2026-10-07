@@ -7,7 +7,7 @@ import {
 import type { TextWidthResizeMeasurement } from '../../../src/editor/text-manager/scaling/text-width-resize-measurer'
 import type { ObjectBounds } from '../../../src/editor/utils/geometry'
 
-/** Создаёт точные границы измеренного текста. */
+/** Creates exact bounds for the measured text. */
 function createBounds({ right }: { right: number }): ObjectBounds {
   const left = 200
   const top = 100
@@ -23,7 +23,7 @@ function createBounds({ right }: { right: number }): ObjectBounds {
   })
 }
 
-/** Создаёт план, который должен поставить правую грань текста на координату 304. */
+/** Creates a plan that should place the text's right edge at coordinate 304. */
 export function createTextWidthSnapPlan(): ScaleSnapPlan {
   const bounds = createBounds({ right: 300 })
   const baseline = createScaleGestureBaseline({
@@ -59,7 +59,7 @@ export function createTextWidthSnapPlan(): ScaleSnapPlan {
   })
 }
 
-/** Создаёт измерение с заданной шириной и положением правой грани. */
+/** Creates a measurement with the specified width and right-edge position. */
 export function createTextWidthMeasurement({
   width,
   right

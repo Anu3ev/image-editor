@@ -2,7 +2,7 @@ import { test, expect } from '../../../fixtures/editor.fixture'
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 import type { SnappingObjectSnapshot } from '../../../types'
 
-/** Отдельный текст и опорный объект для проверки удержания направляющих. */
+/** Standalone text and a reference object for testing guide holding. */
 type TextMovementSetup = {
   activeTextId: string
   reference: SnappingObjectSnapshot

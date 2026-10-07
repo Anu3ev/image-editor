@@ -8,16 +8,16 @@ import type {
 } from '../../snapping-manager/scaling/scale-snapping-resolver'
 import type { EditorTextbox } from '../types'
 
-/** Боковая ручка, которой Fabric меняет каноническую ширину Textbox. */
+/** Side handle Fabric uses to change the Textbox's canonical width. */
 export type TextWidthResizeControlKey = 'ml' | 'mr'
 
-/** Точка в координатах сцены, не зависящая от Fabric Point. */
+/** Point in scene coordinates independent of Fabric Point. */
 export type TextWidthResizeScenePoint = Readonly<{
   x: number
   y: number
 }>
 
-/** Неизменяемая геометрия изменения ширины отдельного Textbox за боковую ручку. */
+/** Immutable geometry for resizing standalone-Textbox width with a side handle. */
 export type TextWidthResizeGestureProjection = Readonly<{
   anchorOriginX: Transform['originX']
   anchorOriginY: Transform['originY']
@@ -29,18 +29,18 @@ export type TextWidthResizeGestureProjection = Readonly<{
   projectionModes: readonly ScaleProjectionModeInput[]
 }>
 
-/** Минимальный вклад ширины в положение границы в координатах сцены. */
+/** Minimum contribution of width to the boundary position in scene coordinates. */
 const TEXT_WIDTH_PROJECTION_EPSILON = 0.000000001
 
-/** Идентификатор одномерного режима изменения ширины текста. */
+/** Identifier of the one-dimensional text-width resize mode. */
 export const TEXT_WIDTH_PROJECTION_MODE = 'text-width'
 
-/** Проверяет строковое и числовое представление центрального начала координат Fabric. */
+/** Checks string and numeric representations of Fabric's center origin. */
 function isCenterOrigin(origin: Transform['originX'] | Transform['originY']): boolean {
   return origin === 'center' || origin === 0.5
 }
 
-/** Проверяет строковое и числовое представление бокового начала координат Fabric. */
+/** Checks string and numeric representations of Fabric's side origin. */
 function isSideOrigin({
   origin,
   expected
@@ -53,7 +53,7 @@ function isSideOrigin({
   return expected === 'left' ? origin === 0 : origin === 1
 }
 
-/** Проверяет, что преобразование Fabric относится к изменению ширины боковой ручкой. */
+/** Checks that the Fabric transform is a side-handle width resize. */
 function isTextWidthResizeControl(transform: Transform): transform is Transform & {
   corner: TextWidthResizeControlKey
 } {
@@ -61,7 +61,7 @@ function isTextWidthResizeControl(transform: Transform): transform is Transform 
     && (transform.corner === 'ml' || transform.corner === 'mr')
 }
 
-/** Проверяет геометрию, которая пока сохраняет прежнюю логику прилипания. */
+/** Checks geometry that still uses the previous snapping logic. */
 function hasUnsupportedTextGeometry({ textbox }: { textbox: EditorTextbox }): boolean {
   return Boolean(textbox.flipX)
     || Boolean(textbox.flipY)
@@ -70,7 +70,7 @@ function hasUnsupportedTextGeometry({ textbox }: { textbox: EditorTextbox }): bo
     || Math.abs(textbox.skewY ?? 0) > TEXT_WIDTH_PROJECTION_EPSILON
 }
 
-/** Возвращает вектор сдвига изменяемой стороны при увеличении ширины на единицу. */
+/** Returns the resized side's displacement vector for a unit increase in width. */
 function resolveWidthSceneVector({
   textbox,
   controlKey,
@@ -91,7 +91,7 @@ function resolveWidthSceneVector({
   return Object.freeze({ x, y })
 }
 
-/** Возвращает две противоположные грани, которые расходятся от центра объекта. */
+/** Returns two opposite edges that move apart from the object's center. */
 function createCenteredMovingEdges({
   axis,
   coefficient
@@ -115,7 +115,7 @@ function createCenteredMovingEdges({
   ])
 }
 
-/** Возвращает движущуюся грань и её зависимость от ширины по одной оси сцены. */
+/** Returns the moving edge and its dependence on width along one scene axis. */
 function createMovingEdge({
   axis,
   coefficient
@@ -142,7 +142,7 @@ function createMovingEdge({
   })
 }
 
-/** Возвращает движущиеся границы обычного или центрированного изменения ширины. */
+/** Returns the moving boundaries of a normal or centered width resize. */
 function createMovingEdges({
   centered,
   widthVector
@@ -166,7 +166,7 @@ function createMovingEdges({
   ].filter((edge): edge is NonNullable<typeof edge> => edge !== null))
 }
 
-/** Создаёт одномерную проекцию ширины на реально движущиеся границы сцены. */
+/** Creates a one-dimensional width projection onto the object's moving bounds in scene coordinates. */
 function createProjectionModes({
   baselineWidth,
   centered,
@@ -193,7 +193,7 @@ function createProjectionModes({
 }
 
 /**
- * Фиксирует точную геометрию до первого изменения ширины Textbox.
+ * Captures exact geometry before the first Textbox width change.
  */
 export function createTextWidthResizeGestureProjection({
   textbox,
@@ -241,8 +241,8 @@ export function createTextWidthResizeGestureProjection({
 }
 
 /**
- * Создаёт локальную проекцию от уже пересчитанной геометрии текущего движения указателя.
- * Так изменение высоты из-за переноса строк не искажает поиск и удержание направляющей.
+ * Creates a local projection from the already recalculated geometry of the current pointer movement.
+ * This keeps wrapping-induced height changes from distorting guide discovery and holding.
  */
 export function createTextWidthResizeStepProjection({
   textbox,

@@ -2,7 +2,7 @@ import type { TextSelectionRange } from '../utils/text'
 import type { EditorTextbox } from './types'
 
 /**
- * Возвращает диапазоны символов для каждой строки текста без учёта символов переноса.
+ * Returns character ranges for each text line, excluding newline characters.
  */
 export const getLineRanges = ({
   textbox
@@ -28,7 +28,7 @@ export const getLineRanges = ({
 }
 
 /**
- * Клампит диапазон выделения к длине текста и нормализует порядок.
+ * Clamps the selection range to the text length and normalizes its order.
  */
 export const clampSelectionRange = ({
   range,
@@ -57,7 +57,7 @@ export const clampSelectionRange = ({
 }
 
 /**
- * Расширяет выделение до полных строк, которые оно пересекает.
+ * Expands the selection to fully cover every line it intersects.
  */
 export const expandRangeToFullLines = ({
   textbox,
@@ -88,7 +88,7 @@ export const expandRangeToFullLines = ({
 }
 
 /**
- * Возвращает индексы строк, пересекающихся с диапазоном символов.
+ * Returns indexes of lines intersecting the character range.
  */
 export const getLineIndicesForRange = ({
   textbox,
@@ -120,7 +120,7 @@ export const getLineIndicesForRange = ({
 }
 
 /**
- * Возвращает индексы строк, полностью покрытых диапазоном символов.
+ * Returns indexes of lines fully covered by the character range.
  */
 export const getFullLineIndicesForRange = ({
   textbox,
@@ -152,7 +152,7 @@ export const getFullLineIndicesForRange = ({
 }
 
 /**
- * Возвращает индекс первого отличия между строками.
+ * Returns the index of the first difference between strings.
  */
 export const getFirstDiffIndex = ({
   previous,
@@ -170,7 +170,7 @@ export const getFirstDiffIndex = ({
 }
 
 /**
- * Вычисляет индекс строки для позиции символа.
+ * Calculates the line index for a character position.
  */
 export const getLineIndexByCharIndex = ({
   text,
@@ -192,7 +192,7 @@ export const getLineIndexByCharIndex = ({
 }
 
 /**
- * Возвращает индекс начала строки по её индексу.
+ * Returns a line's starting character index from its line index.
  */
 export const getLineStartIndex = ({
   text,

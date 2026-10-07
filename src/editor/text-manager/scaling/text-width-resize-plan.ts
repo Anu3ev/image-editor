@@ -9,18 +9,18 @@ import type {
 import { createScaleProjectionConstraints } from '../../snapping-manager/scaling/scale-snapping-resolver'
 import type { TextWidthResizeMeasurement } from './text-width-resize-measurer'
 
-/** Источник точной геометрии Textbox при проверяемой ширине. */
+/** Source of exact Textbox geometry at the width being checked. */
 export type TextWidthMeasurementSource = Readonly<{
   measure({ width }: { width: number }): TextWidthResizeMeasurement
 }>
 
-/** Максимальное число уточнений ширины на одном движении указателя. */
+/** Maximum number of width refinements per pointer movement. */
 const MAX_TEXT_WIDTH_REFINEMENT_STEPS = 8
 
-/** Допуск остановки повторяющегося расчёта ширины. */
+/** Tolerance for stopping repeated width calculations. */
 const TEXT_WIDTH_REFINEMENT_EPSILON = 0.0000001
 
-/** Проверяет достижение всех выбранных направляющих измеренной геометрией. */
+/** Checks whether the measured geometry reaches all selected guides. */
 function didReachPlannedGuides({
   measurement,
   plan
@@ -38,7 +38,7 @@ function didReachPlannedGuides({
   })
 }
 
-/** Рассчитывает следующую ширину из точной локальной геометрии Textbox. */
+/** Calculates the next width from the Textbox's exact local geometry. */
 function resolveNextWidth({
   measurement,
   plan,
@@ -63,7 +63,7 @@ function resolveNextWidth({
   return typeof nextWidth === 'number' && Number.isFinite(nextWidth) ? nextWidth : null
 }
 
-/** Проверяет, что ширина ещё не измерялась на текущем шаге. */
+/** Checks that the width has not yet been measured in the current step. */
 function isNewWidth({
   width,
   measuredWidths
@@ -77,8 +77,8 @@ function isNewWidth({
 }
 
 /**
- * Подбирает ширину, которая после переноса строк достигает уже выбранных направляющих.
- * Живой Textbox при этом не изменяется.
+ * Finds a width that reaches the already selected guides after line wrapping.
+ * The live Textbox remains unchanged.
  */
 export function resolveTextWidthSnapMeasurement({
   plan,

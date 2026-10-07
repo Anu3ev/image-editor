@@ -8,26 +8,26 @@ import type {
   SpacingPattern
 } from '../types'
 
-/** Объект в отсортированном списке соседей с признаком активного объекта. */
+/** Object in the sorted neighbor list, marked if it is the active object. */
 type SpacingItem = {
   bounds: Bounds
   isActive: boolean
 }
 
-/** Выбор интервала, сохраняемый между последовательными событиями перемещения. */
+/** Interval selection preserved between consecutive movement events. */
 export type SpacingSelectionContext = {
   side: 'before' | 'center' | 'after'
   kind: 'reference' | 'center'
   distance: number
 }
 
-/** Сохранённый выбор интервалов для обеих осей. */
+/** Saved interval selection for both axes. */
 export type SpacingContextByAxis = {
   vertical: SpacingSelectionContext | null
   horizontal: SpacingSelectionContext | null
 }
 
-/** Стабильные соседи и reference pattern одного выбранного spacing-варианта. */
+/** Stable neighbors and reference pattern for one selected spacing option. */
 export type SpacingSelectionIdentity = Readonly<{
   kind: SpacingSelectionContext['kind']
   side: SpacingSelectionContext['side']
@@ -36,20 +36,20 @@ export type SpacingSelectionIdentity = Readonly<{
   pattern: SpacingPattern | null
 }>
 
-/** Выбранный spacing-вариант и его роль в опубликованном наборе guide. */
+/** Selected spacing option and its role in the published guide set. */
 export type ResolvedSpacingSelection = Readonly<{
   guide: SpacingGuide
   identity: SpacingSelectionIdentity
   isPrimary: boolean
 }>
 
-/** Положение активного интервала относительно выбранного образца расстояния. */
+/** Active interval position relative to the selected reference distance pattern. */
 type SpacingOptionSide = SpacingSelectionContext['side']
 
-/** Источник варианта: существующий интервал или центр между соседями. */
+/** Option source: an existing interval or the center between neighbors. */
 type SpacingOptionKind = SpacingSelectionContext['kind']
 
-/** Один допустимый вариант равноудалённого прилипания. */
+/** One valid equal-spacing snap option. */
 type SpacingOption = {
   delta: number
   guide: SpacingGuide
@@ -60,12 +60,12 @@ type SpacingOption = {
   identity: SpacingSelectionIdentity
 }
 
-/** Допуск только для погрешности эквивалентных вычислений одного точного сдвига. */
+/** Tolerance only for errors in equivalent calculations of the same exact offset. */
 const SPACING_OPTION_DELTA_EPSILON = 1e-9
 
 /**
- * Возвращает величину перекрытия двух отрезков на оси.
- * Положительное значение означает пересечение, 0 — касание, отрицательное — разрыв.
+ * Returns the overlap length of two segments on an axis.
+ * A positive value means overlap, 0 means contact, and a negative value means a gap.
  */
 const getAxisOverlap = ({
   firstStart,
@@ -80,7 +80,7 @@ const getAxisOverlap = ({
 }): number => Math.min(firstEnd, secondEnd) - Math.max(firstStart, secondStart)
 
 /**
- * Возвращает начальную и конечную координаты по выбранной оси.
+ * Returns the start and end coordinates along the selected axis.
  */
 const resolveBoundsEdges = ({
   bounds,
@@ -110,7 +110,7 @@ const resolveBoundsEdges = ({
 }
 
 /**
- * Сортирует элементы на месте по выбранной оси.
+ * Sorts items in place along the selected axis.
  */
 const sortSpacingItems = ({
   items,
@@ -139,7 +139,7 @@ const sortSpacingItems = ({
 }
 
 /**
- * Ищет ближайшего соседа с положительным зазором по выбранной оси.
+ * Finds the nearest neighbor with a positive gap along the selected axis.
  */
 const findNeighborIndex = ({
   items,
@@ -197,7 +197,7 @@ const findNeighborIndex = ({
 }
 
 /**
- * Возвращает индекс активного элемента в списке.
+ * Returns the active item's index in the list.
  */
 const findActiveItemIndex = ({
   items
@@ -212,7 +212,7 @@ const findActiveItemIndex = ({
   return -1
 }
 
-/** Результат подбора позиции между двумя соседними объектами. */
+/** Result of finding a position between two neighboring objects. */
 type EqualSpacingCandidate = {
   delta: number
   distance: number
@@ -221,16 +221,16 @@ type EqualSpacingCandidate = {
   activeEnd: number
 }
 
-/** Ось, вдоль которой сравниваются интервалы. */
+/** Axis along which intervals are compared. */
 type SpacingAxis = SpacingGuide['type']
 
-/** Ближайшие непересекающиеся соседи активного объекта. */
+/** Nearest non-overlapping neighbors of the active object. */
 type SpacingNeighbors = {
   before: Bounds | null
   after: Bounds | null
 }
 
-/** Геометрия объекта в координатах выбранной оси. */
+/** Object geometry in the selected axis coordinates. */
 type AxisSpacingGeometry = {
   start: number
   end: number
@@ -239,7 +239,7 @@ type AxisSpacingGeometry = {
   guideAxis: number
 }
 
-/** Параметры расчёта равноудалённости по одной оси. */
+/** Equal-spacing calculation parameters for one axis. */
 type CalculateAxisSpacingParams = {
   activeBounds: Bounds
   candidates: Bounds[]
@@ -250,7 +250,7 @@ type CalculateAxisSpacingParams = {
   axis: SpacingAxis
 }
 
-/** Публичные параметры расчёта равноудалённости по вертикали или горизонтали. */
+/** Public parameters for vertical or horizontal equal-spacing calculation. */
 type CalculateSpacingParams = {
   activeBounds: Bounds
   candidates: Bounds[]
@@ -260,7 +260,7 @@ type CalculateSpacingParams = {
   switchDistance?: number
 }
 
-/** Результат расчёта равноудалённости по одной оси. */
+/** Equal-spacing calculation result for one axis. */
 type SpacingCalculationResult = {
   delta: number
   guides: SpacingGuide[]
@@ -268,7 +268,7 @@ type SpacingCalculationResult = {
   selections: ResolvedSpacingSelection[]
 }
 
-/** Кандидат для прилипания к существующему интервалу. */
+/** Candidate for snapping to an existing interval. */
 type ReferenceSpacingCandidate = {
   delta: number
   distance: number
@@ -277,7 +277,7 @@ type ReferenceSpacingCandidate = {
   adjustedEnd: number
 }
 
-/** Параметры проверки одного существующего интервала. */
+/** Parameters for checking one existing interval. */
 type ResolveReferenceSpacingOptionParams = {
   activeBounds: Bounds
   neighbors: SpacingNeighbors
@@ -286,7 +286,7 @@ type ResolveReferenceSpacingOptionParams = {
   threshold: number
 }
 
-/** Данные для создания варианта по существующему интервалу. */
+/** Data for creating an option based on an existing interval. */
 type ReferenceSpacingOptionContext = {
   active: AxisSpacingGeometry
   neighbor: AxisSpacingGeometry
@@ -298,7 +298,7 @@ type ReferenceSpacingOptionContext = {
 }
 
 /**
- * Проверяет, проходит ли линия исходного интервала вдоль активного объекта.
+ * Checks whether the original interval's line runs alongside the active object.
  */
 const isPatternAxisAlignedWithActiveRange = ({
   patternAxis,
@@ -318,7 +318,7 @@ const isPatternAxisAlignedWithActiveRange = ({
 }
 
 /**
- * Определяет, с какой стороны активного объекта находится исходный интервал.
+ * Determines which side of the active object contains the original interval.
  */
 const resolveReferencePatternSide = ({
   patternStart,
@@ -338,7 +338,7 @@ const resolveReferencePatternSide = ({
 }
 
 /**
- * Проверяет, что варианты ведут в одну точную позицию и показывают одно расстояние.
+ * Checks that options lead to the same exact position and show the same distance.
  */
 const areSpacingOptionsCompatible = ({
   baseOption,
@@ -363,7 +363,7 @@ const areSpacingOptionsCompatible = ({
 }
 
 /**
- * Выбирает вариант с минимальным расхождением расстояния и меньшим смещением.
+ * Selects the option with the smallest distance discrepancy and smaller offset.
  */
 const resolveBestSpacingOption = ({
   options
@@ -392,7 +392,7 @@ const resolveBestSpacingOption = ({
 }
 
 /**
- * Проверяет, относится ли следующий вариант к более близкому окружению объекта.
+ * Checks whether the next option belongs to a closer neighborhood of the object.
  */
 const shouldReplaceContextOption = ({
   currentOption,
@@ -416,7 +416,7 @@ const shouldReplaceContextOption = ({
 }
 
 /**
- * Оставляет ближайший существующий интервал с каждой стороны, чтобы убрать варианты с разницей в 1 px.
+ * Keeps the nearest existing interval on each side to remove options differing by 1 px.
  */
 const resolveNearestReferenceOptions = ({
   options
@@ -468,7 +468,7 @@ const resolveNearestReferenceOptions = ({
 }
 
 /**
- * Возвращает лучший вариант с выбранной стороны, совместимый с основным вариантом.
+ * Returns the best option on the selected side that is compatible with the primary option.
  */
 const resolveBestSpacingOptionBySide = ({
   options,
@@ -507,7 +507,7 @@ const resolveBestSpacingOptionBySide = ({
 }
 
 /**
- * Сохраняет выбранный вариант, чтобы удерживать его на следующих шагах.
+ * Saves the selected option to hold it through subsequent steps.
  */
 const resolveSpacingContextFromOption = ({
   option
@@ -528,7 +528,7 @@ const resolveSpacingContextFromOption = ({
 }
 
 /**
- * Проверяет, соответствует ли вариант ранее сохранённому выбору.
+ * Checks whether an option matches the previously saved selection.
  */
 const isSpacingOptionMatchedByContext = ({
   option,
@@ -556,7 +556,7 @@ const isSpacingOptionMatchedByContext = ({
 }
 
 /**
- * Находит вариант прилипания, соответствующий ранее сохранённому выбору.
+ * Finds the snap option matching the previously saved selection.
  */
 const resolveSpacingOptionByContext = ({
   options,
@@ -580,7 +580,7 @@ const resolveSpacingOptionByContext = ({
 }
 
 /**
- * Возвращает основной вариант с учётом порога переключения между интервалами.
+ * Returns the primary option, accounting for the interval switching threshold.
  */
 const resolvePrimarySpacingOption = ({
   options,
@@ -609,7 +609,7 @@ const resolvePrimarySpacingOption = ({
 }
 
 /**
- * Создаёт стабильный ключ полной геометрии spacing guide.
+ * Creates a stable key for the complete spacing guide geometry.
  */
 export const createSpacingGuideGeometryKey = ({
   guide
@@ -630,7 +630,7 @@ export const createSpacingGuideGeometryKey = ({
 }
 
 /**
- * Добавляет направляющую без дублей по геометрии и расстоянию.
+ * Adds a guide without duplicates in geometry and distance.
  */
 const pushUniqueSpacingGuide = ({
   guides,
@@ -649,7 +649,7 @@ const pushUniqueSpacingGuide = ({
 }
 
 /**
- * Выбирает интервалы, совместимые с основным вариантом прилипания.
+ * Selects intervals compatible with the primary snap option.
  */
 const resolveRelatedSpacingOptions = ({
   resolvedOptions,
@@ -695,7 +695,7 @@ const resolveRelatedSpacingOptions = ({
   return selectedOptions
 }
 
-/** Возвращает уникальные направляющие для выбранных вариантов прилипания. */
+/** Returns unique guides for the selected snap options. */
 const createSpacingGuides = ({
   selectedOptions
 }: {
@@ -711,7 +711,7 @@ const createSpacingGuides = ({
   return guides
 }
 
-/** Связывает каждый отображаемый вариант с identity и отмечает primary correction. */
+/** Associates each displayed option with its identity and marks the primary correction. */
 const createResolvedSpacingSelections = ({
   selectedOptions,
   primaryOption
@@ -727,7 +727,7 @@ const createResolvedSpacingSelections = ({
 }
 
 /**
- * Формирует направляющие равноудалённости, не смешивая разные расстояния.
+ * Builds equal-spacing guides without mixing different distances.
  */
 const resolveSpacingResult = ({
   options,
@@ -783,7 +783,7 @@ const resolveSpacingResult = ({
   }
 }
 
-/** Возвращает границы объекта в координатах выбранной оси. */
+/** Returns object bounds in the selected axis coordinates. */
 const resolveAxisSpacingGeometry = ({
   bounds,
   axis
@@ -812,7 +812,7 @@ const resolveAxisSpacingGeometry = ({
   }
 }
 
-/** Копирует стабильную identity соседей и reference pattern выбранного варианта. */
+/** Copies the stable neighbor identity and reference pattern of the selected option. */
 const createSpacingSelectionIdentity = ({
   kind,
   side,
@@ -833,7 +833,7 @@ const createSpacingSelectionIdentity = ({
   pattern: pattern ? { ...pattern } : null
 })
 
-/** Проверяет перекрытие объектов на перпендикулярной оси. */
+/** Checks object overlap on the perpendicular axis. */
 const isBoundsAligned = ({
   activeGeometry,
   candidateBounds,
@@ -854,7 +854,7 @@ const isBoundsAligned = ({
   return overlap > 0
 }
 
-/** Ищет ближайших соседей активного объекта на выбранной оси. */
+/** Finds the active object's nearest neighbors along the selected axis. */
 const resolveSpacingNeighbors = ({
   activeBounds,
   candidates,
@@ -889,7 +889,7 @@ const resolveSpacingNeighbors = ({
   }
 }
 
-/** Сравнивает точные bounds выбранного и текущего nearest neighbor. */
+/** Compares the exact bounds of the selected and current nearest neighbor. */
 const areSpacingBoundsEqual = ({
   first,
   second
@@ -908,7 +908,7 @@ const areSpacingBoundsEqual = ({
 }
 
 /**
- * Проверяет, что сохранённый spacing-вариант всё ещё использует тех же ближайших соседей.
+ * Verifies that the saved spacing option still uses the same nearest neighbors.
  */
 export const isSpacingSelectionApplicable = ({
   selection,
@@ -962,7 +962,7 @@ export const isSpacingSelectionApplicable = ({
   })
 }
 
-/** Возвращает точную позицию между двумя соседними объектами. */
+/** Returns the exact position between two neighboring objects. */
 const resolveCenteredEqualSpacing = ({
   activeStart,
   activeEnd,
@@ -993,7 +993,7 @@ const resolveCenteredEqualSpacing = ({
   }
 }
 
-/** Формирует вариант прилипания по центру между двумя соседями. */
+/** Builds an option for snapping to the center between two neighbors. */
 const resolveCenteredSpacingOption = ({
   activeBounds,
   neighbors,
@@ -1054,7 +1054,7 @@ const resolveCenteredSpacingOption = ({
   }
 }
 
-/** Рассчитывает точную позицию для совпадения с существующим интервалом. */
+/** Calculates the exact position needed to match an existing interval. */
 const resolveReferenceSpacingCandidate = ({
   currentGap,
   referenceGap,
@@ -1088,7 +1088,7 @@ const resolveReferenceSpacingCandidate = ({
   }
 }
 
-/** Создаёт вариант прилипания и направляющую для проверенного интервала. */
+/** Creates a snap option and guide for a verified interval. */
 const createReferenceSpacingOption = ({
   active,
   neighbor,
@@ -1129,7 +1129,7 @@ const createReferenceSpacingOption = ({
   }
 }
 
-/** Проверяет и формирует вариант прилипания к одному существующему интервалу. */
+/** Validates and builds a snap option for one existing interval. */
 const resolveReferenceSpacingOption = ({
   activeBounds,
   neighbors,
@@ -1185,7 +1185,7 @@ const resolveReferenceSpacingOption = ({
   })
 }
 
-/** Собирает все допустимые варианты равноудалённости по одной оси. */
+/** Collects all valid equal-spacing options on one axis. */
 const resolveAxisSpacingOptions = ({
   activeBounds,
   neighbors,
@@ -1217,7 +1217,7 @@ const resolveAxisSpacingOptions = ({
   return options
 }
 
-/** Считает равноудалённость по одной оси. */
+/** Calculates equal spacing on one axis. */
 const calculateAxisSpacing = ({
   activeBounds,
   candidates,
@@ -1248,18 +1248,18 @@ const calculateAxisSpacing = ({
   return resolveSpacingResult({ options, previousContext, switchDistance })
 }
 
-/** Ищет подходящий вариант равноудалённого прилипания по вертикали. */
+/** Finds a suitable vertical equal-spacing snap option. */
 export const calculateVerticalSpacing = (
   params: CalculateSpacingParams
 ): SpacingCalculationResult => calculateAxisSpacing({ ...params, axis: 'vertical' })
 
-/** Ищет подходящий вариант равноудалённого прилипания по горизонтали. */
+/** Finds a suitable horizontal equal-spacing snap option. */
 export const calculateHorizontalSpacing = (
   params: CalculateSpacingParams
 ): SpacingCalculationResult => calculateAxisSpacing({ ...params, axis: 'horizontal' })
 
 /**
- * Считает смещение для равноудалённого прилипания и набор направляющих интервалов.
+ * Calculates the equal-spacing snap offset and a set of interval guides.
  */
 export const calculateSpacingSnap = ({
   activeBounds,

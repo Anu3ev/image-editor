@@ -4,8 +4,8 @@ export type DeferredExternalPasteControls = {
 }
 
 /**
- * Подписывается на `editor:external-image-paste-pending` и сразу вызывает `defer()`,
- * возвращая доступ к `resolve/reject` для управления сценарием в тесте.
+ * Subscribes to `editor:external-image-paste-pending` and immediately calls `defer()`,
+ * returning access to `resolve/reject` to control the test scenario.
  */
 export const installExternalImagePastePendingDefer = (canvas: any) => {
   let lastImageSource: string | File | undefined

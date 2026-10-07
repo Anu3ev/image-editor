@@ -29,32 +29,32 @@ import {
 export { measureShapeTextFrameLayout }
 
 /**
- * Минимальный размер текстового frame, общий для layout и padding расчётов.
+ * Minimum text-frame size shared by layout and padding calculations.
  */
 const MIN_TEXT_FRAME_SIZE = MIN_SHAPE_TEXT_FRAME_SIZE
 
 /**
- * Допуск для проверки заполненности text frame.
+ * Tolerance for checking whether the text frame is full.
  */
 const TEXT_FRAME_FILL_EPSILON = 0.5
 
 /**
- * Лимит итераций при пересчёте padding, зависящего от auto-fit размеров.
+ * Iteration limit for recalculating padding that depends on auto-fit dimensions.
  */
 const MAX_DYNAMIC_PADDING_LAYOUT_ITERATIONS = 24
 
 /**
- * Лимит бинарного поиска минимальной валидной ширины.
+ * Binary-search limit for the minimum valid width.
  */
 const MAX_WIDTH_SEARCH_ITERATIONS = 20
 
 /**
- * Лимит расширения верхней границы поиска ширины.
+ * Limit on expanding the upper bound of the width search.
  */
 const MAX_WIDTH_BOUND_EXPANSIONS = 16
 
 /**
- * Геометрия внутреннего text frame в координатах shape-группы.
+ * Inner text-frame geometry in shape-group coordinates.
  */
 type ShapeTextFrame = {
   left: number
@@ -64,7 +64,7 @@ type ShapeTextFrame = {
 }
 
 /**
- * Итог layout текста внутри фигуры: размеры группы, padding, frame и режим переноса.
+ * Text-layout result within the shape: group dimensions, padding, frame, and wrapping mode.
  */
 export type ResolvedShapeTextLayout = {
   width: number
@@ -78,7 +78,7 @@ export type ResolvedShapeTextLayout = {
 }
 
 /**
- * Layout самого text frame без итоговых размеров shape-группы.
+ * Layout of the text frame itself, without the final shape-group dimensions.
  */
 type ShapeTextFrameLayout = {
   frame: ShapeTextFrame
@@ -87,14 +87,14 @@ type ShapeTextFrameLayout = {
 }
 
 /**
- * Resolver padding для layout-расчётов, зависящих только от ширины.
+ * Padding resolver for layout calculations that depend only on width.
  */
 type ResolvePaddingForWidth = ({ width }: {
   width: number
 }) => ShapePadding
 
 /**
- * Resolver padding для layout-расчётов, зависящих от ширины и высоты.
+ * Padding resolver for layout calculations that depend on width and height.
  */
 type ResolvePaddingForSize = ({ width, height }: {
   width: number
@@ -102,7 +102,7 @@ type ResolvePaddingForSize = ({ width, height }: {
 }) => ShapePadding
 
 /**
- * Resolver внутреннего text inset для конкретного размера shape.
+ * Internal text-inset resolver for a specific shape size.
  */
 type ResolveInternalShapeTextInset = ({ width, height }: {
   width: number
@@ -110,14 +110,14 @@ type ResolveInternalShapeTextInset = ({ width, height }: {
 }) => ShapePadding
 
 /**
- * Проверка валидности ширины shape для текущего текста и padding.
+ * Checks shape-width validity for the current text and padding.
  */
 type ResolveShapeWidthValidity = ({ width }: {
   width: number
 }) => boolean
 
 /**
- * Итог разрешения размеров shape-текста до сборки полного layout результата.
+ * Resolved shape-text dimensions before assembling the full layout result.
  */
 type ShapeTextLayoutResolution = {
   width: number
@@ -127,12 +127,12 @@ type ShapeTextLayoutResolution = {
 }
 
 /**
- * Параметры resolveShapeTextLayout без Fabric group/shape, потому что расчёт чистый.
+ * resolveShapeTextLayout parameters without Fabric group/shape, since the calculation is pure.
  */
 type ResolveShapeTextLayoutParams = Omit<ShapeLayoutInput, 'group' | 'shape' | 'alignH'>
 
 /**
- * Параметры layout-расчёта при фиксированной ширине shape.
+ * Parameters for calculating layout at a fixed shape width.
  */
 type ResolveShapeTextFixedWidthLayoutParams = {
   text: ShapeLayoutInput['text']
@@ -149,7 +149,7 @@ type ResolveShapeTextFixedWidthLayoutParams = {
 }
 
 /**
- * Параметры применения fixed-width layout к реальным Fabric объектам.
+ * Parameters for applying fixed-width layout to actual Fabric objects.
  */
 type ApplyFixedWidthShapeTextLayoutParams = {
   group: ShapeLayoutInput['group']
@@ -168,7 +168,7 @@ type ApplyFixedWidthShapeTextLayoutParams = {
 }
 
 /**
- * Параметры сборки итогового состояния text frame.
+ * Parameters for assembling the final text-frame state.
  */
 type ResolveShapeTextLayoutStateParams = {
   text: ShapeLayoutInput['text']
@@ -181,7 +181,7 @@ type ResolveShapeTextLayoutStateParams = {
 }
 
 /**
- * Параметры разрешения итоговых размеров shape при текущем text layout.
+ * Parameters for resolving final shape dimensions with the current text layout.
  */
 type ResolveShapeTextLayoutResolutionParams = {
   text: ShapeLayoutInput['text']
@@ -198,13 +198,13 @@ type ResolveShapeTextLayoutResolutionParams = {
 }
 
 /**
- * Применяет layout для композиции shape + text,
- * сохраняя ручные базовые размеры отдельно от фактического auto-fit размера
- * и пересчитывая derived inset формы на каждом шаге layout.
- * При preserveAspectRatio=true подбирает итоговый размер с сохранением заданного
- * соотношения сторон. При shapeTextAutoExpand=true не допускает лишний перенос строк,
- * а при выключенном режиме сохраняет пропорции, но допускает перенос по общему
- * shape-layout контракту.
+ * Applies layout to a shape + text composition,
+ * keeping manual base dimensions separate from the actual auto-fit size
+ * and recalculating the shape's derived inset at each layout step.
+ * With preserveAspectRatio=true, selects final dimensions that preserve the specified
+ * aspect ratio. With shapeTextAutoExpand=true, prevents unnecessary line wrapping;
+ * when disabled, preserves proportions but allows wrapping under the shared
+ * shape-layout contract.
  */
 function resolveShapeTextLayoutState({
   text,
@@ -241,8 +241,8 @@ function resolveShapeTextLayoutState({
 }
 
 /**
- * Возвращает итоговый layout текста внутри shape c учетом авто-fit логики commit-path.
- * Width/height могут быть расширены, если этого требует базовый текстовый контракт.
+ * Returns the final text layout within the shape, accounting for the commit path's auto-fit logic.
+ * Width/height may be expanded if the basic text contract requires it.
  */
 export const resolveShapeTextLayout = ({
   text,
@@ -302,8 +302,8 @@ export const resolveShapeTextLayout = ({
 }
 
 /**
- * Возвращает preview-layout текста внутри shape для already-chosen width.
- * В отличие от commit-path, ширина не расширяется и может меняться только applied padding и высота.
+ * Returns the text preview layout inside a shape for an already chosen width.
+ * Unlike the commit path, it never expands width; only applied padding and height may change.
  */
 export const resolveShapeTextFixedWidthLayout = ({
   text,
@@ -396,7 +396,7 @@ export const resolveShapeTextFixedWidthLayout = ({
 }
 
 /**
- * Применяет уже рассчитанный shape/text layout к Fabric group, shape и text.
+ * Applies the already calculated shape/text layout to the Fabric group, shape, and text.
  */
 function applyResolvedShapeTextLayout({
   group,
@@ -488,8 +488,8 @@ function applyResolvedShapeTextLayout({
 }
 
 /**
- * Применяет итоговый layout shape + text.
- * Использует общий auto-fit commit-контракт и при необходимости расширяет размер shape по тексту.
+ * Applies the final shape + text layout.
+ * Uses the shared auto-fit commit contract and expands the shape to fit text when necessary.
  */
 export const applyShapeTextLayout = ({
   group,
@@ -538,8 +538,8 @@ export const applyShapeTextLayout = ({
 }
 
 /**
- * Применяет итоговый layout shape + text в fixed-width режиме.
- * Переданная ширина считается уже выбранной текущим контрактом объекта и не расширяется.
+ * Applies the final shape + text layout in fixed-width mode.
+ * The supplied width is considered already chosen by the object's current contract and is not expanded.
  */
 export const applyFixedWidthShapeTextLayout = ({
   group,
@@ -580,7 +580,7 @@ export const applyFixedWidthShapeTextLayout = ({
 }
 
 /**
- * Разрешает layout текста в режиме сохранения соотношения сторон shape.
+ * Resolves text layout while preserving the shape's aspect ratio.
  */
 function resolveShapeTextLayoutResolutionForAspectRatio({
   text,
@@ -784,10 +784,10 @@ function resolveShapeTextLayoutResolutionForAspectRatio({
 }
 
 /**
- * Возвращает целевую ширину shape для режима shapeTextAutoExpand,
- * измеряя текст на максимально допустимой ширине монтажной области,
- * даже если effective padding зависит от candidate width,
- * и не позволяя сужаться ниже ручной базовой ширины.
+ * Returns the target shape width for shapeTextAutoExpand mode,
+ * measuring text at the maximum width allowed by the artboard,
+ * even when effective padding depends on the candidate width,
+ * and preventing shrinking below the manual base width.
  */
 export const resolveShapeTextAutoExpandWidthForText = ({
   text,
@@ -868,7 +868,7 @@ export const resolveShapeTextAutoExpandWidthForText = ({
 }
 
 /**
- * Возвращает минимальную ширину shape, при которой в текстовом фрейме помещается один символ.
+ * Returns the minimum shape width at which a single character fits inside the text frame.
  */
 export const resolveMinimumShapeWidthForText = ({
   text,
@@ -916,8 +916,8 @@ export const resolveMinimumShapeWidthForText = ({
 }
 
 /**
- * Вычисляет текстовый фрейм, режим переноса и вертикальную позицию текста
- * для уже примененного padding.
+ * Calculates the text frame, wrapping mode, and vertical text position
+ * for the padding already applied.
  */
 export const resolveShapeTextFrameLayout = ({
   text,
@@ -970,7 +970,7 @@ export const resolveShapeTextFrameLayout = ({
 }
 
 /**
- * Возвращает true, если текст заполняет всю доступную высоту фрейма.
+ * Returns true if the text fills the frame's entire available height.
  */
 export const isShapeTextFrameFilled = ({
   text,
@@ -1010,8 +1010,8 @@ export const isShapeTextFrameFilled = ({
 }
 
 /**
- * Возвращает минимальную высоту shape, чтобы текст помещался в текстовый фрейм.
- * Для пустого текста высота не раздувается и остается равной переданному safe-height.
+ * Returns the minimum shape height required to fit the text inside the text frame.
+ * For empty text, the height does not expand and remains equal to the supplied safe height.
  */
 export const resolveRequiredShapeHeightForText = ({
   text,
@@ -1071,7 +1071,7 @@ export const resolveRequiredShapeHeightForText = ({
 }
 
 /**
- * Возвращает true, если textbox содержит видимый текстовый контент.
+ * Returns true if the textbox contains visible text content.
  */
 function hasShapeTextContent({
   text
@@ -1084,7 +1084,7 @@ function hasShapeTextContent({
 }
 
 /**
- * Возвращает padding для текущей ширины, учитывая optional resolver.
+ * Returns padding for the current width, accounting for the optional resolver.
  */
 function resolveCurrentPaddingForWidth({
   width,
@@ -1109,7 +1109,7 @@ function resolveCurrentPaddingForWidth({
 }
 
 /**
- * Возвращает padding для текущего размера, учитывая optional resolver.
+ * Returns padding for the current dimensions, accounting for the optional resolver.
  */
 function resolveCurrentPaddingForSize({
   width,
@@ -1137,7 +1137,7 @@ function resolveCurrentPaddingForSize({
 }
 
 /**
- * Возвращает внутренний shape text inset для текущего размера.
+ * Returns the shape's internal text inset for the current dimensions.
  */
 function resolveCurrentInternalShapeTextInset({
   width,
@@ -1165,7 +1165,7 @@ function resolveCurrentInternalShapeTextInset({
 }
 
 /**
- * Итеративно разрешает итоговые размеры shape и padding для текущего текста.
+ * Iteratively resolves the final shape dimensions and padding for the current text.
  */
 function resolveShapeTextLayoutResolution({
   text,
@@ -1251,7 +1251,7 @@ function resolveShapeTextLayoutResolution({
 }
 
 /**
- * Находит верхнюю границу ширины, при которой shape layout становится валидным.
+ * Finds an upper width bound at which the shape layout becomes valid.
  */
 function resolveValidShapeWidthUpperBound({
   minimumWidth,
@@ -1278,7 +1278,7 @@ function resolveValidShapeWidthUpperBound({
 }
 
 /**
- * Ищет минимальную валидную ширину shape внутри найденного диапазона.
+ * Searches for the minimum valid shape width within the range found.
  */
 function resolveMinimumValidShapeWidth({
   minimumWidth,
@@ -1315,7 +1315,7 @@ function resolveMinimumValidShapeWidth({
 }
 
 /**
- * Создаёт text frame в локальных координатах shape-группы.
+ * Creates a text frame in the shape group's local coordinates.
  */
 function createTextFrame({
   width,

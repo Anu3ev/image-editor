@@ -7,7 +7,7 @@ import {
 import { stabilizeShapeScaleMultipliers } from '../../../../src/editor/shape-manager/scaling/shape-scale-stabilization'
 import { createRectangularScaleProjectionFixture } from '../../../test-utils/snapping/rectangular-scale-gesture-projection'
 
-/** Параметры тестовой проекции с минимальной обязательной геометрией. */
+/** Test projection parameters with the minimum required geometry. */
 type StabilizationProjectionOptions = Readonly<{
   controlKey?: RectangularScaleControlKey
   angle?: number
@@ -15,7 +15,7 @@ type StabilizationProjectionOptions = Readonly<{
   height?: number
 }>
 
-/** Сценарий скейлинга за боковую ручку с округлением только активной локальной оси. */
+/** Side-handle scaling scenario that rounds only the active local axis. */
 type SideModeCase = Readonly<{
   mode: 'horizontal' | 'vertical'
   controlKey: 'mr' | 'mb'
@@ -23,7 +23,7 @@ type SideModeCase = Readonly<{
   expected: RectangularScaleMultipliers
 }>
 
-/** Горизонтальный и вертикальный скейлинг с намеренно изменённой неактивной осью. */
+/** Horizontal and vertical scaling with an intentionally changed inactive axis. */
 const SIDE_MODE_CASES: readonly SideModeCase[] = Object.freeze([
   Object.freeze({
     mode: 'horizontal',
@@ -39,7 +39,7 @@ const SIDE_MODE_CASES: readonly SideModeCase[] = Object.freeze([
   })
 ])
 
-/** Создаёт валидную проекцию жеста на общей тестовой геометрии Shape. */
+/** Creates a valid gesture projection using shared Shape test geometry. */
 function createProjection({
   controlKey = 'br',
   angle = 0,

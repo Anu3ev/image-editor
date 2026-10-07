@@ -11,14 +11,14 @@ const TEXT_FRAME_FILL_EPSILON = 0.5
 const MAX_MIN_FRAME_WIDTH_SEARCH_ITERATIONS = 12
 
 /**
- * Минимальный контракт текста для расчёта фрейма внутри shape.
+ * Minimal text contract for calculating the frame inside a shape.
  */
 type ShapeLayoutText = {
   text?: string | null
 }
 
 /**
- * Аргументы измерения высоты textbox при заданной ширине фрейма.
+ * Arguments for measuring textbox height at a given frame width.
  */
 type TextboxFrameMeasureParams<TText extends ShapeLayoutText> = {
   text: TText
@@ -26,7 +26,7 @@ type TextboxFrameMeasureParams<TText extends ShapeLayoutText> = {
 }
 
 /**
- * Функция измерения высоты textbox внутри текстового фрейма.
+ * Function for measuring textbox height inside the text frame.
  */
 type MeasureTextboxHeightForFrame<TText extends ShapeLayoutText> = ({
   text,
@@ -34,21 +34,21 @@ type MeasureTextboxHeightForFrame<TText extends ShapeLayoutText> = ({
 }: TextboxFrameMeasureParams<TText>) => number
 
 /**
- * Аргументы расчета минимальной ширины текстового фрейма.
+ * Arguments for calculating the minimum text-frame width.
  */
 type MinimumTextFrameWidthParams<TText extends ShapeLayoutText> = {
   text: TText
 }
 
 /**
- * Функция расчета минимальной ширины текстового фрейма.
+ * Function for calculating the minimum text-frame width.
  */
 type ResolveMinimumTextFrameWidth<TText extends ShapeLayoutText> = ({
   text
 }: MinimumTextFrameWidthParams<TText>) => number
 
 /**
- * Аргументы ограничения пары padding по суммарному доступному пространству.
+ * Arguments for constraining a padding pair to the total available space.
  */
 type ClampPaddingPairParams = {
   start: number
@@ -59,7 +59,7 @@ type ClampPaddingPairParams = {
 }
 
 /**
- * Пара padding-значений для противоположных сторон.
+ * Pair of padding values for opposite sides.
  */
 type PaddingPair = {
   start: number
@@ -67,7 +67,7 @@ type PaddingPair = {
 }
 
 /**
- * Аргументы расчета итоговой пары padding с учетом internal inset.
+ * Arguments for calculating the final padding pair, accounting for the internal inset.
  */
 type ResolveAppliedPaddingPairParams = {
   start: number
@@ -80,7 +80,7 @@ type ResolveAppliedPaddingPairParams = {
 }
 
 /**
- * Итог пары padding: effective значения и отдельно пользовательская часть.
+ * Padding-pair result: effective values and the separate user-defined component.
  */
 type AppliedPaddingPair = {
   appliedPaddingStart: number
@@ -90,7 +90,7 @@ type AppliedPaddingPair = {
 }
 
 /**
- * Аргументы подбора минимальной ширины фрейма под заданную высоту.
+ * Arguments for finding the minimum frame width for a given height.
  */
 type ResolveMinimumFrameWidthToFitHeightParams<TText extends ShapeLayoutText> = {
   text: TText
@@ -101,7 +101,7 @@ type ResolveMinimumFrameWidthToFitHeightParams<TText extends ShapeLayoutText> = 
 }
 
 /**
- * Итог применения горизонтального padding и минимальной нужной ширины шейпа.
+ * Result of applying horizontal padding and the minimum required shape width.
  */
 type ResolvedHorizontalPadding = {
   appliedPadding: Pick<ShapePadding, 'left' | 'right'>
@@ -110,7 +110,7 @@ type ResolvedHorizontalPadding = {
 }
 
 /**
- * Аргументы применения горизонтального padding.
+ * Arguments for applying horizontal padding.
  */
 type ResolveAppliedHorizontalPaddingParams<TText extends ShapeLayoutText> = {
   text: TText
@@ -125,7 +125,7 @@ type ResolveAppliedHorizontalPaddingParams<TText extends ShapeLayoutText> = {
 }
 
 /**
- * Итог применения вертикального padding.
+ * Result of applying vertical padding.
  */
 type ResolvedVerticalPadding = {
   appliedPadding: Pick<ShapePadding, 'top' | 'bottom'>
@@ -133,7 +133,7 @@ type ResolvedVerticalPadding = {
 }
 
 /**
- * Аргументы применения вертикального padding.
+ * Arguments for applying vertical padding.
  */
 type ResolveAppliedVerticalPaddingParams = {
   padding: ShapePadding
@@ -144,7 +144,7 @@ type ResolveAppliedVerticalPaddingParams = {
 }
 
 /**
- * Полный набор аргументов расчета applied padding для shape.
+ * Complete arguments for calculating the shape's applied padding.
  */
 type ResolveAppliedShapePaddingParams<TText extends ShapeLayoutText> = {
   text: TText
@@ -159,7 +159,7 @@ type ResolveAppliedShapePaddingParams<TText extends ShapeLayoutText> = {
 }
 
 /**
- * Итог расчета applied padding и минимальных размеров shape для выбранного layout.
+ * Calculated applied padding and minimum shape dimensions for the selected layout.
  */
 type ResolvedShapePadding = {
   appliedPadding: ShapePadding
@@ -169,7 +169,7 @@ type ResolvedShapePadding = {
 }
 
 /**
- * Возвращает доступную ширину текстового фрейма для переданной ширины шейпа.
+ * Returns the available text-frame width for the given shape width.
  */
 export function resolveTextFrameWidth({
   width,
@@ -185,7 +185,7 @@ export function resolveTextFrameWidth({
 }
 
 /**
- * Проверяет, содержит ли textbox видимый текст.
+ * Checks whether the textbox contains visible text.
  */
 function hasShapeTextContent({
   text
@@ -198,8 +198,8 @@ function hasShapeTextContent({
 }
 
 /**
- * Ограничивает пару padding по суммарному доступному пространству.
- * Если изменилась только одна сторона, старается сохранить вторую без лишних изменений.
+ * Constrains a padding pair to the total available space.
+ * If only one side changed, tries to preserve the other without unnecessary changes.
  */
 function clampPaddingPair({
   start,
@@ -254,8 +254,8 @@ function clampPaddingPair({
 }
 
 /**
- * Возвращает итоговый padding пары сторон и отдельно пользовательскую часть без internal inset.
- * Internal inset не ужимается: при нехватке места съедается только пользовательский padding.
+ * Returns the final padding for a pair of sides and the separate user-defined component without the internal inset.
+ * The internal inset is never reduced: insufficient space only reduces user-defined padding.
  */
 function resolveAppliedPaddingPair({
   start,
@@ -291,8 +291,8 @@ function resolveAppliedPaddingPair({
 }
 
 /**
- * Возвращает минимальную ширину текстового фрейма, при которой текст ещё помещается
- * в заданную высоту.
+ * Returns the minimum text-frame width at which the text still fits
+ * within the given height.
  */
 function resolveMinimumFrameWidthToFitHeight<TText extends ShapeLayoutText>({
   text,
@@ -345,7 +345,7 @@ function resolveMinimumFrameWidthToFitHeight<TText extends ShapeLayoutText>({
 }
 
 /**
- * Подбирает горизонтальные padding так, чтобы они не требовали расширять шейп сверх выбранной политики layout.
+ * Chooses horizontal padding that does not require expanding the shape beyond the selected layout policy.
  */
 function resolveAppliedHorizontalPadding<TText extends ShapeLayoutText>({
   text,
@@ -410,7 +410,7 @@ function resolveAppliedHorizontalPadding<TText extends ShapeLayoutText>({
 }
 
 /**
- * Подбирает вертикальные padding внутри уже вычисленной высоты shape.
+ * Chooses vertical padding within the already calculated shape height.
  */
 function resolveAppliedVerticalPadding({
   padding,
@@ -446,8 +446,8 @@ function resolveAppliedVerticalPadding({
 }
 
 /**
- * Применяет padding внутри переданных размеров шейпа и возвращает итоговые effective/user-значения
- * вместе с минимальными required width/height для non-removable internal inset.
+ * Applies padding within the given shape dimensions and returns the final effective/user values
+ * together with the minimum required width/height for the non-removable internal inset.
  */
 export function resolveAppliedShapePadding<TText extends ShapeLayoutText>({
   text,

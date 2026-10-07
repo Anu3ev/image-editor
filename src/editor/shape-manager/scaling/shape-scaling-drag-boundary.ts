@@ -19,7 +19,7 @@ import {
   resolveShapeScaleDirection
 } from './shape-scaling-transform'
 
-/** Возвращает текущий масштаб жеста только по изменяемым осям. */
+/** Returns the current gesture's scale only along the axes being changed. */
 export function resolveCurrentShapeDragScales({
   group,
   state
@@ -36,7 +36,7 @@ export function resolveCurrentShapeDragScales({
   }
 }
 
-/** Проверяет, дошёл ли указатель до исходной точки активного преобразования по выбранной оси. */
+/** Checks whether the pointer reached the active transform's origin along the selected axis. */
 export function hasShapePointerReachedScaleOrigin({
   axis,
   canvas,
@@ -72,7 +72,7 @@ export function hasShapePointerReachedScaleOrigin({
   return (coordinate * sign) <= 0
 }
 
-/** Проверяет, нужно ли удержать ширину шейпа на минимальной границе. */
+/** Checks whether the shape's width must be held at its minimum boundary. */
 export function shouldClampShapeWidthToMinimum({
   canvas,
   event,
@@ -98,7 +98,7 @@ export function shouldClampShapeWidthToMinimum({
   return state.lastAllowedScaleX > minimumScaleX + SHAPE_SCALING_SCALE_EPSILON
 }
 
-/** Проверяет, нужно ли удержать высоту шейпа на минимальной границе. */
+/** Checks whether the shape's height must be held at its minimum boundary. */
 export function shouldClampShapeHeightToMinimum({
   canvas,
   event,
@@ -124,7 +124,7 @@ export function shouldClampShapeHeightToMinimum({
   return state.lastAllowedScaleY > minimumScaleY + SHAPE_SCALING_SCALE_EPSILON
 }
 
-/** Сохраняет ещё неизвестные направления осей из признаков преобразования Fabric. */
+/** Captures previously unknown axis directions using Fabric-transform attributes. */
 function storeTransformScaleDirections({
   canScaleHeight,
   canScaleWidth,
@@ -146,7 +146,7 @@ function storeTransformScaleDirections({
   }
 }
 
-/** Дополняет неизвестные направления осей по локальной точке указателя. */
+/** Fills in unknown axis directions from the pointer's local position. */
 function storePointerScaleDirections({
   canScaleHeight,
   canScaleWidth,
@@ -168,7 +168,7 @@ function storePointerScaleDirections({
   }
 }
 
-/** Один раз за жест сохраняет направление уменьшения по каждой изменяемой оси. */
+/** Captures the shrinking direction for each changed axis once per gesture. */
 export function storeShapeScaleDirectionsForCurrentTransform({
   canvas,
   event,

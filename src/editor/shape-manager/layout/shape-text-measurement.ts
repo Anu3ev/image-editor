@@ -7,18 +7,18 @@ import {
 import { MIN_SHAPE_TEXT_FRAME_SIZE } from './shape-padding'
 
 /**
- * Минимальная ширина/высота frame для безопасного измерения Fabric textbox.
+ * Minimum frame width/height for safely measuring a Fabric textbox.
  */
 const MIN_TEXT_FRAME_SIZE = MIN_SHAPE_TEXT_FRAME_SIZE
 
 /**
- * Допуск для проверки, что измеренный текст заполняет frame.
+ * Tolerance for checking whether measured text fills the frame.
  */
 const TEXT_FRAME_FILL_EPSILON = 0.5
 const TEXT_FRAME_WIDTH_CACHE_PRECISION = 1_000_000
 
 /**
- * Снимок mutable textbox-свойств, которые временно меняются во время измерения.
+ * Snapshot of mutable textbox properties temporarily changed during measurement.
  */
 type TextboxMeasurementState = {
   autoExpand?: boolean
@@ -29,7 +29,7 @@ type TextboxMeasurementState = {
 }
 
 /**
- * Результат измерения textbox внутри конкретной ширины text frame.
+ * Result of measuring a textbox at a specific text-frame width.
  */
 type ShapeTextFrameMeasurement = {
   measuredHeight: number
@@ -39,8 +39,8 @@ type ShapeTextFrameMeasurement = {
 }
 
 /**
- * Измеряет текущее состояние textbox для переданной ширины текстового фрейма
- * в явно заданном режиме splitByGrapheme.
+ * Measures the current textbox state for the given text-frame width
+ * in an explicitly specified splitByGrapheme mode.
  */
 export function measureShapeTextFrameLayout({
   text,
@@ -101,7 +101,7 @@ export function measureShapeTextFrameLayout({
 }
 
 /**
- * Измеряет ширину самой длинной строки и факт автопереноса для переданной ширины текстового фрейма.
+ * Measures the longest line width and whether automatic wrapping occurs at the given text-frame width.
  */
 export function measureTextboxLayoutForFrame({
   text,
@@ -139,7 +139,7 @@ export function measureTextboxLayoutForFrame({
 }
 
 /**
- * Измеряет высоту текста в рамках переданной ширины текстового фрейма.
+ * Measures text height within the given text-frame width.
  */
 export function measureTextboxHeightForFrame({
   text,
@@ -172,7 +172,7 @@ export function measureTextboxHeightForFrame({
 }
 
 /**
- * Возвращает минимальную ширину текстового фрейма, достаточную для отображения одного символа.
+ * Returns the minimum text-frame width sufficient to display a single character.
  */
 export function resolveMinimumTextFrameWidth({
   text,
@@ -202,7 +202,7 @@ export function resolveMinimumTextFrameWidth({
 }
 
 /**
- * Вычисляет верхнюю координату текста по вертикальному выравниванию.
+ * Calculates the text's top coordinate from its vertical alignment.
  */
 export function resolveVerticalTop({
   alignV,
@@ -224,7 +224,7 @@ export function resolveVerticalTop({
 }
 
 /**
- * Определяет, нужен ли fallback на splitByGrapheme для длинных слов без пробелов.
+ * Determines whether long words without spaces require a splitByGrapheme fallback.
  */
 export function resolveSplitByGraphemeForFrame({
   text,
@@ -274,7 +274,7 @@ export function resolveSplitByGraphemeForFrame({
 }
 
 /**
- * Измеряет максимальную ширину строки textbox при заданной ширине фрейма и режиме переноса.
+ * Measures the maximum textbox line width for the given frame width and wrapping mode.
  */
 function measureTextboxLongestLineWidthForFrame({
   text,
@@ -318,7 +318,7 @@ function measureTextboxLongestLineWidthForFrame({
 }
 
 /**
- * Возвращает визуальную высоту textbox.
+ * Returns the textbox's visual height.
  */
 function getTextboxHeight({ text }: { text: ShapeLayoutInput['text'] }): number {
   const { height } = text
@@ -338,7 +338,7 @@ function getTextboxHeight({ text }: { text: ShapeLayoutInput['text'] }): number 
 }
 
 /**
- * Возвращает ширину самой длинной отрисованной строки textbox.
+ * Returns the width of the textbox's longest rendered line.
  */
 function getTextboxLongestLineWidth({
   text
@@ -364,7 +364,7 @@ function getTextboxLongestLineWidth({
 }
 
 /**
- * Возвращает количество явных строк в исходном тексте до автопереноса.
+ * Returns the number of explicit lines in the source text before automatic wrapping.
  */
 function getExplicitTextboxLineCount({
   text
@@ -376,7 +376,7 @@ function getExplicitTextboxLineCount({
 }
 
 /**
- * Возвращает количество реально отрисованных строк textbox.
+ * Returns the number of actually rendered textbox lines.
  */
 function getRenderedTextboxLineCount({
   text
@@ -395,7 +395,7 @@ function getRenderedTextboxLineCount({
 }
 
 /**
- * Измеряет ширину самой длинной уже отрисованной строки textbox.
+ * Measures the width of the longest line already rendered in the textbox.
  */
 function measureLongestRenderedLineWidth({
   text,
@@ -418,7 +418,7 @@ function measureLongestRenderedLineWidth({
 }
 
 /**
- * Возвращает текущее состояние textbox для временных измерений.
+ * Returns the current textbox state for temporary measurements.
  */
 function captureTextboxMeasurementState({
   text
@@ -443,7 +443,7 @@ function captureTextboxMeasurementState({
 }
 
 /**
- * Восстанавливает состояние textbox после временных измерений.
+ * Restores the textbox state after temporary measurements.
  */
 function restoreTextboxMeasurementState({
   text,
@@ -489,7 +489,7 @@ function restoreTextboxMeasurementState({
 }
 
 /**
- * Возвращает dynamicMinWidth textbox для проверки неразрывных слов.
+ * Returns the textbox's dynamicMinWidth for checking unbreakable words.
  */
 function getTextboxDynamicMinWidth({
   text
@@ -506,7 +506,7 @@ function getTextboxDynamicMinWidth({
 }
 
 /**
- * Возвращает стабильный cache key для ширины измеряемого text frame.
+ * Returns a stable cache key for the measured text-frame width.
  */
 function resolveMeasurementFrameWidthCacheKey({
   frameWidth
@@ -521,7 +521,7 @@ function resolveMeasurementFrameWidthCacheKey({
 }
 
 /**
- * Возвращает cache key измерения с учётом ширины и режима splitByGrapheme.
+ * Returns a measurement cache key that includes width and splitByGrapheme mode.
  */
 function resolveMeasurementCacheKey({
   frameWidth,

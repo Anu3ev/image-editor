@@ -28,7 +28,7 @@ type DecorationCharBounds = Array<{
 }>
 
 /**
- * Создаёт BackgroundTextbox с переопределённым чтением стилей для декораций.
+ * Creates a BackgroundTextbox with overridden style reading for decorations.
  */
 export const createDecorationTextbox = ({
   stroke = '#ff0000',
@@ -68,7 +68,7 @@ export const createDecorationTextbox = ({
 }
 
 /**
- * Строит char bounds в виде равномерной линейки, достаточной для unit-тестов декораций.
+ * Builds character bounds as an evenly spaced sequence, sufficient for decoration unit tests.
  */
 const createDecorationCharBounds = (charsLength: number): DecorationCharBounds => {
   const charBounds: DecorationCharBounds = []
@@ -87,8 +87,8 @@ const createDecorationCharBounds = (charsLength: number): DecorationCharBounds =
 }
 
 /**
- * Заполняет internal Textbox-поля минимальным layout-состоянием,
- * которое требуется decoration renderer.
+ * Populates internal Textbox fields with the minimal layout state
+ * required by the decoration renderer.
  */
 const prepareDecorationTextboxLayout = ({
   textbox,
@@ -119,7 +119,7 @@ const prepareDecorationTextboxLayout = ({
 }
 
 /**
- * Подменяет style-reader так, чтобы декорации читали stroke/fill из тестовых данных.
+ * Replaces the style reader so decorations read stroke/fill from test data.
  */
 const setDecorationStyleReader = ({
   textbox,
@@ -150,8 +150,8 @@ const setDecorationStyleReader = ({
 }
 
 /**
- * Возвращает mock canvas context и собирает фактические fillStyle,
- * которыми отрисовывались декорации.
+ * Returns a mock canvas context and collects the actual fillStyle values
+ * used to render decorations.
  */
 const createTrackedMockContext = () => {
   const ctx = createMockContext()
@@ -168,7 +168,7 @@ const createTrackedMockContext = () => {
 }
 
 /**
- * Готовит BackgroundTextbox и контекст для проверки цветов декораций.
+ * Prepares a BackgroundTextbox and context for testing decoration colors.
  */
 export const createDecorationRenderSetup = ({
   text,

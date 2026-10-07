@@ -1,115 +1,115 @@
 /**
- * Коды ошибок, которые может эмитить редактор
+ * Error codes that the editor can emit
  */
 export const errorCodes = {
   IMAGE_MANAGER: {
     /**
-     * Некорректный Content-Type изображения
+     * Invalid image Content-Type
      */
     INVALID_CONTENT_TYPE: 'INVALID_CONTENT_TYPE',
     /**
-     * Некорректный тип источника изображения
+     * Invalid image source type
      */
     INVALID_SOURCE_TYPE: 'INVALID_SOURCE_TYPE',
     /**
-     * Ошибка при загрузке изображения
+     * Error loading an image
      */
     IMPORT_FAILED: 'IMPORT_FAILED',
     /**
-     * Предупреждение, что изображение слишком большое, и оно будет уменьшено
+     * Warning that the image is too large and will be scaled down
      */
     IMAGE_RESIZE_WARNING: 'IMAGE_RESIZE_WARNING',
     /**
-     * Не выбран объект для экспорта
+     * No object selected for export
      */
     NO_OBJECT_SELECTED: 'NO_OBJECT_SELECTED',
     /**
-     * Ошибка при экспорте изображения
+     * Error exporting an image
      */
     IMAGE_EXPORT_FAILED: 'IMAGE_EXPORT_FAILED',
 
     /**
-     * Ошибка при загрузке начального состояния редактора
+     * Error loading the initial editor state
      */
     INITIAL_STATE_LOAD_FAILED: 'INITIAL_STATE_LOAD_FAILED'
   },
 
   /**
-   * Коды ошибок и предупреждений для ClipboardManager.
+   * Error and warning codes for ClipboardManager.
    */
   CLIPBOARD_MANAGER: {
     /**
-     * Буфер обмена не поддерживается в браузере или отсутствует HTTPS-соединение.
+     * The browser does not support the clipboard, or the connection is not HTTPS.
      */
     CLIPBOARD_NOT_SUPPORTED: 'CLIPBOARD_NOT_SUPPORTED',
 
     /**
-     * Ошибка записи текстового объекта в буфер обмена.
+     * Error writing a text object to the clipboard.
      */
     CLIPBOARD_WRITE_TEXT_FAILED: 'CLIPBOARD_WRITE_TEXT_FAILED',
 
     /**
-     * Ошибка записи изображения в буфер обмена.
+     * Error writing an image to the clipboard.
      */
     CLIPBOARD_WRITE_IMAGE_FAILED: 'CLIPBOARD_WRITE_IMAGE_FAILED',
 
     /**
-     * Ошибка клонирования объекта.
+     * Error cloning an object.
      */
     CLONE_FAILED: 'CLONE_FAILED',
 
     /**
-     * Ошибка копирования объекта.
+     * Error copying an object.
      */
     COPY_FAILED: 'COPY_FAILED',
 
     /**
-     * Ошибка вырезания объекта.
+     * Error cutting an object.
      */
     CUT_FAILED: 'CUT_FAILED',
 
     /**
-     * Ошибка вставки изображения из буфера обмена.
+     * Error pasting an image from the clipboard.
      */
     PASTE_IMAGE_FAILED: 'PASTE_IMAGE_FAILED',
 
     /**
-     * Ошибка вставки изображения из буфера обмена, которая была отложена и затем отклонена (например, из-за того, что пользователь отклонил запрос на доступ к буферу обмена).
+     * Error pasting an image from the clipboard after the operation was deferred and then rejected (for example, because the user denied clipboard access).
      */
     EXTERNAL_PASTE_DEFERRED_REJECTED: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
 
     /**
-     * Ошибка вставки HTML-изображения из буфера обмена.
+     * Error pasting an HTML image from the clipboard.
      */
     PASTE_HTML_IMAGE_FAILED: 'PASTE_HTML_IMAGE_FAILED',
 
     /**
-     * Ошибка вставки объекта из буфера обмена.
+     * Error pasting an object from the clipboard.
      */
     PASTE_FAILED: 'PASTE_FAILED'
   },
 
   /**
-   * Коды ошибок и предупреждений для CanvasManager.
+   * Error and warning codes for CanvasManager.
    */
   CANVAS_MANAGER: {
     /**
-     * Ошибка при получении активного объекта.
+     * Error getting the active object.
      */
     NO_ACTIVE_OBJECT: 'NO_ACTIVE_OBJECT'
   },
 
   /**
-   * Коды ошибок для CropManager.
+   * Error codes for CropManager.
    */
   CROP_MANAGER: {
     /**
-     * Ошибка старта кропа изображения без raster image target.
+     * Error starting an image crop without a raster image target.
      */
     INVALID_IMAGE_TARGET: 'CROP_INVALID_IMAGE_TARGET',
 
     /**
-     * Ошибка старта кропа заблокированного изображения.
+     * Error starting a crop on a locked image.
      */
     LOCKED_IMAGE_TARGET: 'CROP_LOCKED_IMAGE_TARGET'
   },
@@ -120,33 +120,33 @@ export const errorCodes = {
   },
 
   /**
-   * Коды ошибок для SelectionManager.
+   * Error codes for SelectionManager.
    */
   SELECTION_MANAGER: {
     /**
-     * Ошибка завершающей очистки или события жизненного цикла после фиксации общей геометрии.
+     * Error in final cleanup or a lifecycle event after committing the selection's geometry.
      */
     SCALE_COMMIT_FINALIZATION_FAILED: 'SELECTION_SCALE_COMMIT_FINALIZATION_FAILED'
   },
 
   /**
-   * Коды ошибок и предупреждений для BackgroundManager.
+   * Error and warning codes for BackgroundManager.
    */
   BACKGROUND_MANAGER: {
     /**
-     * Ошибка создания фона.
+     * Error creating a background.
      */
     BACKGROUND_CREATION_FAILED: 'BACKGROUND_CREATION_FAILED',
     /**
-     * Ошибка удаления фона.
+     * Error removing a background.
      */
     BACKGROUND_REMOVAL_FAILED: 'BACKGROUND_REMOVAL_FAILED',
     /**
-     * Предупреждение об отсутствии фона для удаления.
+     * Warning that there is no background to remove.
      */
     NO_BACKGROUND_TO_REMOVE: 'NO_BACKGROUND_TO_REMOVE',
     /**
-     * Ошибка парсинга градиента.
+     * Error parsing a gradient.
      */
     INVALID_GRADIENT_FORMAT: 'INVALID_GRADIENT_FORMAT'
   },

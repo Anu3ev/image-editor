@@ -8,7 +8,7 @@ import {
 } from '../../../fixtures/data/active-selection-scaling.data'
 import type { SnappingGuideInfo } from '../../../types'
 
-/** Поля точных границ общего выделения. */
+/** Exact active-selection bounds fields. */
 const ACTIVE_SELECTION_BOUNDS_FIELDS = {
   bottom: 'boundsBottom',
   left: 'boundsLeft',
@@ -16,10 +16,10 @@ const ACTIVE_SELECTION_BOUNDS_FIELDS = {
   top: 'boundsTop'
 } as const satisfies Record<ActiveSelectionScaleEdge, string>
 
-/** Ручки, для которых отдельно проверяется вертикальная направляющая. */
+/** Handles for which the vertical guide is checked separately. */
 const TEXT_CONTROLS_WITH_VERTICAL_GUIDE = new Set(['ml', 'mr', 'tl', 'br'])
 
-/** Опорные объекты, которые убирают конкурирующую ось угловой ручки. */
+/** Reference objects removed to eliminate the corner handle's competing snapping axis. */
 const TEXT_SCALE_REFERENCE_IDS = {
   horizontal: ['active-selection-scale-top-reference', 'active-selection-scale-bottom-reference'],
   vertical: ['active-selection-scale-left-reference', 'active-selection-scale-right-reference']

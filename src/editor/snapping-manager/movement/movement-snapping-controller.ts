@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними преобразованиями результата. */
+/* eslint-disable no-use-before-define -- The public controller appears before internal result conversion helpers. */
 import {
   ActiveSelection,
   FabricImage,
@@ -30,38 +30,38 @@ import type {
 import { getObjectExactBounds } from '../../utils/geometry'
 import { isShapeGroup } from '../../shape-manager/domain/shape-reference'
 
-/** Верхнеуровневые объекты, уже переведённые на общую логику перемещения. */
+/** Top-level objects already migrated to the shared movement logic. */
 type SupportedMovementTarget = ActiveSelection | FabricImage | Group | Textbox
 
-/** Событие canvas для одного шага перемещения. */
+/** Canvas event for one movement step. */
 type ObjectMovementTransformEvent = BasicTransformEvent<TPointerEvent> & {
   target?: FabricObject | null
   e?: TPointerEvent | null
 }
 
-/** Событие остаётся на прежнем пути обработки перемещения. */
+/** The event remains on the legacy movement handling path. */
 type UnhandledObjectMovementStep = Readonly<{
   handled: false
 }>
 
-/** Событие обработано общим контроллером, включая шаг без направляющих. */
+/** The event was handled by the shared controller, including a step without guides. */
 type HandledObjectMovementStep = Readonly<{
   handled: true
   guides: readonly GuideLine[]
   spacingGuides: readonly SpacingGuide[]
 }>
 
-/** Результат маршрутизации одного шага перемещения. */
+/** Routing result for one movement step. */
 type ObjectMovementStepResult = UnhandledObjectMovementStep | HandledObjectMovementStep
 
-/** Неизменяемый результат для типов объектов, которые ещё не перенесены. */
+/** Immutable result for object types not yet migrated. */
 const UNHANDLED_OBJECT_MOVEMENT_STEP: UnhandledObjectMovementStep = Object.freeze({
   handled: false
 })
 
 /**
- * Управляет общей сессией прилипания при перемещении одиночного или составного объекта.
- * Остальные типы объектов продолжают использовать прежний путь обработки.
+ * Manages a shared snapping session when moving a single or composite object.
+ * Other object types continue to use the legacy handling path.
  */
 export class MovementSnappingController {
   private readonly _editor: ImageEditor
@@ -70,7 +70,7 @@ export class MovementSnappingController {
 
   private _activeTarget: SupportedMovementTarget | null = null
 
-  /** Создаёт контроллер перемещения для canvas текущего редактора. */
+  /** Creates a movement controller for the current editor canvas. */
   constructor({
     editor
   }: {
@@ -79,7 +79,7 @@ export class MovementSnappingController {
     this._editor = editor
   }
 
-  /** Начинает общую сессию только для уже перенесённого верхнеуровневого объекта. */
+  /** Starts a shared session only for a top-level object that has already been migrated. */
   startGesture({
     target
   }: {
@@ -105,7 +105,7 @@ export class MovementSnappingController {
     this._activeTarget = target
   }
 
-  /** Рассчитывает, один раз применяет и проверяет текущий шаг перемещения. */
+  /** Calculates, applies once, and verifies the current movement step. */
   handleObjectMoving({
     event
   }: {
@@ -132,13 +132,13 @@ export class MovementSnappingController {
     return createHandledStepResult({ verification })
   }
 
-  /** Идемпотентно очищает временное состояние перемещения. */
+  /** Idempotently clears temporary movement state. */
   finishGesture(): void {
     this._runtime.finishSession()
     this._activeTarget = null
   }
 
-  /** Завершает сессию, если удалён перемещаемый объект или дочерний объект общего выделения. */
+  /** Ends the session if the moving object or a child of the active selection is removed. */
   finishGestureForTarget({
     target
   }: {
@@ -154,7 +154,7 @@ export class MovementSnappingController {
     return true
   }
 
-  /** Разрешает обычное перемещение поддерживаемого верхнеуровневого объекта. */
+  /** Allows regular movement of a supported top-level object. */
   private _isSupportedTarget(
     target?: FabricObject | null
   ): target is SupportedMovementTarget {
@@ -167,7 +167,7 @@ export class MovementSnappingController {
     return target instanceof FabricImage || target instanceof Group || target instanceof Textbox
   }
 
-  /** Проверяет состав, родительские связи и безопасное состояние масштаба общего выделения. */
+  /** Checks the composition, parent relationships, and safe scale state of the active selection. */
   private _isSupportedActiveSelection({
     selection
   }: {
@@ -187,7 +187,7 @@ export class MovementSnappingController {
     })
   }
 
-  /** Фиксирует положение объекта после перемещения Fabric, но до применения прилипания. */
+  /** Captures the object's position after Fabric movement but before snapping is applied. */
   private _createRawIntent({
     target,
     event
@@ -213,7 +213,7 @@ export class MovementSnappingController {
     }
   }
 
-  /** Один раз применяет рассчитанную позицию, если она отличается от позиции Fabric. */
+  /** Applies the calculated position once if it differs from the Fabric position. */
   private _applyMovementPlan({
     target,
     plan
@@ -228,7 +228,7 @@ export class MovementSnappingController {
     target.setCoords()
   }
 
-  /** Читает фактическую геометрию после единственного применения плана. */
+  /** Reads the actual geometry after applying the plan exactly once. */
   private _readFinalGeometry({
     target
   }: {
@@ -245,7 +245,7 @@ export class MovementSnappingController {
     }
   }
 
-  /** Читает фактические координаты Fabric без подстановки значений по умолчанию. */
+  /** Reads actual Fabric coordinates without substituting defaults. */
   private _readTargetPosition({
     target
   }: {
@@ -262,7 +262,7 @@ export class MovementSnappingController {
   }
 }
 
-/** Выбирает браузерное событие как маркер шага или использует событие canvas. */
+/** Uses the browser event as the step marker, falling back to the canvas event. */
 function resolveMovementMarker({
   event
 }: {
@@ -274,7 +274,7 @@ function resolveMovementMarker({
   return event
 }
 
-/** Возвращает уже подтверждённый результат, не читая повторно изменённый объект. */
+/** Returns the already verified result without rereading the modified object. */
 function createDuplicateStepResult({
   duplicate
 }: {
@@ -289,7 +289,7 @@ function createDuplicateStepResult({
   })
 }
 
-/** Преобразует проверенный результат в формат отрисовки SnappingManager. */
+/** Converts the verified result to the SnappingManager rendering format. */
 function createHandledStepResult({
   verification
 }: {

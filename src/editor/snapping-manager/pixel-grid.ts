@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичные pixel-grid функции держим выше private helpers. */
+/* eslint-disable no-use-before-define -- Public pixel-grid functions are kept above private helpers. */
 import { FabricImage, FabricObject, Textbox, Transform } from 'fabric'
 
 import {
@@ -11,7 +11,7 @@ import { MOVE_SNAP_STEP } from './constants'
 
 export type { ScalingStepSnapGuard } from './scaling/scaling-snap-guard'
 
-/** Применение пиксельного шага с необязательной фиксацией опорной точки и направляющих. */
+/** Applies a pixel step with optional anchor and guide preservation. */
 export interface ScalingStepOptions {
   target: FabricObject
   transform?: Transform | null
@@ -19,7 +19,7 @@ export interface ScalingStepOptions {
   snapGuards?: ScalingStepSnapGuard[]
 }
 
-/** Исходный scale и измеряемые размеры одного шага округления. */
+/** Initial scale and measured dimensions for one rounding step. */
 export interface ScalingStepRounding extends ScalingAxisRoundingState {
   rawScaleX: number
   rawScaleY: number
@@ -29,21 +29,21 @@ export interface ScalingStepRounding extends ScalingAxisRoundingState {
   isUniform: boolean
 }
 
-/** Оси scale, которые реально меняются в текущем Fabric transform. */
+/** Scale axes actually changing in the current Fabric transform. */
 type ScalingAxisRoundingState = {
   shouldRoundScaleX: boolean
   shouldRoundScaleY: boolean
 }
 
-/** Оси movement-step, которые можно округлять к pixel-grid. */
+/** Movement step axes that can be rounded to the pixel grid. */
 type MovementStepRoundingOptions = {
   roundX?: boolean
   roundY?: boolean
 }
 
 /**
- * Возвращает true, если live-scaling объекта нужно округлять до целого пиксельного размера.
- * Для изображений и текста сохраняем их собственный runtime-контракт без дополнительной квантизации.
+ * Returns true if live object scaling should be rounded to integer pixel dimensions.
+ * Images and text retain their own runtime contract without additional quantization.
  */
 export function shouldApplyPixelScalingStep({ target }: { target: FabricObject }): boolean {
   const targetType = typeof target.type === 'string' ? target.type.toLowerCase() : ''
@@ -55,7 +55,7 @@ export function shouldApplyPixelScalingStep({ target }: { target: FabricObject }
 }
 
 /**
- * Применяет шаг перемещения, округляя координаты объекта к сетке MOVE_SNAP_STEP.
+ * Applies a movement step, rounding object coordinates to the MOVE_SNAP_STEP grid.
  */
 export function applyMovementStep({
   target,
@@ -91,7 +91,7 @@ export function applyMovementStep({
 }
 
 /**
- * Применяет рассчитанное округление координат к target.
+ * Applies the calculated coordinate rounding to the target.
  */
 function applyResolvedMovementStep({
   target,
@@ -125,7 +125,7 @@ function applyResolvedMovementStep({
 }
 
 /**
- * Возвращает эффективные размеры текстового объекта без масштаба.
+ * Returns the text object's effective dimensions without scaling.
  */
 function resolveTextboxDimensions({ target }: { target: Textbox }): { width: number; height: number } {
   const {
@@ -144,7 +144,7 @@ function resolveTextboxDimensions({ target }: { target: Textbox }): { width: num
   }
 }
 
-/** Возвращает размеры объекта без масштаба в пикселях canvas. */
+/** Returns unscaled object dimensions in canvas pixels. */
 function resolveEffectiveDimensions({ target }: { target: FabricObject }): { width: number; height: number } {
   if (target instanceof Textbox) return resolveTextboxDimensions({ target })
 
@@ -154,7 +154,7 @@ function resolveEffectiveDimensions({ target }: { target: FabricObject }): { wid
   return { width: width + strokeContribution, height: height + strokeContribution }
 }
 
-/** Округляет размер объекта в пикселях canvas с учётом удерживаемых направляющих. */
+/** Rounds object dimensions in canvas pixels, accounting for held guides. */
 export function applyScalingStep({
   target, transform, preservePlacement, snapGuards = []
 }: ScalingStepOptions): void {
@@ -168,7 +168,7 @@ export function applyScalingStep({
   applyScalingStepCandidate({ target, transform, preservePlacement, rounding, scale })
 }
 
-/** Собирает размер, оси округления и ближайший пиксельный scale без изменения объекта. */
+/** Collects dimensions, rounding axes, and the nearest pixel scale without changing the object. */
 export function captureScalingStepRounding({
   target, transform, dimensions = resolveEffectiveDimensions({ target })
 }: {
@@ -193,7 +193,7 @@ export function captureScalingStepRounding({
   }
 }
 
-/** Применяет выбранный scale только по активным осям, сохраняя опорную точку. */
+/** Applies the selected scale only on active axes while preserving the anchor. */
 export function applyScalingStepCandidate({
   target, transform, preservePlacement, rounding, scale
 }: {
@@ -217,7 +217,7 @@ export function applyScalingStepCandidate({
 }
 
 /**
- * Возвращает оси, которые можно округлять в текущем scaling-step.
+ * Returns the axes that can be rounded in the current scaling step.
  */
 function resolveScalingAxisRoundingState({
   transform,
@@ -243,7 +243,7 @@ function resolveScalingAxisRoundingState({
 }
 
 /**
- * Возвращает true, если scale по оси реально изменился в текущем Fabric transform.
+ * Returns true if scale on an axis actually changed in the current Fabric transform.
  */
 function shouldRoundScalingAxis({
   transform,
@@ -265,7 +265,7 @@ function shouldRoundScalingAxis({
 }
 
 /**
- * Возвращает ближайший scale, при котором display-size объекта становится целым.
+ * Returns the nearest scale that makes the object's display size an integer.
  */
 function resolveRoundedScalingStep({
   rawScaleX,
@@ -299,7 +299,7 @@ function resolveRoundedScalingStep({
 }
 
 /**
- * Возвращает uniform scale по той оси, где округление меньше двигает текущий scale.
+ * Returns a uniform scale using the axis whose rounding changes the current scale least.
  */
 function resolveRoundedUniformScalingStep({
   rawScale,
@@ -329,7 +329,7 @@ function resolveRoundedUniformScalingStep({
 }
 
 /**
- * Возвращает scale одной оси для ближайшего целого display-size.
+ * Returns the scale on one axis for the nearest integer display size.
  */
 function resolveRoundedAxisScale({
   rawScale,

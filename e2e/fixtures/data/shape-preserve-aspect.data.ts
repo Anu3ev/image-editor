@@ -1,6 +1,6 @@
 import type { ShapeAddParams, ShapePresetKey } from '../../types'
 
-/** Базовые опции для e2e-сценариев добавления фигуры с сохранением пропорций. */
+/** Base options for e2e scenarios that add a shape while preserving its aspect ratio. */
 export const SHAPE_PRESERVE_ASPECT_BASE_OPTIONS: NonNullable<ShapeAddParams['options']> = {
   id: 'shape-preserve-aspect',
   width: 220,
@@ -12,11 +12,11 @@ export const SHAPE_PRESERVE_ASPECT_BASE_OPTIONS: NonNullable<ShapeAddParams['opt
   }
 }
 
-/** Короткий следующий ввод после добавления, который не должен схлопывать фигуру. */
+/** Short follow-up input after adding the shape that must not collapse it. */
 export const SHAPE_PRESERVE_ASPECT_FOLLOW_UP_TEXT = 'TEST!'
 
-/** Новый пресет для проверки replace-path после роста фигуры под текст. */
+/** New preset for testing the replace path after the shape grows to fit text. */
 export const SHAPE_PRESERVE_ASPECT_REPLACEMENT_PRESET: ShapePresetKey = 'arrow-right'
 
-/** Допуск для сравнений размеров после add/edit/replace-path. */
+/** Tolerance for dimension comparisons after the add/edit/replace path. */
 export const SHAPE_PRESERVE_ASPECT_TOLERANCE = 2

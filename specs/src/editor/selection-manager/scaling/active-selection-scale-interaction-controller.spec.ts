@@ -14,7 +14,7 @@ import { useRectangularScaleGuide } from '../../../../test-utils/snapping/rectan
 
 afterEach(jest.restoreAllMocks)
 
-/** Ожидаемые подвижные грани всех стандартных ручек общего выделения. */
+/** Expected moving edges for all standard multi-object selection handles. */
 const ACTIVE_SELECTION_SCALE_CONTROL_CASES: readonly Readonly<{
   controlKey: RectangularScaleControlKey
   movingEdges: readonly string[]
@@ -29,7 +29,7 @@ const ACTIVE_SELECTION_SCALE_CONTROL_CASES: readonly Readonly<{
   { controlKey: 'mb', movingEdges: ['bottom'] }
 ])
 
-/** Состояния общего выделения, для которых новый путь скейлинга не применяется. */
+/** Multi-object selection states to which the new scaling path does not apply. */
 const UNSUPPORTED_ACTIVE_SELECTION_STATES = Object.freeze([
   { title: 'наклон по X', state: { skewX: 1 } },
   { title: 'наклон по Y', state: { skewY: 1 } },

@@ -22,7 +22,7 @@ import {
 } from './active-selection-scale-composition'
 import type { ActiveSelectionScaleDomainSource } from './active-selection-scale-domain-source'
 
-/** Данные Fabric-события, необходимые для скейлинга общего выделения. */
+/** Fabric event data required for active selection scaling. */
 export type ActiveSelectionScaleInteractionEvent = Readonly<{
   target?: FabricObject | null
   e?: TPointerEvent | null
@@ -31,7 +31,7 @@ export type ActiveSelectionScaleInteractionEvent = Readonly<{
   scenePoint?: RectangularScalePoint
 }>
 
-/** Проверенные данные поддерживаемого жеста общего выделения. */
+/** Validated data for a supported active selection gesture. */
 type ActiveSelectionScaleGesture = Readonly<{
   compositionKind: ActiveSelectionScaleComposition['kind']
   projectionTransform: RectangularScaleGestureTransform
@@ -39,10 +39,10 @@ type ActiveSelectionScaleGesture = Readonly<{
   transform: Transform
 }>
 
-/** Текущий этап обработки одного жеста скейлинга общего выделения. */
+/** Current processing phase of an active selection scaling gesture. */
 type ActiveSelectionScaleSessionPhase = 'unified' | 'legacy-passthrough' | 'skew-passthrough'
 
-/** Временное состояние одного жеста скейлинга общего выделения. */
+/** Temporary state of one active selection scaling gesture. */
 export type ActiveSelectionScaleSession = {
   hasSkewStep: boolean
   hasVerifiedStep: boolean
@@ -54,7 +54,7 @@ export type ActiveSelectionScaleSession = {
   readonly transform: Transform
 }
 
-/** Очищает все частично начатые доменные сессии и общую сессию прилипания. */
+/** Clears all partially started domain sessions and the shared snapping session. */
 function cancelTextDrivenScaleSessionStart({
   domainSource,
   editor,
@@ -82,7 +82,7 @@ function cancelTextDrivenScaleSessionStart({
   }
 }
 
-/** Атомарно начинает текстовую и необязательную часть шейпов в общей сессии. */
+/** Atomically starts the text portion and optional shape portion of the shared session. */
 function beginTextDrivenScaleSession({
   editor,
   gesture,
@@ -117,13 +117,13 @@ function beginTextDrivenScaleSession({
     try {
       cancelTextDrivenScaleSessionStart({ domainSource, editor, runtime, selection: gesture.target })
     } catch {
-      // Ошибка запуска остаётся основной после попытки очистить все частично начатые сессии.
+      // The startup error remains primary after attempting to clear all partially started sessions.
     }
     throw error
   }
 }
 
-/** Создаёт сессию расчёта и возвращает null, если исходная проекция жеста недоступна. */
+/** Creates a calculation session and returns null if the initial gesture projection is unavailable. */
 export function createActiveSelectionScaleSession({
   editor,
   gesture,
@@ -158,7 +158,7 @@ export function createActiveSelectionScaleSession({
   }
 }
 
-/** Проверяет `mouse:down` и возвращает данные поддерживаемого общего выделения. */
+/** Validates `mouse:down` and returns data for a supported active selection. */
 export function resolveActiveSelectionScaleGesture({
   editor,
   event
@@ -205,7 +205,7 @@ export function resolveActiveSelectionScaleGesture({
   })
 }
 
-/** Проверяет принадлежность события исходному выделению и преобразованию Fabric. */
+/** Checks that the event belongs to the original selection and Fabric transform. */
 export function doesEventBelongToSession({
   event,
   session

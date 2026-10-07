@@ -15,12 +15,12 @@ export type ResetObjectOptions = {
 
 export default class TransformManager {
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor: ImageEditor
 
   /**
-   * Параметры (опции) для слушателей.
+   * Listener parameters (options).
    */
   public options: EditorOptions
 
@@ -30,11 +30,11 @@ export default class TransformManager {
   }
 
   /**
-   * Устанавливает абсолютный угол поворота объекта
-   * @param object - Целевой объект
-   * @param angle - Абсолютный угол в градусах
+   * Sets the absolute rotation angle of an object
+   * @param object - Target object
+   * @param angle - Absolute angle in degrees
    * @param options
-   * @param options.withoutSave - Не сохранять состояние
+   * @param options.withoutSave - Do not save the state
    * @fires editor:object-rotated
    */
   public setAngle(
@@ -62,10 +62,10 @@ export default class TransformManager {
   }
 
   /**
-   * Поворот активного объекта на относительный угол
+   * Rotate the active object by a relative angle
    * @param angle
    * @param options
-   * @param options.withoutSave - Не сохранять состояние
+   * @param options.withoutSave - Do not save the state
    * @fires editor:object-rotated
    */
   public rotate(angle: number = DEFAULT_ROTATE_RATIO, { withoutSave }: { withoutSave?: boolean } = {}): void {
@@ -79,9 +79,9 @@ export default class TransformManager {
   }
 
   /**
-   * Отразить по горизонтали
+   * Flip horizontally
    * @param options
-   * @param options.withoutSave - Не сохранять состояние
+   * @param options.withoutSave - Do not save the state
    * @fires editor:object-flipped-x
    */
   public flipX({ withoutSave }: { withoutSave?: boolean } = {}): void {
@@ -103,9 +103,9 @@ export default class TransformManager {
   }
 
   /**
-   * Отразить по вертикали
+   * Flip vertically
    * @param options
-   * @param options.withoutSave - Не сохранять состояние
+   * @param options.withoutSave - Do not save the state
    * @fires editor:object-flipped-y
    */
   public flipY({ withoutSave }: { withoutSave?: boolean } = {}): void {
@@ -127,11 +127,11 @@ export default class TransformManager {
   }
 
   /**
-   * Установка прозрачности объекта
+   * Set object opacity
    * @param options
-   * @param options.object - Объект, для которого нужно установить прозрачность
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.opacity - Прозрачность от 0 до 1
+   * @param options.object - Object whose opacity should be set
+   * @param options.withoutSave - Do not save the state
+   * @param options.opacity - Opacity from 0 to 1
    * @fires editor:object-opacity-changed
    */
   public setActiveObjectOpacity({
@@ -181,7 +181,7 @@ export default class TransformManager {
   }
 
   /**
-   * Устанавливает opacity с учетом доменного контракта shape-group.
+   * Sets opacity according to the shape group domain contract.
    */
   private _setCanvasObjectOpacity({
     object,
@@ -208,14 +208,14 @@ export default class TransformManager {
   }
 
   /**
-   * Масштабирование объекта
+   * Scale an object
    * @param options
-   * @param options.object - Объект с изображением, которое нужно масштабировать
-   * @param options.type - Тип масштабирования
-   * 'contain' - скейлит картинку, чтобы она вмещалась
-   * 'cover' - скейлит картинку, чтобы она вписалась в размер канвас
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.fitAsOneObject - Масштабировать все объекты в активной группе как один объект
+   * @param options.object - Object containing the image to scale
+   * @param options.type - Scaling type
+   * 'contain' - scales the image to fit inside
+   * 'cover' - scales the image to fill the canvas dimensions
+   * @param options.withoutSave - Do not save the state
+   * @param options.fitAsOneObject - Scale all objects in the active group as a single object
    * @fires editor:image-fitted
    */
   public fitObject({
@@ -270,9 +270,9 @@ export default class TransformManager {
   }
 
   /**
-   * Масштабирует отдельный объект с учетом его угла поворота
-   * @param obj - объект для масштабирования
-   * @param type - тип масштабирования
+   * Scales an individual object taking its rotation angle into account
+   * @param obj - Object to scale
+   * @param type - Scaling type
    * @private
    */
   private _fitSingleObject(obj: FabricObject, type: 'contain' | 'cover'): void {
@@ -283,11 +283,11 @@ export default class TransformManager {
 
     const { width, height, scaleX = 1, scaleY = 1, angle = 0 } = obj
 
-    // Рассчитываем текущие масштабированные размеры
+    // Calculate the current scaled dimensions
     const scaledWidth = width * Math.abs(scaleX)
     const scaledHeight = height * Math.abs(scaleY)
 
-    // Рассчитываем размеры с учетом поворота
+    // Calculate dimensions accounting for rotation
     const radians = (angle * Math.PI) / 180
     const cos = Math.abs(Math.cos(radians))
     const sin = Math.abs(Math.sin(radians))
@@ -295,7 +295,7 @@ export default class TransformManager {
     const rotatedWidth = scaledWidth * cos + scaledHeight * sin
     const rotatedHeight = scaledWidth * sin + scaledHeight * cos
 
-    // Рассчитываем коэффициент масштабирования
+    // Calculate the scale factor
     const canvasWidth = montageArea.width
     const canvasHeight = montageArea.height
 
@@ -307,7 +307,7 @@ export default class TransformManager {
       scaleFactor = Math.max(canvasWidth / rotatedWidth, canvasHeight / rotatedHeight)
     }
 
-    // Применяем масштабирование к текущим значениям scaleX и scaleY
+    // Apply scaling to the current scaleX and scaleY values
     obj.set({
       scaleX: scaleX * scaleFactor,
       scaleY: scaleY * scaleFactor
@@ -325,7 +325,7 @@ export default class TransformManager {
   }
 
   /**
-   * Запекает transient scale fitted-объекта в каноническое состояние, если объект поддерживает такой lifecycle.
+   * Bakes the fitted object's transient scale into canonical state if the object supports this lifecycle.
    */
   private _materializeFittedObject({ object }: { object: FabricObject }): boolean {
     const {
@@ -352,7 +352,7 @@ export default class TransformManager {
   }
 
   /**
-   * Возвращает true, если fitted child-объект нужно прогнать через materialization pipeline.
+   * Returns true if the fitted child object should go through the materialization pipeline.
    */
   private _requiresFittedObjectMaterialization({ object }: { object: FabricObject }): boolean {
     const isStandaloneTextObject = object.type === 'textbox' || object.type === 'background-textbox'
@@ -362,7 +362,7 @@ export default class TransformManager {
   }
 
   /**
-   * Материализует fitted ActiveSelection через тот же child-level pipeline, что и другие групповые трансформации.
+   * Materializes the fitted ActiveSelection through the same child-level pipeline as other group transforms.
    */
   private _materializeFittedSelection({ selection }: { selection: ActiveSelection }): void {
     const { canvas } = this.editor
@@ -393,7 +393,7 @@ export default class TransformManager {
   }
 
   /**
-   * Установка дефолтного масштаба для всех объектов внутри монтажной области редактора
+   * Set the default scale for all objects inside the editor artboard
    */
   public resetObjects(): void {
     this.editor.canvasManager.getObjects().forEach((object) => {
@@ -402,11 +402,11 @@ export default class TransformManager {
   }
 
   /**
-   * Сброс масштаба объекта до дефолтного
+   * Reset the object scale to its default
    * @param options
-   * @param options.object - Объект, который нужно сбросить. Если не передан, то сбрасывается активный объект
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.alwaysFitObject - вписывать объект в рабочую область даже если он меньше рабочей области
+   * @param options.object - Object to reset. Resets the active object if omitted
+   * @param options.withoutSave - Do not save the state
+   * @param options.alwaysFitObject - Fit the object to the workspace even if it is smaller than the workspace
    * @fires editor:object-reset
    */
   public resetObject({ object, alwaysFitObject = false, withoutSave = false }: ResetObjectOptions = {}): void {
@@ -451,7 +451,7 @@ export default class TransformManager {
       const needFit = (scaleType === 'contain' && scaleFactor < 1)
         || (scaleType === 'cover' && (imageWidth > montageAreaWidth || imageHeight > montageAreaHeight))
 
-      // Делаем contain и cover только если размеры изображения больше размеров канваса, иначе просто сбрасываем
+      // Apply contain and cover only if the image dimensions exceed the canvas dimensions; otherwise, simply reset
       if (needFit) {
         this.fitObject({ object: currentObject, withoutSave: true, fitAsOneObject: true })
       } else {

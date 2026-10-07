@@ -2,29 +2,29 @@ import type { SnappingObjectSnapshot } from './snapping.types'
 import type { ShapeScaleSnapshot, ShapeTextInfo } from './shape.types'
 import type { TextResizeSnapshot } from './text.types'
 
-/** Ручка, за которую можно изменить размер активного составного объекта. */
+/** Handle used to resize the active composite object. */
 export type SelectionControlKey = 'tl' | 'tr' | 'bl' | 'br' | 'ml' | 'mr' | 'mt' | 'mb'
 
-/** Направление повторного уменьшения общего выделения до доменных ограничений. */
+/** Direction of repeated active-selection shrinkage to domain limits. */
 export type SelectionMinimumScaleDirection =
   | Readonly<{ axis: 'horizontal' }>
   | Readonly<{ axis: 'vertical' }>
   | Readonly<{ axis: 'diagonal', corner: 'tr' | 'br' }>
 
-/** Состояние одного шейпа после очередного уменьшения общего выделения. */
+/** State of one shape after another active-selection shrink step. */
 export interface SelectionMinimumShapeState {
   id: string
   lineCount: number
   snapshot: ShapeScaleSnapshot
 }
 
-/** Состояние шейпов на одном этапе повторного скейлинга общего выделения. */
+/** Shape state at one stage of repeated active-selection scaling. */
 export interface SelectionMinimumScaleState {
   label: string
   shapes: readonly SelectionMinimumShapeState[]
 }
 
-/** Снимок дочернего объекта с локальными свойствами, защищёнными во время скейлинга. */
+/** Child-object snapshot with local properties protected during scaling. */
 export interface SelectionCompositionChildSnapshot extends SnappingObjectSnapshot {
   cropX: number
   cropY: number
@@ -35,19 +35,19 @@ export interface SelectionCompositionChildSnapshot extends SnappingObjectSnapsho
   skewY: number
 }
 
-/** Снимок активного составного объекта и его прямых дочерних объектов. */
+/** Snapshot of the active composite object and its direct children. */
 export interface SelectionCompositionSnapshot {
   selection: SnappingObjectSnapshot
   children: SelectionCompositionChildSnapshot[]
 }
 
-/** Канонические свойства отдельных текстов и рамка их общего выделения. */
+/** Canonical properties of standalone text objects and their active-selection frame. */
 export interface SelectionTextCompositionSnapshot {
   selection: SnappingObjectSnapshot
   children: TextResizeSnapshot[]
 }
 
-/** Видимая геометрия дочернего объекта в координатах сцены. */
+/** Child object's visible geometry in scene coordinates. */
 export interface SelectionChildSceneGeometrySnapshot {
   angle: number
   centerX: number
@@ -65,7 +65,7 @@ export interface SelectionChildSceneGeometrySnapshot {
   width: number
 }
 
-/** Состояние изображений и текстов в одном общем выделении вместе с их видимой геометрией. */
+/** State of images and text objects in one active selection, with their visible geometry. */
 export interface SelectionImageTextCompositionSnapshot {
   selection: SnappingObjectSnapshot
   images: Array<{
@@ -78,7 +78,7 @@ export interface SelectionImageTextCompositionSnapshot {
   }>
 }
 
-/** Состояние полного смешанного состава вместе с канонической и видимой геометрией детей. */
+/** State of the full mixed composition with children's canonical and visible geometry. */
 export interface SelectionMixedCompositionSnapshot {
   selection: SnappingObjectSnapshot
   images: Array<{

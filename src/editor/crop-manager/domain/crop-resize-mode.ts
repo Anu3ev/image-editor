@@ -6,17 +6,17 @@ import type {
 import type { CropFrameResizeTarget } from './crop-frame'
 
 /**
- * Fabric action-имена, которые означают resize crop frame.
+ * Fabric action names that indicate a crop frame resize.
  */
 const CROP_FRAME_RESIZE_ACTIONS = ['scale', 'scaleX', 'scaleY'] as readonly string[]
 
 /**
- * Fabric control-ключи, которые означают resize crop frame.
+ * Fabric control keys that indicate a crop frame resize.
  */
 const CROP_FRAME_RESIZE_CONTROL_KEYS = ['tl', 'tr', 'bl', 'br', 'ml', 'mr', 'mt', 'mb'] as readonly string[]
 
 /**
- * Возвращает фактический resize-режим crop frame с учётом transient live override и Shift.
+ * Returns the effective crop frame resize mode, accounting for the transient live override and Shift.
  */
 export function resolveCropFrameResizePreserveAspectRatio({
   target,
@@ -39,7 +39,7 @@ export function resolveCropFrameResizePreserveAspectRatio({
 }
 
 /**
- * Возвращает true, если Fabric transform относится к resize crop frame.
+ * Returns true if the Fabric transform is a crop frame resize.
  */
 export function isCropFrameResizeTransform({
   transform

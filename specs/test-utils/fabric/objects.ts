@@ -4,7 +4,7 @@ import {
 } from 'fabric'
 
 /**
- * Возвращает глубокую копию customData, если объект хранит её как plain object.
+ * Returns a deep copy of customData if the object stores it as a plain object.
  */
 const cloneCustomData = (object: any) => {
   if (!object.customData || typeof object.customData !== 'object') {
@@ -15,7 +15,7 @@ const cloneCustomData = (object: any) => {
 }
 
 /**
- * Создаёт базовый fabric-like object с clone/set/setCoords контрактом для юнит-тестов.
+ * Creates a basic Fabric-like object with a clone/set/setCoords contract for unit tests.
  */
 export const createMockFabricObject = (props: any = {}) => {
   const mockObject = {
@@ -52,8 +52,8 @@ export const createMockFabricObject = (props: any = {}) => {
 }
 
 /**
- * Создаёт мок ActiveSelection с тем же контрактом clone/set/forEachObject,
- * который используется production-кодом при работе с выделением.
+ * Creates an ActiveSelection mock with the same clone/set/forEachObject contract
+ * used by production code when working with selections.
  */
 export const createMockActiveSelection = (objects: any[], props: any = {}) => {
   const mockSelection = new ActiveSelection(objects, props) as any
@@ -106,8 +106,8 @@ export const createMockActiveSelection = (objects: any[], props: any = {}) => {
 }
 
 /**
- * Создаёт Group на реальном mock-классе Fabric, чтобы тесты не расходились
- * с runtime-контрактом контейнера объектов.
+ * Creates a Group using the actual Fabric mock class so tests stay consistent
+ * with the object container's runtime contract.
  */
 export const createMockGroup = (objects: any[] = [], props: any = {}) => {
   const mockGroup = new Group(objects, {
@@ -123,7 +123,7 @@ export const createMockGroup = (objects: any[] = [], props: any = {}) => {
 }
 
 /**
- * Создаёт ClipboardEvent-подобный объект с настраиваемым clipboardData.
+ * Creates a ClipboardEvent-like object with configurable clipboardData.
  */
 export const createMockClipboardEvent = (data: any = {}) => ({
   clipboardData: {
@@ -134,8 +134,8 @@ export const createMockClipboardEvent = (data: any = {}) => ({
 } as ClipboardEvent)
 
 /**
- * Возвращает объект, который падает на clone().
- * Нужен для негативных сценариев clipboard/history.
+ * Returns an object that fails on clone().
+ * Used for negative clipboard/history scenarios.
  */
 export const createFailingMockObject = (errorMessage = 'Mock clone failed') => {
   const mockObject = createMockFabricObject({ type: 'rect', id: 'failing-object' })
@@ -144,7 +144,7 @@ export const createFailingMockObject = (errorMessage = 'Mock clone failed') => {
 }
 
 /**
- * Возвращает ClipboardEvent без clipboardData для fail-fast сценариев.
+ * Returns a ClipboardEvent without clipboardData for fail-fast scenarios.
  */
 export const createEmptyClipboardEvent = () => ({
   clipboardData: null

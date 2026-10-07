@@ -45,9 +45,9 @@ const CYRILLIC_RANGE = [
 ].join(', ')
 
 /**
- * Набор дефолтных шрифтов (Latin + Cyrillic) с прямыми ссылками на Google Fonts.
- * При необходимости добавить другие начертания или диапазоны, дублируйте записи
- * и изменяйте unicodeRange/weight/style.
+ * Set of default fonts (Latin + Cyrillic) with direct Google Fonts links.
+ * To add other weights, styles, or ranges, duplicate the entries
+ * and change unicodeRange/weight/style.
  */
 export const defaultFonts: EditorFontDefinition[] = [
   {

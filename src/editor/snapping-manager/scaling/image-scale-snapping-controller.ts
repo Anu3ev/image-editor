@@ -1,4 +1,4 @@
-/* eslint-disable no-use-before-define -- Публичный контроллер расположен перед внутренними проверками. */
+/* eslint-disable no-use-before-define -- The public controller appears before internal validation helpers. */
 import {
   FabricImage,
   type FabricObject,
@@ -28,7 +28,7 @@ import {
   isStandardRectangularScaleControl
 } from './standard-scale-control'
 
-/** Данные Fabric-события, необходимые для одного шага скейлинга изображения. */
+/** Fabric event data required for one image scaling step. */
 export type ImageScaleInteractionEvent = Readonly<{
   target?: FabricObject | null
   e?: TPointerEvent | null
@@ -37,32 +37,32 @@ export type ImageScaleInteractionEvent = Readonly<{
   scenePoint?: RectangularScalePoint
 }>
 
-/** Событие нажатия мыши, для которого Fabric уже создал преобразование выбранной ручки. */
+/** Mouse-down event for which Fabric has already created the selected control's transform. */
 export type ImageScaleStartEvent = ImageScaleInteractionEvent
 
-/** Событие `object:scaling` для одного текущего шага скейлинга изображения. */
+/** `object:scaling` event for the current image scaling step. */
 export type ImageScaleTransformEvent = ImageScaleInteractionEvent
 
-/** Событие `mouse:move`, которое может заменить отсутствующий `object:scaling`. */
+/** `mouse:move` event that can replace a missing `object:scaling` event. */
 export type ImageScaleMouseMoveEvent = ImageScaleInteractionEvent
 
-/** Событие должен обработать прежний владелец скейлинга. */
+/** The event should be handled by the legacy scaling owner. */
 export type UnhandledImageScaleStep = Readonly<{
   handled: false
   didFinishSession: boolean
 }>
 
-/** Событие полностью обработано новым владельцем скейлинга изображения. */
+/** The event was fully handled by the new image scaling owner. */
 export type HandledImageScaleStep = Readonly<{
   handled: true
   guides: readonly VerifiedScaleGuide[]
   shouldPublishGuides: boolean
 }>
 
-/** Результат маршрутизации одного шага скейлинга изображения. */
+/** Routing result for one image scaling step. */
 export type ImageScaleStepResult = UnhandledImageScaleStep | HandledImageScaleStep
 
-/** Свойства изображения и преобразования Fabric, которые не должны меняться при скейлинге. */
+/** Image and Fabric transform properties that must not change during scaling. */
 type ImageScaleProtectedState = Readonly<{
   action: Transform['action']
   angle: number
@@ -83,14 +83,14 @@ type ImageScaleProtectedState = Readonly<{
   width: number
 }>
 
-/** Проверенные данные одного поддерживаемого жеста скейлинга изображения. */
+/** Validated data for one supported image scaling gesture. */
 type ImageScaleGesture = Readonly<{
   projectionTransform: RectangularScaleGestureTransform
   target: FabricImage
   transform: Transform
 }>
 
-/** Временное состояние одного активного жеста скейлинга изображения. */
+/** Temporary state of one active image scaling gesture. */
 type ImageScaleSession = Readonly<{
   projection: RectangularScaleGestureProjection
   protectedState: ImageScaleProtectedState
@@ -99,27 +99,27 @@ type ImageScaleSession = Readonly<{
   transform: Transform
 }>
 
-/** Неизменяемый ответ при отсутствии активной унифицированной сессии. */
+/** Immutable response when no active unified session exists. */
 const UNHANDLED_IMAGE_SCALE_STEP: UnhandledImageScaleStep = Object.freeze({
   handled: false,
   didFinishSession: false
 })
 
-/** Допуск при сравнении коэффициентов масштаба и защищённых свойств изображения. */
+/** Tolerance for comparing scale factors and protected image properties. */
 const IMAGE_SCALE_STATE_EPSILON = 0.000000001
 
 /**
- * Владеет унифицированной сессией скейлинга одиночного верхнеуровневого FabricImage.
- * Неподдерживаемые геометрические состояния и нестандартные ручки остаются на прежнем пути.
+ * Owns the unified scaling session for a single top-level FabricImage.
+ * Unsupported geometry states and nonstandard controls remain on the legacy path.
  */
 export class ImageScaleSnappingController {
-  /** Редактор с холстом и общим окружением прилипания. */
+  /** Editor with canvas and shared snapping context. */
   private readonly _editor: ImageEditor
 
-  /** Текущий поддерживаемый жест или null для прежнего сценария. */
+  /** Current supported gesture, or null for the legacy scenario. */
   private _session: ImageScaleSession | null = null
 
-  /** Создаёт владельца скейлинга изображения для текущего холста. */
+  /** Creates the image scaling owner for the current canvas. */
   constructor({
     editor
   }: {
@@ -128,7 +128,7 @@ export class ImageScaleSnappingController {
     this._editor = editor
   }
 
-  /** Фиксирует неизменяемое исходное состояние поддерживаемого жеста. */
+  /** Captures the immutable initial state of a supported gesture. */
   startGesture({
     event
   }: {
@@ -157,7 +157,7 @@ export class ImageScaleSnappingController {
     return true
   }
 
-  /** Обрабатывает исходный масштаб, уже применённый стандартным обработчиком Fabric. */
+  /** Handles the raw scale already applied by the standard Fabric handler. */
   handleObjectScaling({
     event
   }: {
@@ -169,7 +169,7 @@ export class ImageScaleSnappingController {
     })
   }
 
-  /** Обрабатывает новое движение мыши, если Fabric не отправил `object:scaling`. */
+  /** Handles a new mouse movement if Fabric did not emit `object:scaling`. */
   handleCanvasMouseMove({
     event
   }: {
@@ -181,7 +181,7 @@ export class ImageScaleSnappingController {
     })
   }
 
-  /** Идемпотентно завершает временную сессию скейлинга и сообщает об очистке. */
+  /** Idempotently ends the temporary scaling session and reports cleanup. */
   finishGesture(): boolean {
     const didCleanup = this._session?.runtime.finishSession().didCleanup ?? false
     this._session = null
@@ -189,7 +189,7 @@ export class ImageScaleSnappingController {
     return didCleanup
   }
 
-  /** Прерывает активное преобразование Fabric и гарантированно очищает сессию. */
+  /** Interrupts the active Fabric transform and ensures session cleanup. */
   interruptGesture({
     event
   }: {
@@ -206,7 +206,7 @@ export class ImageScaleSnappingController {
     return true
   }
 
-  /** Завершает сессию скейлинга, только если удалено её активное изображение. */
+  /** Ends the scaling session only if its active image was removed. */
   finishGestureForTarget({
     target
   }: {
@@ -219,7 +219,7 @@ export class ImageScaleSnappingController {
     return true
   }
 
-  /** Выполняет один шаг скейлинга либо целиком передаёт его прежнему владельцу. */
+  /** Performs one scaling step or delegates it entirely to the legacy owner. */
   private _handleScaleStep({
     event,
     intentSource
@@ -261,7 +261,7 @@ export class ImageScaleSnappingController {
     })
   }
 
-  /** Рассчитывает, один раз применяет и проверяет текущий шаг скейлинга изображения. */
+  /** Calculates, applies once, and verifies the current image scaling step. */
   private _applyScaleStep({
     intent,
     marker,
@@ -319,7 +319,7 @@ export class ImageScaleSnappingController {
     }
   }
 
-  /** Завершает унифицированную сессию до запуска прежней логики скейлинга. */
+  /** Ends the unified session before starting the legacy scaling logic. */
   private _continueWithLegacyScale(): UnhandledImageScaleStep {
     return Object.freeze({
       handled: false,
@@ -327,7 +327,7 @@ export class ImageScaleSnappingController {
     })
   }
 
-  /** Завершает сессию и не запускает прежнюю логику скейлинга поверх наклона Fabric. */
+  /** Ends the session without running the legacy scaling logic over Fabric skewing. */
   private _finishBeforeSkew(): HandledImageScaleStep {
     return createHandledImageScaleStep({
       guides: [],
@@ -336,7 +336,7 @@ export class ImageScaleSnappingController {
   }
 }
 
-/** Проверяет `mouse:down` и возвращает данные поддерживаемого скейлинга изображения. */
+/** Validates `mouse:down` and returns data for supported image scaling. */
 function resolveImageScaleGesture({
   event
 }: {
@@ -364,7 +364,7 @@ function resolveImageScaleGesture({
   })
 }
 
-/** Проверяет доменные и геометрические ограничения нового владельца скейлинга. */
+/** Checks the domain and geometry constraints of the new scaling owner. */
 function isSupportedImageScaleTarget({
   target
 }: {
@@ -403,7 +403,7 @@ function isSupportedImageScaleTarget({
   return Math.abs(target.strokeWidth ?? 0) <= IMAGE_SCALE_STATE_EPSILON
 }
 
-/** Сохраняет канонические и геометрические свойства, которые не должны меняться. */
+/** Captures canonical and geometric properties that must remain unchanged. */
 function captureProtectedImageScaleState({
   target,
   transform
@@ -429,7 +429,7 @@ function captureProtectedImageScaleState({
   })
 }
 
-/** Проверяет принадлежность события исходному изображению и преобразованию Fabric. */
+/** Checks that the event belongs to the original image and Fabric transform. */
 function doesEventBelongToSession({
   event,
   session
@@ -443,7 +443,7 @@ function doesEventBelongToSession({
   return true
 }
 
-/** Проверяет, что Fabric не переключил текущий жест на другое преобразование. */
+/** Checks that Fabric has not switched the current gesture to another transform. */
 function isSameImageScaleGesture({
   session
 }: {
@@ -462,7 +462,7 @@ function isSameImageScaleGesture({
     && Boolean(target.flipY) === protectedState.flipY
 }
 
-/** Проверяет канонические свойства изображения и неизменяемые оси скейлинга. */
+/** Checks canonical image properties and unchanged scaling axes. */
 function isProtectedImageScaleStatePreserved({
   mode,
   multipliers,
@@ -482,7 +482,7 @@ function isProtectedImageScaleStatePreserved({
   return true
 }
 
-/** Проверяет канонические и геометрические свойства, которые не должны меняться. */
+/** Checks canonical and geometric properties that must remain unchanged. */
 function isCanonicalImageScaleStatePreserved({
   session
 }: {
@@ -501,7 +501,7 @@ function isCanonicalImageScaleStatePreserved({
     && target.originY === protectedState.targetOriginY
 }
 
-/** Проверяет, изменился ли масштаб хотя бы по одной оси относительно начала жеста. */
+/** Checks whether scale on at least one axis has changed since the gesture began. */
 function didImageScaleChange({
   multipliers
 }: {
@@ -511,7 +511,7 @@ function didImageScaleChange({
     || !areNumbersNear({ first: multipliers.y, second: 1 })
 }
 
-/** Сравнивает два конечных числа в пределах допуска защищённого состояния. */
+/** Compares two finite numbers within the protected state tolerance. */
 function areNumbersNear({
   first,
   second
@@ -524,7 +524,7 @@ function areNumbersNear({
     && Math.abs(first - second) <= IMAGE_SCALE_STATE_EPSILON
 }
 
-/** Использует исходное событие указателя как идентификатор шага, а при его отсутствии — событие холста. */
+/** Uses the original pointer event as the step identifier, falling back to the canvas event. */
 function resolveScaleMarker({
   event
 }: {
@@ -536,7 +536,7 @@ function resolveScaleMarker({
   return event
 }
 
-/** Формирует ответ без повторной публикации уже проверенного шага. */
+/** Builds a response without republishing an already verified step. */
 function createDuplicateImageScaleStep({
   duplicate
 }: {
@@ -552,7 +552,7 @@ function createDuplicateImageScaleStep({
   })
 }
 
-/** Формирует ответ SnappingManager только из проверенных направляющих. */
+/** Builds a SnappingManager response using only verified guides. */
 function createHandledImageScaleStep({
   guides,
   shouldPublishGuides

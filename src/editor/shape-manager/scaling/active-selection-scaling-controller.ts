@@ -82,7 +82,7 @@ import {
 } from './active-selection-scale-constraints'
 
 /**
- * Shape-группа и её узлы, участвующие в текущем scaling active selection.
+ * Shape group and its nodes involved in the current active-selection scaling.
  */
 type ActiveSelectionShapeScalingItem = {
   group: ShapeGroup
@@ -93,7 +93,7 @@ type ActiveSelectionShapeScalingItem = {
 }
 
 /**
- * Minimum layout-ограничение одной shape-группы при пропорциональном scaling.
+ * Minimum layout constraint for one shape group during proportional scaling.
  */
 type ActiveSelectionProportionalLayoutResult = {
   minimumScale: number
@@ -101,7 +101,7 @@ type ActiveSelectionProportionalLayoutResult = {
 }
 
 /**
- * Minimum layout-ограничения shape-групп внутри active selection.
+ * Minimum layout constraints for shape groups inside the active selection.
  */
 type ActiveSelectionProportionalLayoutResults = Map<
   ShapeGroup,
@@ -109,14 +109,14 @@ type ActiveSelectionProportionalLayoutResults = Map<
 >
 
 /**
- * Фактически применённый scale для active selection после перерасчёта shape layout.
+ * Actual scale applied to the active selection after recalculating shape layout.
  */
 export type ActiveSelectionAppliedScale = {
   scaleX: number
   scaleY: number
 }
 
-/** Scale и способ фиксации, выбранные для завершения текущей сессии общего выделения. */
+/** Scale and commit method selected to finalize the current selection session. */
 export type ActiveSelectionCommittedScale = {
   preserveSceneGeometryOnCommit: boolean
   scaleX: number
@@ -124,7 +124,7 @@ export type ActiveSelectionCommittedScale = {
 }
 
 /**
- * Снимок одной shape-группы внутри scaling session active selection.
+ * Snapshot of one shape group within an active-selection scaling session.
  */
 type ActiveSelectionShapeScalingSessionItem = {
   bounds: ActiveSelectionLocalBounds
@@ -134,14 +134,14 @@ type ActiveSelectionShapeScalingSessionItem = {
   verticalAttachment: ActiveSelectionVerticalAttachment
 }
 
-/** Размеры и масштаб компоновки одного шейпа на текущем кадре. */
+/** Layout dimensions and scale of one shape in the current frame. */
 type ActiveSelectionShapePreviewDimensions = {
   layoutScale: ActiveSelectionShapeLayoutScale
   minimumHeight: number
 }
 
 /**
- * Состояние scaling session для active selection.
+ * State of the active-selection scaling session.
  */
 type ActiveSelectionScalingSession = {
   bounds: ActiveSelectionLocalBounds
@@ -149,7 +149,7 @@ type ActiveSelectionScalingSession = {
   items: Map<ShapeGroup, ActiveSelectionShapeScalingSessionItem>
 }
 
-/** Данные одного кадра скейлинга общего выделения после применения ограничений. */
+/** Data for one frame of selection scaling after applying constraints. */
 type ActiveSelectionScalingPreview = {
   isProportionalCornerScale: boolean
   items: ActiveSelectionShapeScalingItem[]
@@ -158,7 +158,7 @@ type ActiveSelectionScalingPreview = {
   session: ActiveSelectionScalingSession
 }
 
-/** Рассчитанная компоновка одного шейпа до изменения живого объекта. */
+/** Calculated layout of one shape before modifying the live object. */
 type ActiveSelectionShapeDomainChildPlan = Readonly<{
   isProportionalScaling: boolean
   item: ActiveSelectionShapeScalingItem
@@ -166,13 +166,13 @@ type ActiveSelectionShapeDomainChildPlan = Readonly<{
   layoutScale: ActiveSelectionShapeLayoutScale
 }>
 
-/** Внутренний план, соответствующий опубликованному доменному измерению. */
+/** Internal plan corresponding to the published domain measurement. */
 type ActiveSelectionShapeDomainPlan = Readonly<{
   children: readonly ActiveSelectionShapeDomainChildPlan[]
   preview: ActiveSelectionScalingPreview
 }>
 
-/** Объединяет локальные границы всех детей исходного общего выделения. */
+/** Combines the local bounds of all children in the original selection. */
 function resolveSelectionLocalBounds({
   selection
 }: {
@@ -192,7 +192,7 @@ function resolveSelectionLocalBounds({
   return bounds
 }
 
-/** Создаёт неизменяемые привязки шейпов к исходной рамке общего выделения. */
+/** Creates immutable shape anchors relative to the original selection frame. */
 function createSelectionSessionItems({
   items,
   selection,
@@ -227,7 +227,7 @@ function createSelectionSessionItems({
   return sessionItems
 }
 
-/** Возвращает неподвижную точку исходной рамки для выбранной точки преобразования. */
+/** Returns the original frame's fixed point for the selected transform origin. */
 function resolveSelectionFixedAnchor({
   bounds,
   transformOriginX,
@@ -246,39 +246,39 @@ function resolveSelectionFixedAnchor({
 }
 
 /**
- * Контроллер масштабирования shape-групп внутри ActiveSelection.
+ * Controller for scaling shape groups inside an ActiveSelection.
  */
 export default class ShapeActiveSelectionScalingController {
   /**
-   * Fabric canvas редактора.
+   * The editor's Fabric canvas.
    */
   private canvas: Canvas
 
   /**
-   * Внешнее live scaling state shape-групп.
+   * External live-scaling state of shape groups.
    */
   private shapeScalingState: WeakMap<ShapeGroup, ShapeScalingState>
 
   /**
-   * Применённый scale для active selection после layout clamp.
+   * Scale applied to the active selection after layout clamping.
    */
   private scalingState: WeakMap<ActiveSelection, ActiveSelectionAppliedScale>
 
   /**
-   * Снимки bounds и origin для текущего scaling active selection.
+   * Bounds and origin snapshots for the current active-selection scaling.
    */
   private scalingSessions: WeakMap<ActiveSelection, ActiveSelectionScalingSession>
 
   /**
-   * Layout scale каждой shape-группы после перерасчёта active selection.
+   * Layout scale of each shape group after recalculating the active selection.
    */
   private groupLayoutScales: WeakMap<ShapeGroup, ActiveSelectionShapeLayoutScale>
 
-  /** Планы доменной компоновки, ожидающие единственного применения к живым объектам. */
+  /** Domain-layout plans awaiting a single application to live objects. */
   private domainPlans: WeakMap<ActiveSelectionScaleDomainMeasurement, ActiveSelectionShapeDomainPlan>
 
   /**
-   * Инициализирует controller скейлинга shape-групп внутри active selection.
+   * Initializes the controller for scaling shape groups inside the active selection.
    */
   constructor({
     canvas,
@@ -296,7 +296,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Применяет live-preview по правилам шейпов внутри ActiveSelection.
+   * Applies a live preview using the rules for shapes inside an ActiveSelection.
    */
   public handleScalingPreview({
     selection,
@@ -351,7 +351,7 @@ export default class ShapeActiveSelectionScalingController {
     this.canvas.requestRenderAll()
   }
 
-  /** Фиксирует исходное состояние шейпов смешанного выделения до первой мутации Fabric. */
+  /** Captures the initial state of shapes in a mixed selection before the first Fabric mutation. */
   public beginDomainScaling({
     selection,
     transform
@@ -367,7 +367,7 @@ export default class ShapeActiveSelectionScalingController {
     return true
   }
 
-  /** Рассчитывает фактическую геометрию шейпов без изменения живых объектов и общей рамки. */
+  /** Calculates actual shape geometry without modifying live objects or the shared frame. */
   public measureDomainScale({
     mode,
     multipliers,
@@ -401,7 +401,7 @@ export default class ShapeActiveSelectionScalingController {
     return measurement
   }
 
-  /** Применяет один рассчитанный план шейпов с компенсацией фактической общей рамки. */
+  /** Applies one calculated shape plan, compensating for the actual shared frame. */
   public applyDomainScale({
     children,
     frame,
@@ -432,7 +432,7 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
-  /** Восстанавливает внутренние масштабы фиксации для уже подтверждённого измерения. */
+  /** Restores internal commit scales for an already confirmed measurement. */
   public confirmDomainScale({
     measurement,
     selection
@@ -445,7 +445,7 @@ export default class ShapeActiveSelectionScalingController {
     this._confirmDomainPlan({ measurement, plan, selection })
   }
 
-  /** Рассчитывает общий масштаб и ограничения одного кадра скейлинга. */
+  /** Calculates the overall scale and constraints for one scaling frame. */
   private _resolveScalingPreview({
     event,
     items,
@@ -502,7 +502,7 @@ export default class ShapeActiveSelectionScalingController {
     }
   }
 
-  /** Применяет рассчитанную компоновку к одному шейпу общего выделения. */
+  /** Applies the calculated layout to one shape in the selection. */
   private _applyShapeScalingPreviewItem({
     item,
     preview,
@@ -547,7 +547,7 @@ export default class ShapeActiveSelectionScalingController {
     group.setCoords()
   }
 
-  /** Рассчитывает размеры компоновки одного шейпа на текущем кадре. */
+  /** Calculates the layout dimensions of one shape in the current frame. */
   private _resolveShapePreviewDimensions({
     item,
     preview
@@ -597,7 +597,7 @@ export default class ShapeActiveSelectionScalingController {
     }
   }
 
-  /** Рассчитывает внутреннюю компоновку одного шейпа для доменного измерения. */
+  /** Calculates the internal layout of one shape for a domain measurement. */
   private _resolveDomainChildPlan({
     item,
     preview
@@ -633,7 +633,7 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
-  /** Переводит план шейпа в фактические границы неизменяемой локальной плоскости. */
+  /** Converts a shape plan into actual bounds in the immutable local plane. */
   private _createDomainChildMeasurement({
     child,
     preview
@@ -658,7 +658,7 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
-  /** Применяет измеренную компоновку одного шейпа к общей производной рамке. */
+  /** Applies the measured layout of one shape to the shared derived frame. */
   private _applyDomainChildPlan({
     child,
     childPlan,
@@ -682,7 +682,7 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
-  /** Возвращает план, принадлежащий текущей доменной сессии общего выделения. */
+  /** Returns the plan belonging to the current selection domain session. */
   private _getDomainPlan({
     measurement,
     selection
@@ -698,7 +698,7 @@ export default class ShapeActiveSelectionScalingController {
     return plan
   }
 
-  /** Сохраняет внутреннее состояние только после полного применения доменного плана. */
+  /** Saves internal state only after the domain plan has been fully applied. */
   private _confirmDomainPlan({
     measurement,
     plan,
@@ -720,7 +720,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Фиксирует resize дочерней shape-группы после масштабирования ActiveSelection.
+   * Commits a child shape group's resize after scaling an ActiveSelection.
    */
   public commitGroupScaling({
     group,
@@ -745,7 +745,7 @@ export default class ShapeActiveSelectionScalingController {
     return didCommit
   }
 
-  /** Переносит временный масштаб шейпа в размеры, сохраняя состояние общей транзакции. */
+  /** Transfers temporary shape scale into dimensions, preserving the shared transaction state. */
   public materializeGroupScaling({
     group,
     scaleX,
@@ -767,14 +767,14 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
-  /** Очищает временное состояние одного шейпа после фиксации или отмены. */
+  /** Clears temporary state for one shape after commit or cancellation. */
   private _clearGroupScalingState({ group }: { group: ShapeGroup }): void {
     this.shapeScalingState.delete(group)
     this.groupLayoutScales.delete(group)
     group.shapeScalingNoopTransform = false
   }
 
-  /** Возвращает применённый масштаб и способ сохранения геометрии после завершения жеста. */
+  /** Returns the applied scale and geometry-preservation method after the gesture ends. */
   public resolveCommittedScale({
     selection
   }: {
@@ -802,7 +802,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Очищает состояние масштабирования для переданного ActiveSelection.
+   * Clears scaling state for the given ActiveSelection.
    */
   public clearState({ selection }: { selection: ActiveSelection }): void {
     const session = this.scalingSessions.get(selection)
@@ -817,7 +817,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Собирает shape-группы общего выделения вместе с их стартовым состоянием для текущего drag.
+   * Collects the selection's shape groups with their initial state for the current drag.
    */
   private _collectPreviewItems({
     selection,
@@ -862,7 +862,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает runtime-сессию текущего drag в локальной плоскости ActiveSelection.
+   * Returns the current drag's runtime session in the ActiveSelection's local plane.
    */
   private _ensureScalingSession({
     selection,
@@ -906,7 +906,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает scale общего выделения, ограниченный bounds каждой shape-группы внутри ActiveSelection.
+   * Returns the selection scale constrained by the bounds of each shape group inside the ActiveSelection.
    */
   private _resolveSelectionScale({
     items,
@@ -967,7 +967,7 @@ export default class ShapeActiveSelectionScalingController {
     })
   }
 
-  /** Последовательно применяет ограничения обеих осей свободного скейлинга. */
+  /** Applies constraints sequentially to both free-scaling axes. */
   private _resolveFreeSelectionScale({
     canScaleHeight,
     canScaleWidth,
@@ -1030,7 +1030,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает scale active selection, достаточный для всех proportional layout ограничений.
+   * Returns an active-selection scale sufficient for all proportional-layout constraints.
    */
   private _resolveProportionalSelectionScale({
     items,
@@ -1073,8 +1073,8 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Доводит ActiveSelection до minimum boundary на mousemove-кадрах,
-   * где Fabric уже перестал обновлять scale после быстрого движения pointer.
+   * Brings the ActiveSelection to its minimum boundary on mousemove frames
+   * where Fabric has stopped updating scale after rapid pointer movement.
    */
   private _resolveSelectionScaleAtPointerBoundary({
     isProportionalCornerScale,
@@ -1136,7 +1136,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает scaleX рамки ActiveSelection, при котором все shape-группы остаются внутри bounds выделения.
+   * Returns the ActiveSelection frame's scaleX that keeps all shape groups inside the selection bounds.
    */
   private _resolveSelectionScaleX({
     items,
@@ -1177,7 +1177,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает scaleY рамки ActiveSelection, при котором все shape-группы остаются внутри bounds выделения.
+   * Returns the ActiveSelection frame's scaleY that keeps all shape groups inside the selection bounds.
    */
   private _resolveSelectionScaleY({
     items,
@@ -1223,8 +1223,8 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает layout scale конкретной shape-группы для непропорционального scaling по осям.
-   * При proportional scaling по диагонали minimum считается один раз на кадр в handleScalingPreview.
+   * Returns a specific shape group's layout scale for nonproportional scaling along the axes.
+   * For proportional diagonal scaling, the minimum is calculated once per frame in handleScalingPreview.
    */
   private _resolveShapeLayoutScale({
     item,
@@ -1261,7 +1261,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает layout scaleX shape-группы с учётом минимальной ширины текста.
+   * Returns a shape group's layout scaleX, accounting for minimum text width.
    */
   private _resolveShapeLayoutScaleX({
     item,
@@ -1289,7 +1289,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает layout scaleY shape-группы с учётом минимальной высоты текста.
+   * Returns a shape group's layout scaleY, accounting for minimum text height.
    */
   private _resolveShapeLayoutScaleY({
     item,
@@ -1317,7 +1317,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Собирает minimum layout-ограничения для proportional scaling по диагонали один раз на текущий preview-кадр.
+   * Collects minimum layout constraints for proportional diagonal scaling once per preview frame.
    */
   private _resolveProportionalLayoutResults({
     items
@@ -1343,7 +1343,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает минимальную ширину shape-группы для текущего vertical scale.
+   * Returns the minimum shape-group width for the current vertical scale.
    */
   private _resolveMinimumShapeWidth({
     item,
@@ -1373,7 +1373,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает минимальную высоту shape-группы для текущего horizontal scale.
+   * Returns the minimum shape-group height for the current horizontal scale.
    */
   private _resolveMinimumShapeHeight({
     item,
@@ -1400,8 +1400,8 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Позиционирует shape по тому же vertical attachment, по которому считается clamp рамки.
-   * Координаты остаются в стартовой плоскости объектов; текущий transform ActiveSelection переводит их в preview.
+   * Positions the shape using the same vertical attachment used to calculate frame clamping.
+   * Coordinates remain in the objects' initial plane; the current ActiveSelection transform maps them into the preview.
    */
   private _positionShapeInSelection({
     group,
@@ -1439,7 +1439,7 @@ export default class ShapeActiveSelectionScalingController {
   }
 
   /**
-   * Возвращает true, если pointer уже дошёл до origin активного scale-transform по переданной оси.
+   * Returns true if the pointer has already reached the active scale transform's origin along the given axis.
    */
   private _hasPointerReachedSelectionScaleOrigin({
     selection,

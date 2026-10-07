@@ -39,7 +39,7 @@ import {
   type TextCornerScaleGestureProjection
 } from './text-corner-scale-projection'
 
-/** Событие Fabric, необходимое для углового скейлинга отдельного текста. */
+/** Fabric event required for standalone-text corner scaling. */
 export type TextCornerScaleInteractionEvent = Readonly<{
   target?: FabricObject | null
   e?: Event | MouseEvent | PointerEvent | TouchEvent | null
@@ -48,7 +48,7 @@ export type TextCornerScaleInteractionEvent = Readonly<{
   scenePoint?: Readonly<{ x: number; y: number }>
 }>
 
-/** Исходные свойства текста и преобразования, которые должны сохраниться после жеста. */
+/** Original text and transform properties that must be preserved after the gesture. */
 type TextCornerScaleProtectedState = Readonly<{
   angle: number
   controlKey: string
@@ -61,13 +61,13 @@ type TextCornerScaleProtectedState = Readonly<{
   skewY: number
 }>
 
-/** Проверенные данные Fabric для поддерживаемого жеста. */
+/** Validated Fabric data for a supported gesture. */
 type TextCornerScaleGesture = Readonly<{
   target: EditorTextbox
   transform: Transform
 }>
 
-/** Данные активного углового скейлинга отдельного текста. */
+/** Active standalone-text corner-scaling data. */
 type TextCornerScaleSession = Readonly<{
   gesture: TextCornerScaleGestureProjection
   measurer: TextCornerScaleMeasurer
@@ -80,24 +80,24 @@ type TextCornerScaleSession = Readonly<{
   transform: Transform
 }>
 
-/** Точный множитель и уточнённый план одного шага. */
+/** Exact multiplier and refined plan for one step. */
 type ResolvedTextCornerScaleStep = Readonly<{
   measurement: TextCornerScaleMeasurement
   plan: ScaleSnapPlan
 }>
 
-/** Источник координаты указателя в событиях Fabric. */
+/** Source of pointer coordinates in Fabric events. */
 type TextCornerScalePointSource = 'object-scaling' | 'mouse-move'
 
-/** Допуск при проверке неизменяемых геометрических свойств текста. */
+/** Tolerance for checking immutable text-geometry properties. */
 const TEXT_CORNER_SCALE_STATE_EPSILON = 0.000000001
 
-/** Стандартные ручки Fabric для углового скейлинга Textbox. */
+/** Standard Fabric handles for Textbox corner scaling. */
 const STANDARD_TEXT_CORNER_SCALE_CONTROLS: Readonly<Record<string, Control>> = Object.freeze(
   controlsUtils.createTextboxDefaultControls()
 )
 
-/** Проверяет угловую ручку пропорционального скейлинга. */
+/** Checks a proportional-scaling corner handle. */
 function isCornerControl({ transform }: { transform: Transform }): boolean {
   return transform.action === 'scale'
     && (transform.corner === 'tl'
@@ -106,7 +106,7 @@ function isCornerControl({ transform }: { transform: Transform }): boolean {
       || transform.corner === 'br')
 }
 
-/** Проверяет обработчик и геометрию активной ручки по стандартному контракту Fabric. */
+/** Checks the active handle's handler and geometry against the standard Fabric contract. */
 function isStandardTextCornerScaleControl({
   target,
   transform
@@ -141,7 +141,7 @@ function isStandardTextCornerScaleControl({
   })
 }
 
-/** Проверяет ограничения общей логики углового скейлинга текста. */
+/** Checks the constraints of shared text corner-scaling logic. */
 function isSupportedStandaloneText(target: FabricObject): target is EditorTextbox {
   if (!(target instanceof BackgroundTextbox) || target.group) return false
   if (target.shapeNodeType === 'text' || target.path || target.isEditing) return false
@@ -164,7 +164,7 @@ function isSupportedStandaloneText(target: FabricObject): target is EditorTextbo
     && Math.abs(strokeWidth) <= TEXT_CORNER_SCALE_STATE_EPSILON
 }
 
-/** Возвращает поддерживаемый объект и преобразование одного жеста. */
+/** Returns the supported object and transform for one gesture. */
 function resolveTextCornerScaleGesture({
   event
 }: {
@@ -182,7 +182,7 @@ function resolveTextCornerScaleGesture({
   })
 }
 
-/** Запоминает свойства, которые должны оставаться неизменными во время жеста. */
+/** Captures properties that must remain unchanged during the gesture. */
 function captureProtectedTextState({
   target,
   transform
@@ -200,7 +200,7 @@ function captureProtectedTextState({
   })
 }
 
-/** Читает Ctrl и Shift из текущего события указателя. */
+/** Reads Ctrl and Shift from the current pointer event. */
 function readScaleModifiers({
   event
 }: {
@@ -212,7 +212,7 @@ function readScaleModifiers({
   })
 }
 
-/** Проверяет, что свойства объекта и преобразования всё ещё относятся к исходному жесту. */
+/** Checks that object and transform properties still correspond to the original gesture. */
 function isSameScaleGesture({ session }: { session: TextCornerScaleSession }): boolean {
   const { protectedState, target, transform } = session
 
@@ -227,7 +227,7 @@ function isSameScaleGesture({ session }: { session: TextCornerScaleSession }): b
     && Boolean(target.flipY) === protectedState.flipY
 }
 
-/** Проверяет, что выбранная направляющая достигнута после применения размера текста. */
+/** Checks that the selected guide is reached after applying text dimensions. */
 function didReachGuide({
   bounds,
   constraint,
@@ -242,18 +242,18 @@ function didReachGuide({
   return Math.abs(bounds[constraint.candidate.edge] - constraint.expectedPosition) <= epsilon
 }
 
-/** Управляет угловым скейлингом отдельного текста и общей логикой прилипания. */
+/** Manages standalone-text corner scaling and shared snapping logic. */
 export default class TextCornerScaleInteractionController {
-  /** Редактор, из которого берутся холст и SnappingManager. */
+  /** Editor providing the canvas and SnappingManager. */
   private readonly editor: ImageEditor
 
-  /** Единственный владелец канонических свойств скейлинга текста. */
+  /** Sole owner of canonical text-scaling properties. */
   private readonly scalingController: TextScalingController
 
-  /** Текущий поддерживаемый жест или null для прежней логики. */
+  /** Current supported gesture, or null for the previous logic. */
   private session: TextCornerScaleSession | null = null
 
-  /** Принимает зависимости, необходимые для расчёта и применения скейлинга. */
+  /** Accepts the dependencies required to calculate and apply scaling. */
   constructor({
     editor,
     scalingController
@@ -265,7 +265,7 @@ export default class TextCornerScaleInteractionController {
     this.scalingController = scalingController
   }
 
-  /** Фиксирует исходную геометрию поддерживаемого углового скейлинга текста. */
+  /** Captures the original geometry of supported standalone-text corner scaling. */
   public beginGesture(event: TextCornerScaleInteractionEvent): boolean {
     this.finishGesture()
 
@@ -293,17 +293,17 @@ export default class TextCornerScaleInteractionController {
     return true
   }
 
-  /** Обрабатывает штатное событие `object:scaling`. */
+  /** Handles the standard `object:scaling` event. */
   public handleObjectScaling(event: TextCornerScaleInteractionEvent): boolean {
     return this._handleScale({ event, pointSource: 'object-scaling' })
   }
 
-  /** Обрабатывает движение мыши, если Fabric не отправил `object:scaling`. */
+  /** Handles mouse movement if Fabric did not emit `object:scaling`. */
   public handleCanvasMouseMove(event: TextCornerScaleInteractionEvent): boolean {
     return this._handleScale({ event, pointSource: 'mouse-move' })
   }
 
-  /** Завершает активный жест и очищает его временное состояние. */
+  /** Ends the active gesture and clears its temporary state. */
   public finishGesture({
     continueWithExistingScaling = false
   }: {
@@ -328,14 +328,14 @@ export default class TextCornerScaleInteractionController {
     return true
   }
 
-  /** Завершает жест только при удалении его текста. */
+  /** Ends the gesture only when its text object is removed. */
   public finishGestureForTarget({ target }: { target: FabricObject }): boolean {
     if (!this.session || this.session.target !== target) return false
 
     return this.finishGesture()
   }
 
-  /** Прерывает преобразование Fabric после отмены события указателя. */
+  /** Interrupts the Fabric transform after a pointer event is canceled. */
   public interruptGesture({ event }: { event?: PointerEvent | TouchEvent } = {}): boolean {
     if (!this.session) return false
 
@@ -348,7 +348,7 @@ export default class TextCornerScaleInteractionController {
     return true
   }
 
-  /** Создаёт окружение прилипания и измеритель для одного жеста. */
+  /** Creates the snapping environment and measurer for one gesture. */
   private _createSession({
     gesture,
     resolved
@@ -386,7 +386,7 @@ export default class TextCornerScaleInteractionController {
     })
   }
 
-  /** Рассчитывает и применяет одну новую координату указателя. */
+  /** Calculates and applies one new pointer coordinate. */
   private _handleScale({
     event,
     pointSource
@@ -414,7 +414,7 @@ export default class TextCornerScaleInteractionController {
     return this._applyScale({ pointerEvent, scale, session })
   }
 
-  /** Проверяет, что событие относится к текущему тексту и преобразованию Fabric. */
+  /** Checks that the event belongs to the current text object and Fabric transform. */
   private _belongsToCurrentGesture({
     event,
     session
@@ -428,7 +428,7 @@ export default class TextCornerScaleInteractionController {
     return true
   }
 
-  /** Рассчитывает прилипание и ровно один раз применяет канонические свойства текста. */
+  /** Calculates snapping and applies canonical text properties exactly once. */
   private _applyScale({
     pointerEvent,
     scale,
@@ -468,7 +468,7 @@ export default class TextCornerScaleInteractionController {
     }
   }
 
-  /** Уточняет выбранное прилипание по канонической геометрии текста. */
+  /** Refines the selected snap using canonical text geometry. */
   private _resolveScaleStep({
     plan,
     pointerMeasurement,
@@ -514,7 +514,7 @@ export default class TextCornerScaleInteractionController {
     return Object.freeze({ measurement: resolved.measurement, plan: refinedPlan })
   }
 
-  /** Возвращает последний подтверждённый размер только внутри текущего удержания. */
+  /** Returns the last confirmed size only within the current snap hold. */
   private _resolvePreferredHeldScale({
     plan,
     session
@@ -528,7 +528,7 @@ export default class TextCornerScaleInteractionController {
     return hasHeldConstraint ? session.state.lastAppliedScale ?? undefined : undefined
   }
 
-  /** Применяет план к тексту на холсте и проверяет фактическую геометрию. */
+  /** Applies the plan to the text on the canvas and validates its actual geometry. */
   private _applyAndVerifyScale({
     resolved,
     session,
@@ -559,7 +559,7 @@ export default class TextCornerScaleInteractionController {
     return verification.guides
   }
 
-  /** Читает итоговые границы, неподвижную точку и результат шага. */
+  /** Reads the final bounds, fixed point, and step result. */
   private _readFinalGeometry({
     matchesExpectedState,
     plan,
@@ -597,7 +597,7 @@ export default class TextCornerScaleInteractionController {
     })
   }
 
-  /** Завершает общую обработку и передаёт текущий жест прежней логике. */
+  /** Ends shared handling and hands the current gesture to the previous logic. */
   private _continueWithExistingScaling(): false {
     this.finishGesture({ continueWithExistingScaling: true })
 

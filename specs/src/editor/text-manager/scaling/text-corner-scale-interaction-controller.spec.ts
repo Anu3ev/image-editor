@@ -26,13 +26,13 @@ afterEach(() => {
   jest.restoreAllMocks()
 })
 
-/** Неподдерживаемое состояние текста и его естественное описание в названии теста. */
+/** Unsupported text state and its natural-language description in the test name. */
 type UnsupportedTextCornerScaleCase = Readonly<{
   targetState: Readonly<Record<string, unknown>>
   title: string
 }>
 
-/** Состояния, которые должны использовать прежнюю логику углового скейлинга. */
+/** States that should use the previous corner-scaling logic. */
 const UNSUPPORTED_TEXT_CORNER_SCALE_CASES = [
   { title: 'вложенный текст', targetState: { group: {} } },
   { title: 'текст внутри шейпа', targetState: { shapeNodeType: 'text' } },

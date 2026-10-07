@@ -41,7 +41,7 @@ import type {
 } from '../../text-manager/types'
 
 /**
- * Данные события canvas, которые нужны обработчикам ShapeManager.
+ * Canvas-event data required by ShapeManager handlers.
  */
 type ShapeCanvasEvent = {
   target?: FabricObject | null
@@ -59,7 +59,7 @@ type ShapeCanvasEvent = {
 }
 
 /**
- * Зависимости обработчиков событий ShapeManager.
+ * Dependencies of ShapeManager's event handlers.
  */
 type ShapeEventDependencies = {
   editor: ImageEditor
@@ -72,26 +72,26 @@ type ShapeEventDependencies = {
 }
 
 /**
- * Минимальное изменение scale, которое считается реальным изменением ActiveSelection.
+ * Minimum scale change considered a real ActiveSelection change.
  */
 const ACTIVE_SELECTION_SCALE_EPSILON = 0.0001
 
 /**
- * Подписывает ShapeManager на события canvas и передаёт их нужным контроллерам.
+ * Subscribes ShapeManager to canvas events and forwards them to the appropriate controllers.
  */
 export default class ShapeEventController {
   /**
-   * Зависимости обработчиков событий.
+   * Event-handler dependencies.
    */
   private readonly dependencies: ShapeEventDependencies
 
   /**
-   * Управляет snapping во время scale одиночного Shape.
+   * Manages snapping while scaling a single Shape.
    */
   private readonly scaleInteractionController: ShapeScaleInteractionController
 
   /**
-   * Принимает зависимости обработчиков и создаёт контроллер scale-жеста.
+   * Accepts handler dependencies and creates the scale-gesture controller.
    */
   constructor({ dependencies }: { dependencies: ShapeEventDependencies }) {
     this.dependencies = dependencies
@@ -102,7 +102,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Подписывает ShapeManager на события canvas и окна.
+   * Subscribes ShapeManager to canvas and window events.
    */
   public bind(): void {
     const { canvas } = this.dependencies.editor
@@ -128,7 +128,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Снимает подписки ShapeManager и очищает активный scale-жест.
+   * Unsubscribes ShapeManager and clears the active scale gesture.
    */
   public destroy(): void {
     this.scaleInteractionController.destroy()
@@ -156,7 +156,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Начинает resize для затронутых Shape и применяет текущий scale.
+   * Starts resizing the affected Shapes and applies the current scale.
    */
   private _handleObjectScaling = (event: ShapeCanvasEvent): void => {
     if (this.dependencies.editor.selectionManager.handleShapeSelectionScaleStep({
@@ -172,7 +172,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Фиксирует результат скейлинга одиночного шейпа или ActiveSelection.
+   * Commits the scaling result for a single shape or ActiveSelection.
    */
   private _handleObjectModified = (event: ShapeCanvasEvent): void => {
     const groups = this._collectShapeGroupsFromTarget({
@@ -219,7 +219,7 @@ export default class ShapeEventController {
     })
   }
 
-  /** Выбирает способ фиксации поддерживаемого общего выделения после завершения жеста. */
+  /** Selects how to commit a supported selection after the gesture ends. */
   private _commitUnifiedShapeSelection({
     event,
     selection
@@ -245,7 +245,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Обрабатывает mouse:move, когда Fabric не отправил object:scaling.
+   * Handles mouse:move when Fabric did not emit object:scaling.
    */
   private _handleMouseMove = (event: ShapeCanvasEvent): void => {
     if (this.dependencies.editor.selectionManager.handleShapeSelectionScaleStep({
@@ -263,7 +263,7 @@ export default class ShapeEventController {
     this.dependencies.scalingController.handleCanvasMouseMove(event)
   }
 
-  /** Начинает отслеживать resize для Shape, затронутых событием. */
+  /** Starts tracking resizing for Shapes affected by the event. */
   private _beginResize({ event }: { event: ShapeCanvasEvent }): void {
     const groups = this._collectShapeGroupsFromTarget({
       target: event.target,
@@ -276,7 +276,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Сохраняет Shape до возможного resize и запускает обработчики mouse:down.
+   * Saves Shapes before a possible resize and runs the mouse:down handlers.
    */
   private _handleMouseDown = (event: ShapeCanvasEvent): void => {
     const groups = this._collectShapeGroupsFromTarget({
@@ -292,13 +292,13 @@ export default class ShapeEventController {
     this.dependencies.editingController.handleMouseDown(event)
   }
 
-  /** Очищает данные завершённого scale-жеста. */
+  /** Clears data for the completed scale gesture. */
   private _handleScaleInteractionFinished = (): void => {
     this.scaleInteractionController.finishGesture()
     this.dependencies.lifecycleController.clearResizeStarts()
   }
 
-  /** Завершает scale-жест, если его Shape удалили с canvas. */
+  /** Ends a scale gesture if its Shape was removed from the canvas. */
   private _handleObjectRemoved = (event: ShapeCanvasEvent): void => {
     const { target } = event
     if (!target) return
@@ -307,7 +307,7 @@ export default class ShapeEventController {
     this.dependencies.lifecycleController.clearResizeStarts()
   }
 
-  /** Очищает начало прерванного скейлинга, в том числе при ошибке завершения Fabric. */
+  /** Clears the start state of interrupted scaling, including when Fabric fails to finalize it. */
   private _handleScaleInteractionCancelled = (event: Event): void => {
     let shouldClearResizeStarts = true
 
@@ -321,7 +321,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Завершает редактирование текста внутри Shape.
+   * Finishes editing text inside a Shape.
    */
   private _handleTextEditingExited = (event: ShapeCanvasEvent): void => {
     let completedEditing: {
@@ -350,7 +350,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Подготавливает Shape к редактированию текста и запоминает его положение.
+   * Prepares a Shape for text editing and saves its position.
    */
   private _handleTextEditingEntered = (event: ShapeCanvasEvent): void => {
     if (event.target instanceof Textbox) {
@@ -371,7 +371,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Обновляет layout Shape после изменения текста во время редактирования.
+   * Updates Shape layout after text changes during editing.
    */
   private _handleTextChanged = (event: ShapeCanvasEvent): void => {
     if (!(event.target instanceof Textbox)) return
@@ -380,8 +380,8 @@ export default class ShapeEventController {
 
     if (!isShapeGroup(textNode.group)) return
 
-    // ShapeManager получает text:changed раньше TextManager, поэтому сначала
-    // синхронизируем стили строк, от которых зависит измерение компоновки.
+    // ShapeManager receives text:changed before TextManager, so first
+    // synchronize the line styles used to measure the layout.
     this.dependencies.editor.textManager.syncLineStylesWithText({
       textbox: textNode
     })
@@ -396,7 +396,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Обновляет layout Shape до сохранения предыдущего состояния текста в history.
+   * Updates Shape layout before saving the previous text state to history.
    */
   private _handleBeforeTextUpdated = (
     event: BeforeTextUpdatedPayload
@@ -430,7 +430,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Завершает программное обновление текста внутри Shape.
+   * Completes a programmatic text update inside a Shape.
    */
   private _handleTextUpdated = (event: TextUpdatedPayload): void => {
     const { textbox } = event
@@ -443,7 +443,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Синхронизирует layout группы после изменения принадлежащего ей текста.
+   * Synchronizes group layout after its owned text changes.
    */
   private _syncShapeTextLayoutAfterTextMutation({
     textNode,
@@ -480,7 +480,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Собирает уникальные shape-группы из target, subTargets и ActiveSelection.
+   * Collects unique shape groups from target, subTargets, and ActiveSelection.
    */
   private _collectShapeGroupsFromTarget({
     target,
@@ -511,7 +511,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Применяет scale ActiveSelection к дочерним Shape и восстанавливает выделение.
+   * Applies the ActiveSelection scale to child Shapes and restores the selection.
    */
   private _commitActiveSelectionShapeScaling({
     selection,
@@ -565,7 +565,7 @@ export default class ShapeEventController {
     })
   }
 
-  /** Фиксирует канонические размеры шейпов после унифицированного скейлинга. */
+  /** Commits canonical shape dimensions after unified scaling. */
   private _commitUnifiedActiveSelectionShapeScaling({
     objects,
     scaleX,
@@ -612,7 +612,7 @@ export default class ShapeEventController {
     canvas.requestRenderAll()
   }
 
-  /** Фиксирует шейпы смешанного или неподдерживаемого выделения без смены владельца прилипания. */
+  /** Commits shapes in a mixed or unsupported selection without changing snapping ownership. */
   private _commitLegacyActiveSelectionShapeScaling({
     objects,
     scaleX,
@@ -669,7 +669,7 @@ export default class ShapeEventController {
     canvas.requestRenderAll()
   }
 
-  /** Фиксирует размеры шейпов после снятия временной рамки и очищает состояние жеста. */
+  /** Commits shape dimensions after removing the temporary frame and clears gesture state. */
   private _commitActiveSelectionShapesBeforeRestore({
     groups,
     scaleX,
@@ -688,7 +688,7 @@ export default class ShapeEventController {
     this.dependencies.scalingController.clearActiveSelectionState({ selection })
   }
 
-  /** Фиксирует рассчитанный масштаб каждого шейпа и сохраняет его положение на холсте. */
+  /** Commits each shape's calculated scale and preserves its position on the canvas. */
   private _commitActiveSelectionShapeGroups({
     groups,
     scaleX,
@@ -719,7 +719,7 @@ export default class ShapeEventController {
   }
 
   /**
-   * Снимает выделение внутри уже выполняющегося `object:modified`, не запуская тот же transform повторно.
+   * Deselects within an ongoing `object:modified` without running the same transform again.
    */
   private _discardActiveSelectionDuringCommit({
     selection,
@@ -747,7 +747,7 @@ export default class ShapeEventController {
     }
   }
 
-  /** Сохраняет матрицы дочерних объектов до повторного создания общей рамки. */
+  /** Saves child-object matrices before recreating the shared frame. */
   private _captureChildSceneMatrices({
     objects
   }: {
@@ -764,7 +764,7 @@ export default class ShapeEventController {
     })
   }
 
-  /** Восстанавливает рамку выделения и оставляет заданное преобразование на общем объекте. */
+  /** Restores the selection frame and leaves the specified transform on the selection object. */
   private _restoreActiveSelectionAfterCommit({
     childSceneMatrices,
     center,

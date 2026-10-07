@@ -25,7 +25,7 @@ import {
   type ResolvedActiveSelectionTextScaleStep
 } from './active-selection-scale-plan'
 
-/** Ручки, которые действительно отображаются для общего выделения с текстом. */
+/** Handles actually displayed for a selection containing text. */
 const ACTIVE_SELECTION_TEXT_SCALE_CONTROLS = Object.freeze(new Set([
   'tl',
   'tr',
@@ -35,10 +35,10 @@ const ACTIVE_SELECTION_TEXT_SCALE_CONTROLS = Object.freeze(new Set([
   'mr'
 ]))
 
-/** Допуск проверки канонического состояния текста и рамки. */
+/** Tolerance for checking canonical text and frame state. */
 const ACTIVE_SELECTION_TEXT_SCALE_STATE_EPSILON = 0.000000001
 
-/** Временное состояние одного поддерживаемого жеста выделения с текстами. */
+/** Temporary state of one supported gesture on a selection containing text. */
 type ActiveSelectionTextScalingSession = Readonly<{
   children: readonly FabricObject[]
   measurer: ActiveSelectionTextScaleMeasurer
@@ -47,21 +47,21 @@ type ActiveSelectionTextScalingSession = Readonly<{
   transform: Transform
 }>
 
-/** Поддерживаемые дети общего выделения, в котором текст задаёт нелинейную геометрию. */
+/** Supported children of a selection whose nonlinear geometry is defined by text. */
 type ActiveSelectionTextScalingContent = Readonly<{
   affineChildren: readonly FabricImage[]
   children: readonly FabricObject[]
   texts: readonly EditorTextbox[]
 }>
 
-/** Проверяет, что число совпадает с ожидаемым каноническим значением. */
+/** Checks whether a number matches the expected canonical value. */
 function isNear({ actual, expected }: { actual: number; expected: number }): boolean {
   return Number.isFinite(actual)
     && Number.isFinite(expected)
     && Math.abs(actual - expected) <= ACTIVE_SELECTION_TEXT_SCALE_STATE_EPSILON
 }
 
-/** Возвращает каноническое изображение, которое может линейно меняться вместе с общей рамкой. */
+/** Returns a canonical image that can change linearly with the shared frame. */
 function resolveSupportedAffineImage({
   selection,
   target
@@ -101,7 +101,7 @@ function resolveSupportedAffineImage({
   return isCanonical ? target : null
 }
 
-/** Возвращает поддерживаемые тексты, изображения и явно переданные доменные объекты. */
+/** Returns supported text, images, and explicitly supplied domain objects. */
 function resolveSupportedSelectionContent({
   domainTargets = [],
   selection
@@ -138,18 +138,18 @@ function resolveSupportedSelectionContent({
   })
 }
 
-/** Управляет общим выделением, в котором тексты задают нелинейную геометрию. */
+/** Manages a selection whose nonlinear geometry is defined by text objects. */
 export default class TextActiveSelectionScalingController {
-  /** Fabric canvas редактора. */
+  /** The editor's Fabric canvas. */
   private readonly canvas: Canvas
 
-  /** Менеджер холста, используемый при переносе рассчитанных размеров в свойства текста. */
+  /** Canvas manager used when transferring calculated dimensions into text properties. */
   private readonly canvasManager: CanvasManager
 
-  /** Единственная активная сессия текущего временного выделения. */
+  /** The single active session of the current temporary selection. */
   private session: ActiveSelectionTextScalingSession | null = null
 
-  /** Создаёт владельца текстовой части скейлинга общего выделения. */
+  /** Creates the owner of the text portion of selection scaling. */
   constructor({
     canvas,
     canvasManager
@@ -161,7 +161,7 @@ export default class TextActiveSelectionScalingController {
     this.canvasManager = canvasManager
   }
 
-  /** Проверяет канонический состав из текстов, изображений и необязательных доменных объектов. */
+  /** Checks a canonical selection of text, images, and optional domain objects. */
   public supportsScaling({
     domainTargets,
     selection
@@ -172,7 +172,7 @@ export default class TextActiveSelectionScalingController {
     return resolveSupportedSelectionContent({ domainTargets, selection }) !== null
   }
 
-  /** Фиксирует неизменяемое начало поддерживаемого жеста до первой мутации Fabric. */
+  /** Captures the immutable start of a supported gesture before the first Fabric mutation. */
   public beginScaling({
     domainSource,
     projection,
@@ -212,7 +212,7 @@ export default class TextActiveSelectionScalingController {
     return true
   }
 
-  /** Измеряет каноническую геометрию по текущему положению указателя. */
+  /** Measures canonical geometry from the current pointer position. */
   public measureScale({
     mode,
     multipliers,
@@ -225,7 +225,7 @@ export default class TextActiveSelectionScalingController {
     return this._getSession({ selection }).measurer.measure({ mode, multipliers })
   }
 
-  /** Уточняет общий план по фактическим границам и переносу строк всех текстов. */
+  /** Refines the shared plan using actual bounds and wrapping of all text objects. */
   public resolveScaleStep({
     mode,
     plan,
@@ -247,7 +247,7 @@ export default class TextActiveSelectionScalingController {
     })
   }
 
-  /** Один раз применяет измеренное состояние к дочерним объектам и общей рамке. */
+  /** Applies the measured state to child objects and the shared frame once. */
   public applyScalePreview({
     measurement,
     selection
@@ -262,14 +262,14 @@ export default class TextActiveSelectionScalingController {
     return measurement.multipliers
   }
 
-  /** Подтверждает применённый шаг после общей проверки фактической геометрии. */
+  /** Confirms the applied step after shared validation of actual geometry. */
   public confirmScalePreview({ selection }: { selection: ActiveSelection }): boolean {
     const { measurer } = this._getSession({ selection })
 
     return measurer.confirmAppliedMeasurement()
   }
 
-  /** Проверяет рассчитанную геометрию детей, сохраняя снимок до завершения общей фиксации. */
+  /** Checks calculated child geometry, preserving the snapshot until the overall commit is complete. */
   public commitScaling({
     selection
   }: {
@@ -304,7 +304,7 @@ export default class TextActiveSelectionScalingController {
     return true
   }
 
-  /** Очищает измерения прерванного или завершённого жеста. */
+  /** Clears measurements from an interrupted or completed gesture. */
   public clearScaling({ selection }: { selection: ActiveSelection }): boolean {
     if (this.session?.selection !== selection) return false
 
@@ -313,14 +313,14 @@ export default class TextActiveSelectionScalingController {
     return true
   }
 
-  /** Проверяет, что текущая сессия уже подтвердила рассчитанную геометрию. */
+  /** Checks that the current session has already confirmed calculated geometry. */
   public hasConfirmedScalePreview({ selection }: { selection: ActiveSelection }): boolean {
     if (this.session?.selection !== selection) return false
 
     return this.session.measurer.hasConfirmedMeasurement()
   }
 
-  /** Восстанавливает последнее подтверждённое или исходное состояние текущего жеста. */
+  /** Restores the current gesture's last confirmed or original state. */
   public restoreScalePreview({ selection }: { selection: ActiveSelection }): boolean {
     if (this.session?.selection !== selection) return false
 
@@ -330,14 +330,14 @@ export default class TextActiveSelectionScalingController {
     return restored
   }
 
-  /** Освобождает измеритель при уничтожении TextManager. */
+  /** Releases the measurer when TextManager is destroyed. */
   public destroy(): void {
     if (!this.session) return
 
     this._clearSession({ selection: this.session.selection })
   }
 
-  /** Возвращает обязательную активную сессию переданного выделения. */
+  /** Returns the required active session for the supplied selection. */
   private _getSession({ selection }: { selection: ActiveSelection }): ActiveSelectionTextScalingSession {
     const { session } = this
     if (!session || session.selection !== selection) {
@@ -347,7 +347,7 @@ export default class TextActiveSelectionScalingController {
     return session
   }
 
-  /** Проверяет, что масштаб временной рамки полностью перенесён в канонические свойства текстов. */
+  /** Checks that the temporary frame's scale has been fully transferred into canonical text properties. */
   private _assertCommittedTexts({ texts }: { texts: readonly EditorTextbox[] }): void {
     for (const child of texts) {
       const affineValues = [
@@ -363,7 +363,7 @@ export default class TextActiveSelectionScalingController {
     }
   }
 
-  /** Освобождает измеритель и удаляет сессию переданного выделения. */
+  /** Releases the measurer and removes the supplied selection's session. */
   private _clearSession({ selection }: { selection: ActiveSelection }): void {
     const { session } = this
     if (!session || session.selection !== selection) return

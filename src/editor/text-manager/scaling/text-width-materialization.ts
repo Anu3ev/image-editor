@@ -1,12 +1,12 @@
 import type { EditorTextbox } from '../types'
 
-/** Минимальная каноническая ширина отдельного Textbox. */
+/** Minimum canonical width of a standalone Textbox. */
 export const MINIMUM_TEXT_WIDTH = 1
 
 /**
- * Применяет каноническую ширину и оставляет высоту результатом переноса строк.
- * BackgroundTextbox округляет размеры внутри initDimensions.
- * После пересчёта сохраняет минимальную ширину строки, а большую ширину оставляет дробной.
+ * Applies canonical width, leaving height to be determined by line wrapping.
+ * BackgroundTextbox rounds dimensions inside initDimensions.
+ * After recalculation, preserves the minimum line width and leaves larger widths fractional.
  */
 export function applyCanonicalTextboxWidth({
   textbox,

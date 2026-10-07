@@ -3,17 +3,17 @@ import type {
   ShapeScaleCorner
 } from '../../types'
 
-/** Допустимая погрешность округления размеров в DOM-индикаторе. */
+/** Allowed dimension-rounding error in the DOM indicator. */
 export const OBJECT_SIZE_INDICATOR_TOLERANCE = 1
 
-/** Кейс проверки индикатора при скейлинге shape за боковую ручку. */
+/** Indicator test case for scaling a shape with a side handle. */
 export interface ShapeSizeIndicatorSideCase {
   title: string
   side: ShapeScaleSide
   scale: number
 }
 
-/** Кейс проверки индикатора при скейлинге shape за угловую ручку. */
+/** Indicator test case for scaling a shape with a corner handle. */
 export interface ShapeSizeIndicatorCornerCase {
   title: string
   corner: Extract<ShapeScaleCorner, 'tl' | 'tr' | 'bl' | 'br'>
@@ -21,7 +21,7 @@ export interface ShapeSizeIndicatorCornerCase {
   scaleY: number
 }
 
-/** Боковые ручки shape, где Fabric меняет только одну ось и origin зависит от стороны. */
+/** Shape side handles where Fabric changes only one axis and the origin depends on the side. */
 export const SHAPE_SIZE_INDICATOR_SIDE_CASES: ShapeSizeIndicatorSideCase[] = [
   {
     title: 'при скейлинге фигуры вправо показывает текущие размеры',
@@ -45,7 +45,7 @@ export const SHAPE_SIZE_INDICATOR_SIDE_CASES: ShapeSizeIndicatorSideCase[] = [
   }
 ]
 
-/** Угловые ручки shape, где Fabric одновременно меняет обе оси и origin зависит от угла. */
+/** Shape corner handles where Fabric changes both axes and the origin depends on the corner. */
 export const SHAPE_SIZE_INDICATOR_CORNER_CASES: ShapeSizeIndicatorCornerCase[] = [
   {
     title: 'при скейлинге фигуры из правого нижнего угла показывает текущие размеры',

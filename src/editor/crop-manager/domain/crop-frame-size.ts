@@ -3,7 +3,7 @@ import type { FabricObject } from 'fabric'
 import type { CropSize } from '../types'
 
 /**
- * Crop frame хранит scale источника, чтобы считать отображаемый размер в source-пикселях.
+ * The crop frame stores the source scale to calculate its displayed size in source pixels.
  */
 interface CropFrameSizeTarget extends FabricObject {
   cropSourceScaleX?: number
@@ -11,7 +11,7 @@ interface CropFrameSizeTarget extends FabricObject {
 }
 
 /**
- * Возвращает размер crop frame в локальных пикселях источника без stroke.
+ * Returns the crop frame size in local source pixels, excluding the stroke.
  */
 export function getCropFrameSourceSize({
   frame,

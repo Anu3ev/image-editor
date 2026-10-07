@@ -7,14 +7,14 @@ import CropManager from '../../../src/editor/crop-manager'
 import { createEditorStub } from '../editor/editor-stub'
 import { createCropScaleHarness } from './scale'
 
-/** Активный CropManager с минимальной runtime-сессией. */
+/** Active CropManager with a minimal runtime session. */
 type ActiveCropManagerFixture = {
   cropManager: CropManager
   editor: ImageEditor
   session: CropSession
 }
 
-/** Создаёт минимальную runtime-сессию crop manager для unit-проверок. */
+/** Creates a minimal crop manager runtime session for unit checks. */
 export const createMinimalSession = ({
   preserveAspectRatio = true,
   showDimmedArea = true
@@ -54,7 +54,7 @@ export const createMinimalSession = ({
   }
 }
 
-/** Устанавливает исходные canvas-настройки, которые должен восстановить crop overlay. */
+/** Sets the initial canvas settings that the crop overlay must restore. */
 export const prepareCanvasOverlayState = ({
   canvas,
   overlayImage
@@ -67,7 +67,7 @@ export const prepareCanvasOverlayState = ({
   canvas.controlsAboveOverlay = false
 }
 
-/** Создаёт CropManager с активной минимальной runtime-сессией. */
+/** Creates a CropManager with an active minimal runtime session. */
 export const createActiveCropManager = ({
   preserveAspectRatio = true,
   showDimmedArea = true
@@ -91,7 +91,7 @@ export const createActiveCropManager = ({
   }
 }
 
-/** Создаёт активный crop с начатым скейлингом и временно отключённым исходным объектом. */
+/** Creates an active crop with scaling started and the source object temporarily disabled. */
 export function createScalingCropManager() {
   const harness = createCropScaleHarness()
   const context = createActiveCropManager({ showDimmedArea: false })

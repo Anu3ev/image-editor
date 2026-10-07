@@ -43,7 +43,7 @@ export type ObjectPlacement = {
   originY: FabricObject['originY']
 }
 
-// Вспомогательные функции для тестирования
+// Helper functions for testing
 export const clampValue = (value: number, min: number, max: number): number => Math.max(Math.min(value, max), min)
 
 export const calculateProportionalDimension = (base: number, factor: number): number => base * factor
@@ -58,20 +58,20 @@ export function isImageObject(
 
 export default class CanvasManager {
   /**
-   * Инстанс редактора с доступом к canvas
+   * Editor instance with access to the canvas
    */
   public editor: ImageEditor
 
   /**
    * @param options
-   * @param options.editor – экземпляр редактора
+   * @param options.editor – Editor instance
    */
   constructor({ editor }: { editor: ImageEditor }) {
     this.editor = editor
   }
 
   /**
-   * Возвращает контейнер редактора
+   * Returns the editor container
    */
   public getEditorContainer(): HTMLElement {
     const { canvas, options: { editorContainer } } = this.editor
@@ -79,10 +79,10 @@ export default class CanvasManager {
   }
 
   /**
-   * Возвращает центральную точку текущей видимой области канваса.
-   * Если точка находится за пределами монтажной области, она проецируется на ближайшую границу монтажной области.
-   * Scene coordinates монтажной области здесь считаются каноническими, а viewportTransform
-   * выступает единственным camera-state для pan/zoom и визуального центрирования.
+   * Returns the center point of the currently visible canvas area.
+   * If the point is outside the artboard, it is projected onto the nearest artboard boundary.
+   * The artboard's scene coordinates are canonical here, and viewportTransform
+   * is the sole camera state for pan/zoom and visual centering.
    */
   public getVisibleCenterPoint(): Point {
     const { canvas } = this.editor
@@ -92,7 +92,7 @@ export default class CanvasManager {
     const height = canvas.getHeight()
     const montageBounds = this.getMontageAreaSceneBounds()
 
-    // Рассчитываем центр вьюпорта в координатах канваса
+    // Calculate the viewport center in canvas coordinates
     const viewportCenterX = (width / 2 - vpt[4]) / zoom
     const viewportCenterY = (height / 2 - vpt[5]) / zoom
 
@@ -111,7 +111,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Возвращает текущий центр монтажной области в scene coordinates.
+   * Returns the current artboard center in scene coordinates.
    */
   public getMontageAreaSceneCenter(): Point {
     const { montageArea } = this.editor
@@ -119,9 +119,9 @@ export default class CanvasManager {
   }
 
   /**
-   * Возвращает канонический центр монтажной области в scene coordinates.
-   * Каноническая модель держит top-left монтажной области в точке (0, 0),
-   * поэтому центр определяется только её размером.
+   * Returns the canonical artboard center in scene coordinates.
+   * The canonical model keeps the artboard's top-left corner at (0, 0),
+   * so its center is determined only by its size.
    */
   public getMontageAreaCanonicalSceneCenter(): Point {
     const { montageArea } = this.editor
@@ -129,7 +129,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Возвращает границы монтажной области в scene coordinates.
+   * Returns the artboard bounds in scene coordinates.
    */
   public getMontageAreaSceneBounds(): MontageAreaSceneBounds {
     const { montageArea } = this.editor
@@ -149,9 +149,9 @@ export default class CanvasManager {
   }
 
   /**
-   * Возвращает текущее placement-состояние объекта в scene coordinates.
-   * В editor-level контракте `left/top + originX/originY` являются source of truth
-   * для позиционирования объекта относительно монтажной области.
+   * Returns the object's current placement state in scene coordinates.
+   * In the editor-level contract, `left/top + originX/originY` are the source of truth
+   * for positioning the object relative to the artboard.
    */
   public getObjectPlacement({
     object,
@@ -178,9 +178,9 @@ export default class CanvasManager {
   }
 
   /**
-   * Собирает целевой placement объекта из explicit `left/top/originX/originY`.
-   * Если координата не передана, используется текущая точка объекта по effective origin
-   * либо переданный fallbackPoint.
+   * Builds the target object placement from explicit `left/top/originX/originY`.
+   * If a coordinate is omitted, uses the object's current point at the effective origin
+   * or the provided fallbackPoint.
    */
   public resolveObjectPlacement({
     object,
@@ -214,7 +214,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Применяет placement-контракт к объекту и делает origin частью persisted scene state.
+   * Applies the placement contract to the object and makes its origin part of the persisted scene state.
    */
   public applyObjectPlacement({
     object,
@@ -239,7 +239,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Центрирует объект относительно монтажной области в scene coordinates.
+   * Centers an object relative to the artboard in scene coordinates.
    */
   public centerObjectToMontageArea({ object }: { object: FabricObject }): void {
     const montageCenter = this.getMontageAreaSceneCenter()
@@ -249,8 +249,8 @@ export default class CanvasManager {
   }
 
   /**
-   * Синхронизирует clipPath с текущей геометрией монтажной области.
-   * clipPath является derived state и не должен жить своей persisted-позицией.
+   * Synchronizes clipPath with the current artboard geometry.
+   * clipPath is derived state and must not have its own persisted position.
    */
   public syncClipPathWithMontageArea(): void {
     const {
@@ -273,9 +273,9 @@ export default class CanvasManager {
   }
 
   /**
-   * Приводит montageArea и clipPath к каноническому scene-placement.
-   * В канонической модели top-left монтажной области всегда равен (0, 0),
-   * а её центр определяется только текущими width и height.
+   * Normalizes montageArea and clipPath to canonical scene placement.
+   * In the canonical model, the artboard's top-left corner is always (0, 0),
+   * and its center is determined only by its current width and height.
    */
   public placeMontageAreaAtCanonicalScenePosition(): void {
     const { montageArea } = this.editor
@@ -291,7 +291,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Обновляет derived-слои, которые завязаны на монтажную область и текущий viewport.
+   * Updates derived layers that depend on the artboard and current viewport.
    */
   public refreshMontageDerivedState(): void {
     const { backgroundManager, interactionBlocker } = this.editor
@@ -306,14 +306,14 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем внутреннюю ширину канваса (для экспорта)
-   * @param width - ширина канваса
+   * Set the internal canvas width (for export)
+   * @param width - Canvas width
    * @param options
-   * @param options.preserveProportional - Сохранить пропорции
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
-   * При изменении размеров монтажной области редактор пересчитывает defaultZoom
-   * и нормализует текущий camera-state к новому fit-состоянию.
+   * @param options.preserveProportional - Preserve the aspect ratio
+   * @param options.withoutSave - Do not save the state
+   * @param options.adaptCanvasToContainer - Adapt the canvas to the container
+   * When the artboard size changes, the editor recalculates defaultZoom
+   * and normalizes the current camera state to the new fit state.
    * @fires editor:resolution-width-changed
    */
   public setResolutionWidth(
@@ -332,7 +332,7 @@ export default class CanvasManager {
 
     const adjustedWidth = clampValue(Number(width), CANVAS_MIN_WIDTH, CANVAS_MAX_WIDTH)
 
-    // Если ширина канваса не задана или равна 'auto', адаптируем канвас к контейнеру
+    // If the canvas width is not set or is 'auto', adapt the canvas to the container
     if (!canvasBackstoreWidth || canvasBackstoreWidth === 'auto' || adaptCanvasToContainer) {
       this.adaptCanvasToContainer()
     } else if (canvasBackstoreWidth) {
@@ -341,11 +341,11 @@ export default class CanvasManager {
       this.setCanvasBackstoreWidth(adjustedWidth)
     }
 
-    // Обновляем размеры montageArea и clipPath
+    // Update the dimensions of montageArea and clipPath
     montageArea.set({ width: adjustedWidth })
     this.placeMontageAreaAtCanonicalScenePosition()
 
-    // Если нужно сохранить пропорции, вычисляем новую высоту
+    // If the aspect ratio must be preserved, calculate the new height
     if (preserveProportional) {
       const factor = adjustedWidth / montageAreaWidth
       const newHeight = calculateProportionalDimension(montageAreaHeight, factor)
@@ -371,19 +371,19 @@ export default class CanvasManager {
       adaptCanvasToContainer
     })
 
-    // обновляем границы перетаскивания
+    // update the drag bounds
     this.editor.panConstraintManager.updateBounds()
   }
 
   /**
-   * Устанавливаем внутреннюю высоту канваса (для экспорта)
-   * @param height - высота канваса
+   * Set the internal canvas height (for export)
+   * @param height - Canvas height
    * @param options
-   * @param options.preserveProportional - Сохранить пропорции
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.adaptCanvasToContainer - Адаптировать канвас к контейнеру
-   * При изменении размеров монтажной области редактор пересчитывает defaultZoom
-   * и нормализует текущий camera-state к новому fit-состоянию.
+   * @param options.preserveProportional - Preserve the aspect ratio
+   * @param options.withoutSave - Do not save the state
+   * @param options.adaptCanvasToContainer - Adapt the canvas to the container
+   * When the artboard size changes, the editor recalculates defaultZoom
+   * and normalizes the current camera state to the new fit state.
    * @fires editor:resolution-height-changed
    */
   public setResolutionHeight(
@@ -410,11 +410,11 @@ export default class CanvasManager {
       this.setCanvasBackstoreHeight(adjustedHeight)
     }
 
-    // Обновляем размеры montageArea и clipPath
+    // Update the dimensions of montageArea and clipPath
     montageArea.set({ height: adjustedHeight })
     this.placeMontageAreaAtCanonicalScenePosition()
 
-    // Если нужно сохранить пропорции, вычисляем новую ширину
+    // If the aspect ratio must be preserved, calculate the new width
     if (preserveProportional) {
       const factor = adjustedHeight / montageAreaHeight
       const newWidth = calculateProportionalDimension(montageAreaWidth, factor)
@@ -441,13 +441,13 @@ export default class CanvasManager {
       adaptCanvasToContainer
     })
 
-    // обновляем границы перетаскивания
+    // update the drag bounds
     this.editor.panConstraintManager.updateBounds()
   }
 
   /**
-   * Центрирует viewport на монтажной области, не меняя scene coordinates.
-   * Метод отвечает только за camera-state через viewportTransform.
+   * Centers the viewport on the artboard without changing scene coordinates.
+   * The method controls only camera state through viewportTransform.
    */
   public centerViewportToMontageArea(): void {
     const { canvas } = this.editor
@@ -468,7 +468,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем ширину канваса в backstore (для экспорта)
+   * Set the canvas backstore width (for export)
    */
   public setCanvasBackstoreWidth(width: number): void {
     if (!width || typeof width !== 'number') return
@@ -479,7 +479,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем высоту канваса в backstore (для экспорта)
+   * Set the canvas backstore height (for export)
    * @param height
    */
   public setCanvasBackstoreHeight(height: number): void {
@@ -491,9 +491,9 @@ export default class CanvasManager {
   }
 
   /**
-   * Адаптирует размеры канваса к размерам контейнера редактора.
-   * Устанавливает ширину и высоту канваса в зависимости от размеров контейнера
-   * с учётом минимальных и максимальных значений.
+   * Adapts the canvas dimensions to the editor container size.
+   * Sets the canvas width and height based on the container dimensions,
+   * respecting minimum and maximum values.
    */
   public adaptCanvasToContainer(): void {
     const { canvas } = this.editor
@@ -509,12 +509,12 @@ export default class CanvasManager {
   }
 
   /**
-   * Обновляет размеры канваса без изменения позиций объектов.
-   * Используется при resize окна браузера.
+   * Updates the canvas dimensions without changing object positions.
+   * Used when the browser window is resized.
    *
-   * В camera-only модели resize контейнера меняет только размеры canvas и viewportTransform.
-   * Scene coordinates пользовательских объектов и montageArea при этом остаются стабильными,
-   * а defaultZoom пересчитывается как derived camera-state для нового viewport.
+   * In the camera-only model, container resize changes only the canvas dimensions and viewportTransform.
+   * Scene coordinates of user objects and montageArea remain stable,
+   * while defaultZoom is recalculated as derived camera state for the new viewport.
    * @fires editor:canvas-updated
    */
   public updateCanvas(): void {
@@ -537,20 +537,20 @@ export default class CanvasManager {
       height: montageAreaHeight
     })
 
-    // обновляем границы перетаскивания
+    // update the drag bounds
     this.editor.panConstraintManager.updateBounds()
   }
 
   /**
-   * Заготовка.
-   * Обновляет CSS-размеры канваса в зависимости от текущего зума, чтобы можно было скроллить вниз-вверх, влево-вправо.
+   * Stub.
+   * Updates the canvas CSS dimensions based on the current zoom to allow vertical and horizontal scrolling.
    *
-   * TODO: Сейчас изображение обрезается при зуме.
-   * Нужно сделать зум по курсору мыши внутри монтажной области, и возможность перетаскивать канвас с зажатым пробелом.
+   * TODO: The image is currently clipped when zooming.
+   * Implement zoom at the mouse cursor inside the artboard and canvas dragging while holding the space bar.
    *
-   * Метод нужно вызывать после zoomToPoint.
+   * This method must be called after zoomToPoint.
    *
-   * @param zoom — текущее значение zoom (например, 1, 1.2, 2 и т.д.)
+   * @param zoom — Current zoom value (for example, 1, 1.2, 2, etc.)
    */
   // public updateCssDimensionsForZoom(zoom: number): void {
   //   const { canvas, montageArea } = this.editor
@@ -571,7 +571,7 @@ export default class CanvasManager {
   // }
 
   /**
-   * Устанавливаем CSS ширину канваса для отображения
+   * Set the canvas CSS width for display
    * @param width
    * @fires editor:display-canvas-width-changed
    */
@@ -584,7 +584,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем CSS высоту канваса для отображения
+   * Set the canvas CSS height for display
    * @param height
    * @fires editor:display-canvas-height-changed
    */
@@ -597,7 +597,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем CSS ширину обертки канваса для отображения
+   * Set the canvas wrapper CSS width for display
    * @param width
    * @fires editor:display-wrapper-width-changed
    */
@@ -610,7 +610,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем CSS высоту обертки канваса для отображения
+   * Set the canvas wrapper CSS height for display
    * @param height
    * @fires editor:display-wrapper-height-changed
    */
@@ -623,7 +623,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем CSS ширину контейнера редактора для отображения
+   * Set the editor container CSS width for display
    * @param width
    * @fires editor:display-container-width-changed
    */
@@ -636,7 +636,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем CSS высоту контейнера редактора для отображения
+   * Set the editor container CSS height for display
    * @param height
    * @fires editor:display-container-height-changed
    */
@@ -649,12 +649,12 @@ export default class CanvasManager {
   }
 
   /**
-   * Устанавливаем CSS ширину или высоту канваса для отображения
+   * Set the canvas CSS width or height for display
    * @param options
-   * @param options.element - элемент, для которого устанавливаем размеры:
+   * @param options.element - Element whose dimensions are being set:
    * canvas (upper & lower), wrapper, container
-   * @param options.dimension - размер, который нужно установить: width или height
-   * @param options.value - значение размера (строка или число)
+   * @param options.dimension - Dimension to set: width or height
+   * @param options.value - Dimension value (string or number)
    * @fires editor:display-{element}-{dimension}-changed
    */
   public setDisplayDimension({ element = 'canvas', dimension, value }: setDisplayDimensionOptions = {}): void {
@@ -680,7 +680,7 @@ export default class CanvasManager {
 
     const cssDimension = dimension === 'width' ? 'width' : 'height'
 
-    // Если строка, то просто устанавливаем
+    // If it is a string, set it directly
     if (typeof value === 'string') {
       canvasElements.forEach((el) => { (el!).style[cssDimension] = value })
 
@@ -700,11 +700,11 @@ export default class CanvasManager {
   }
 
   /**
-   * Если изображение вписывается в допустимые значения, то масштабируем под него канвас
+   * If the image fits within the allowed values, scale the canvas to match it
    * @param options
-   * @param options.object - Объект с изображением, которое нужно масштабировать
-   * @param options.withoutSave - Не сохранять состояние
-   * @param options.preserveAspectRatio - Сохранять изначальные пропорции монтажной области
+   * @param options.object - Object containing the image to scale
+   * @param options.withoutSave - Do not save the state
+   * @param options.preserveAspectRatio - Preserve the original artboard aspect ratio
    * @fires editor:montage-area-scaled-to-image
    */
   public scaleMontageAreaToImage(
@@ -761,7 +761,7 @@ export default class CanvasManager {
   }
 
   /**
-   * Очистка холста
+   * Clear the canvas
    * @fires editor:cleared
    */
   public clearCanvas() {
@@ -769,10 +769,10 @@ export default class CanvasManager {
 
     historyManager.suspendHistory()
 
-    // Полностью очищаем канвас (удаляются все объекты, фоны, оверлеи и т.д.)
+    // Completely clear the canvas (remove all objects, backgrounds, overlays, etc.)
     canvas.clear()
 
-    // Добавляем монтажную область обратно
+    // Add the artboard back
     canvas.add(montageArea)
 
     canvas.renderAll()
@@ -784,9 +784,9 @@ export default class CanvasManager {
   }
 
   /**
-   * Установка зума и масштаба для канваса и сброс трансформации всех объектов
+   * Set the canvas zoom and scale and reset all object transforms
    * @param options
-   * @param options.withoutSave - Не сохранять состояние
+   * @param options.withoutSave - Do not save the state
    * @fires editor:default-scale-set
    */
   public setDefaultScale({ withoutSave }: { withoutSave?: boolean } = {}) {
@@ -816,8 +816,8 @@ export default class CanvasManager {
   }
 
   /**
-   * Получение всех объектов внутри монтажной области редактора
-   * @returns массив объектов
+   * Get all objects inside the editor artboard
+   * @returns Array of objects
    */
   public getObjects(): FabricObject[] {
     const {

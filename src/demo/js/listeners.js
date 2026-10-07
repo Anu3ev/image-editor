@@ -23,7 +23,7 @@ import initShapeListeners from './listeners/init-shape-listeners.js'
 import initTextListeners from './listeners/init-text-listeners.js'
 
 /**
- * Инициализирует все demo listeners и связывает отдельные UI-модули между собой.
+ * Initializes all demo listeners and connects the individual UI modules.
  */
 export default (editorInstance) => {
   const textApi = initTextListeners({

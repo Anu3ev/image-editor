@@ -1,12 +1,12 @@
 import { Point, Textbox, type FabricObject } from 'fabric'
 
-/** Размер объекта в координатах его текущего геометрического контракта. */
+/** Object dimensions in the coordinates defined by its current geometry contract. */
 export type Dimensions = {
   width: number
   height: number
 }
 
-/** Грани объекта и центры, рассчитанные в координатах сцены. */
+/** Object edges and centers calculated in scene coordinates. */
 export type ObjectBounds = {
   left: number
   right: number
@@ -16,11 +16,11 @@ export type ObjectBounds = {
   centerY: number
 }
 
-/** Способ чтения точных или совместимых со старым кодом округлённых границ. */
+/** Method for reading exact bounds or rounded bounds compatible with legacy code. */
 type VisualBoundsMode = 'exact' | 'compatible'
 
 /**
- * Возвращает числовое значение или fallback, если value некорректно.
+ * Returns a numeric value or fallback if value is invalid.
  */
 export const toNumber = ({
   value,
@@ -41,7 +41,7 @@ export const toNumber = ({
 }
 
 /**
- * Преобразует абсолютное значение координаты/размера в относительную долю (0..1) от размеров монтажной области.
+ * Converts an absolute coordinate/dimension to a relative fraction (0..1) of the artboard dimensions.
  */
 export const normalizeStoredValue = ({
   value,
@@ -61,7 +61,7 @@ export const normalizeStoredValue = ({
 }
 
 /**
- * Возвращает нормализованную placement-точку объекта (0..1).
+ * Returns the object's normalized placement point (0..1).
  */
 export const resolveNormalizedPlacement = ({
   object,
@@ -89,7 +89,7 @@ export const resolveNormalizedPlacement = ({
 }
 
 /**
- * Преобразует нормализованную placement-точку (0..1) обратно в абсолютные координаты на полотне.
+ * Converts a normalized placement point (0..1) back to absolute canvas coordinates.
  */
 export const denormalizePlacement = ({
   normalizedX,
@@ -114,7 +114,7 @@ export const denormalizePlacement = ({
 }
 
 /**
- * Рассчитывает нормализованную placement-точку объекта (0..1) относительно bounds.
+ * Calculates the object's normalized placement point (0..1) relative to bounds.
  */
 export const calculateNormalizedPlacement = ({
   object,
@@ -142,8 +142,8 @@ export const calculateNormalizedPlacement = ({
 }
 
 /**
- * Округляет позицию и масштаб объекта так, чтобы визуальные размеры и координаты были целыми пикселями.
- * Для текста scale не квантизируется: канонической геометрией standalone-textbox владеет TextManager.
+ * Rounds the object's position and scale so that its visual dimensions and coordinates are integer pixels.
+ * For text, scale is not quantized: TextManager owns the canonical geometry of standalone-textbox.
  */
 export const snapObjectToPixelGrid = ({
   object
@@ -192,7 +192,7 @@ export const snapObjectToPixelGrid = ({
 }
 
 /**
- * Проверяет, что кастомные bounds можно использовать в геометрических расчётах.
+ * Checks whether custom bounds can be used in geometry calculations.
  */
 function isFiniteObjectBounds({ bounds }: { bounds: ObjectBounds }): boolean {
   return Number.isFinite(bounds.left)
@@ -204,7 +204,7 @@ function isFiniteObjectBounds({ bounds }: { bounds: ObjectBounds }): boolean {
 }
 
 /**
- * Собирает границы объекта и рассчитывает центры из тех же точных значений.
+ * Collects the object's bounds and calculates centers from the same exact values.
  */
 function createObjectBounds({
   left,
@@ -228,7 +228,7 @@ function createObjectBounds({
 }
 
 /**
- * Проверяет точные границы объекта перед использованием.
+ * Validates the object's exact bounds before use.
  */
 function assertExactObjectBounds({
   bounds,
@@ -253,7 +253,7 @@ function assertExactObjectBounds({
 }
 
 /**
- * Возвращает видимые границы объекта без пользовательской геометрии прилипания.
+ * Returns the object's visual bounds without custom snapping geometry.
  */
 function getObjectVisualBounds({
   object,
@@ -282,8 +282,8 @@ function getObjectVisualBounds({
 }
 
 /**
- * Возвращает точные границы объекта в координатах сцены с учётом трансформации.
- * Некорректные пользовательские границы приводят к ошибке вместо подмены другой геометрией.
+ * Returns the object's exact bounds in scene coordinates, accounting for its transformation.
+ * Invalid custom bounds cause an error instead of being replaced with different geometry.
  */
 export const getObjectExactBounds = ({
   object
@@ -314,7 +314,7 @@ export const getObjectExactBounds = ({
 }
 
 /**
- * Возвращает bounding box объекта с учётом трансформации и округлением до целых пикселей.
+ * Returns the object's bounding box, accounting for its transformation and rounding to integer pixels.
  */
 export const getObjectBounds = ({
   object

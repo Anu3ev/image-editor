@@ -35,7 +35,7 @@ describe('интеграционные сценарии', () => {
       .mockReturnValueOnce(state3)
       .mockReturnValueOnce(state3)
 
-    // Создаём историю
+    // Create history
     historyManager.saveState()
     historyManager.saveState()
     historyManager.saveState()
@@ -44,27 +44,27 @@ describe('интеграционные сценарии', () => {
     expect(historyManager.patches.map((p) => p.id)).toEqual(['p1', 'p2', 'p3'])
     expect(historyManager.currentIndex).toBe(3)
 
-    // Откатываемся назад
+    // Undo
     await historyManager.undo()
     await historyManager.undo()
 
     expect(historyManager.currentIndex).toBe(1)
 
-    // Делаем redo
+    // Redo
     await historyManager.redo()
 
     expect(historyManager.currentIndex).toBe(2)
 
-    // Откатываемся снова
+    // Undo again
     await historyManager.undo()
 
     expect(historyManager.currentIndex).toBe(1)
 
-    // Создаём разветвление - добавляем новое состояние
+    // Create a branch: add a new state
     mockCanvas.toDatalessObject.mockReturnValueOnce(state5)
     historyManager.saveState()
 
-    // Старая ветка должна быть удалена
+    // The old branch should be removed
     expect(historyManager.patches.map((p) => p.id)).toEqual(['p1', 'p4'])
     expect(historyManager.currentIndex).toBe(2)
   })
@@ -87,7 +87,7 @@ describe('интеграционные сценарии', () => {
     historyManager.saveState()
     historyManager.saveState()
 
-    // Циклическое тестирование
+    // Repeated-cycle testing
     for (let i = 0; i < 3; i += 1) {
       await historyManager.undo()
       expect(historyManager.currentIndex).toBe(0)
@@ -127,12 +127,12 @@ describe('интеграционные сценарии', () => {
     expect(historyManager.currentIndex).toBe(2)
     expect(historyManager.totalChangesCount).toBe(4)
 
-    // Откатываемся
+    // Undo
     await historyManager.undo()
     expect(historyManager.currentIndex).toBe(1)
     expect(historyManager.totalChangesCount).toBe(3)
 
-    // Возвращаемся вперёд
+    // Redo
     await historyManager.redo()
     expect(historyManager.currentIndex).toBe(2)
     expect(historyManager.totalChangesCount).toBe(4)

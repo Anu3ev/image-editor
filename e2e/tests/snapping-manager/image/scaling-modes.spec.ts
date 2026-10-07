@@ -4,13 +4,13 @@ import {
 } from '../../../fixtures/data/snapping-image-scaling.data'
 import { SNAPPING_TOLERANCE } from '../../../fixtures/data/snapping.data'
 
-/** Угол representative-проверок повёрнутого Image. */
+/** Angle for representative rotated-Image checks. */
 const IMAGE_SCALE_ROTATION_DEGREES = 30
 
-/** Толщина обычной масштабируемой обводки в scale-сценарии Image. */
+/** Thickness of a regular scalable stroke in the Image scaling scenario. */
 const IMAGE_SCALE_STROKE_WIDTH = 6
 
-/** Цвет обычной масштабируемой обводки в scale-сценарии Image. */
+/** Color of a regular scalable stroke in the Image scaling scenario. */
 const IMAGE_SCALE_STROKE_COLOR = '#246bfd'
 
 test('повёрнутое изображение прилипает внешней гранью при скейлинге за боковую ручку', async({
