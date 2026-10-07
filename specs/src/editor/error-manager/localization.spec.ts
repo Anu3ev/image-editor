@@ -17,7 +17,7 @@ describe('Localized error event contracts', () => {
     ['ru', 'Неизвестный метод']
   ])('keeps method metadata stable while translating %s console labels', (language, methodLabel) => {
     const editor = createEditorStub()
-    editor.t = createTranslator(language)
+    editor.t = createTranslator({ language })
     const manager = new ErrorManager({ editor })
     const data = { source: 'caller-image.png', cause: new Error('Original error') }
 
@@ -42,7 +42,7 @@ describe('Localized error event contracts', () => {
 
   it.each(['loadCustomerImage', 'Unknown Method'])('preserves caller-supplied method %s and messages', (method) => {
     const editor = createEditorStub()
-    editor.t = createTranslator('ru')
+    editor.t = createTranslator({ language: 'ru' })
     const manager = new ErrorManager({ editor })
     const event = {
       code: 'IMPORT_FAILED',

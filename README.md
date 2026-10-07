@@ -141,12 +141,36 @@ See the [integration guide](./guides/integration.md) for configuration, image im
 ### Library language
 
 Pass `language` when creating an editor. English (`en`) is the default and
-fallback; Russian (`ru`) is also bundled. Regional variants such as `ru-RU`
-resolve to their base language, and unsupported languages fall back to English.
+fallback; Russian (`ru`) is also bundled. Missing translations resolve through
+the exact regional locale, its base language, then English. Locale codes are
+case-insensitive, and unsupported languages fall back to English.
 
 ```ts
 const editor = await initEditor('editor', { language: 'ru' })
 ```
+
+Add locales or partially override built-in ones with `customLanguages`. Use
+`EditorLocale` for nested key completion; every key is optional and accepts a
+translated string. See the [full English catalog](./src/editor/i18n/en.ts) for
+available keys and interpolation placeholders.
+
+```ts
+import initEditor, { type EditorLocale } from '@anu3ev/fabric-image-editor'
+
+const portuguese = {
+  ui: { toolbar: { delete: 'Excluir', duplicate: 'Duplicar' } }
+} satisfies EditorLocale
+
+const editor = await initEditor('editor', {
+  language: 'pt-BR',
+  customLanguages: { pt: portuguese }
+})
+```
+
+`CustomLanguages` is also exported for typing a map of locale codes to catalogs.
+Partial overrides such as `{ ru: { ui: { toolbar: { delete: 'Убрать' } } } }`
+preserve other built-in translations. Resources are copied for each editor, so
+one instance's customizations never affect another.
 
 Each instance has its own i18next translator. The language is fixed at
 initialization; create a new instance to choose another language. Built-in

@@ -230,7 +230,14 @@ export default class ToolbarManager {
 
       const btn = document.createElement('button')
 
-      btn.innerHTML = icons[handle] ? `<img src="${icons[handle]}" title="${name}" />` : name
+      if (icons[handle]) {
+        const icon = document.createElement('img')
+        icon.src = icons[handle]
+        icon.title = name
+        btn.appendChild(icon)
+      } else {
+        btn.innerHTML = name
+      }
 
       Object.assign(btn.style, btnStyle)
 

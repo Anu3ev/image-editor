@@ -238,7 +238,7 @@ export class ImageEditor {
    */
   constructor(canvasId: string, options: EditorOptions, cleanupHostResources?: () => void) {
     this.options = options
-    this.t = createTranslator(options.language)
+    this.t = createTranslator(options)
     this._cleanupHostResources = cleanupHostResources
     this.containerId = canvasId
     this.editorId = `${canvasId}-${nanoid()}`

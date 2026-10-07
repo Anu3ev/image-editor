@@ -27,25 +27,25 @@ describe('Per-instance editor translations', () => {
   })
 
   it('resolves regional Russian through the Russian catalog', () => {
-    const t = createTranslator('ru-RU')
+    const t = createTranslator({ language: 'ru-RU' })
 
     expect(t('text.defaults.newText')).toBe('Новый текст')
   })
 
   it.each(['RU', 'Ru', 'RU-ru'])('resolves the case-insensitive locale %s', (language) => {
-    expect(createTranslator(language)('text.defaults.newText')).toBe('Новый текст')
+    expect(createTranslator({ language })('text.defaults.newText')).toBe('Новый текст')
   })
 
   it('falls back to English for an unsupported locale', () => {
-    const t = createTranslator('zz-ZZ')
+    const t = createTranslator({ language: 'zz-ZZ' })
 
     expect(t('text.defaults.newText')).toBe('New text')
   })
 
   it('keeps independent translators stable after another locale is initialized', () => {
-    const english = createTranslator('en')
-    const russian = createTranslator('ru')
-    createTranslator('zz-ZZ')
+    const english = createTranslator({ language: 'en' })
+    const russian = createTranslator({ language: 'ru' })
+    createTranslator({ language: 'zz-ZZ' })
 
     expect(russian('ui.toolbar.delete')).toBe('Удалить')
     expect(english('ui.toolbar.delete')).toBe('Delete')
@@ -53,7 +53,7 @@ describe('Per-instance editor translations', () => {
   })
 
   it('interpolates multiple values without HTML-escaping diagnostic content', () => {
-    const t = createTranslator('en')
+    const t = createTranslator({ language: 'en' })
 
     expect(t('ui.indicators.objectSize', { width: 120, height: 48 })).toBe('Width: 120 Height: 48')
     expect(t('editor.errors.containerNotFound', { containerId: '<canvas>&"' }))
@@ -71,7 +71,7 @@ describe('Built-in catalog consistency', () => {
     expect(catalog.snapping.movement).toHaveProperty('bounds.centersMustMatchEdges')
 
     const entries = catalogEntries(catalog)
-    const t = createTranslator(language)
+    const t = createTranslator({ language })
 
     expect(entries).toHaveLength(334)
 
@@ -103,6 +103,6 @@ describe('Built-in catalog consistency', () => {
   })
 
   it.each(['cimode', 'CIMODE'])('falls back to English for the reserved locale %s', (language) => {
-    expect(createTranslator(language)('text.defaults.newText')).toBe('New text')
+    expect(createTranslator({ language })('text.defaults.newText')).toBe('New text')
   })
 })

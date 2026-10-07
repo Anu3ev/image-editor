@@ -9,7 +9,7 @@ describe('ImageManager message and filename localization', () => {
   afterEach(() => jest.restoreAllMocks())
 
   it('localizes default filenames and preserves custom names', () => {
-    const t = createTranslator('ru')
+    const t = createTranslator({ language: 'ru' })
     expect(createCanvasExportRequest({ options: {}, t }).fileName).toBe(t('image.filenames.defaultPng'))
     expect(createObjectExportRequest({ options: { contentType: 'image/webp' }, t }).fileName)
       .toBe(t('image.filenames.defaultWithFormat', { format: 'webp' }))
@@ -20,7 +20,7 @@ describe('ImageManager message and filename localization', () => {
 
   it('localizes URL warnings and preserves diagnostic data', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
-    const result = getContentTypeFromExtension({ url: 'invalid-url', acceptContentTypes: [], t: createTranslator('ru') })
+    const result = getContentTypeFromExtension({ url: 'invalid-url', acceptContentTypes: [], t: createTranslator({ language: 'ru' }) })
     expect(result).toBe('application/octet-stream')
     expect(warn).toHaveBeenCalledWith(
       'Не удалось определить расширение файла из URL:',
@@ -31,7 +31,7 @@ describe('ImageManager message and filename localization', () => {
 
   it('localizes export errors and preserves the original exception message', async() => {
     const setup = createImageManagerTestSetup()
-    setup.mockEditor.t = createTranslator('ru')
+    setup.mockEditor.t = createTranslator({ language: 'ru' })
     setup.mockCanvas.clone.mockRejectedValueOnce(new Error('Custom browser failure'))
     try {
       await expect(setup.imageManager.exportCanvasAsImageFile()).resolves.toBeNull()

@@ -11,7 +11,7 @@ import { createRectangularScaleProjectionFixture } from '../../../test-utils/sna
 
 it('localizes text validation without changing user-authored text', () => {
   const textbox = new BackgroundTextbox('Текст пользователя', { width: 120 })
-  const ru = createTranslator('ru')
+  const ru = createTranslator({ language: 'ru' })
 
   expect(() => applyCanonicalTextboxWidth({ textbox, width: Number.NaN, t: ru }))
     .toThrow('Ширина Textbox должна быть конечным числом')
@@ -22,8 +22,8 @@ it('localizes text validation without changing user-authored text', () => {
 
 it('keeps independent crop validators in their selected language', () => {
   const frame = new Rect()
-  const en = createTranslator('en')
-  const ru = createTranslator('ru')
+  const en = createTranslator({ language: 'en' })
+  const ru = createTranslator({ language: 'ru' })
 
   expect(() => setCropFrameActiveResizePreserveAspectRatio({ frame, preserveAspectRatio: true, t: ru }))
     .toThrow('Рамка сеанса обрезки должна быть экземпляром CropFrame')
@@ -39,7 +39,7 @@ it('passes the selected language into nested shape validation and interpolation'
   })
   if (!projection) throw new Error('The test requires a valid scale projection')
 
-  const t = createTranslator('ru')
+  const t = createTranslator({ language: 'ru' })
   expect(() => stabilizeShapeScaleMultipliers({
     t,
     projection,

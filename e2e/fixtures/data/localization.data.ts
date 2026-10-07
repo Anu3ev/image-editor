@@ -1,4 +1,5 @@
 import type { LocalizationExample } from '../../types'
+import type { CustomLanguages } from '../../../src/main'
 
 export const LOCALIZATION_EXAMPLES: readonly LocalizationExample[] = [
   {
@@ -28,3 +29,32 @@ export const CUSTOM_LOCALIZATION_CONTENT = {
 
 export const LOCALIZATION_MISSING_CONTAINER = 'missing-localized-editor'
 export const LOCALIZATION_WORKER_ACTION = 'localization-test-action'
+
+export const CUSTOM_LANGUAGE_RESOURCES = {
+  pt: {
+    ui: { toolbar: { delete: 'Excluir' } }
+  },
+  'PT-br': {
+    ui: { toolbar: { duplicate: 'Duplicar "item" & <strong>guardar</strong>' } },
+    text: { defaults: { newText: 'Novo texto' } },
+    editor: { errors: { containerNotFound: 'Contêiner "{{containerId}}" não encontrado.' } }
+  }
+} satisfies CustomLanguages
+
+export const CUSTOM_LANGUAGE_EXPECTATIONS = {
+  newText: 'Novo texto',
+  duplicate: 'Duplicar "item" & <strong>guardar</strong>',
+  delete: 'Excluir',
+  lockFallback: 'Lock',
+  missingContainer: 'Contêiner "missing-localized-editor" não encontrado.'
+}
+
+export const RUSSIAN_OVERRIDE_RESOURCES = {
+  ru: { ui: { toolbar: { delete: 'Моя кнопка удаления' } } }
+} satisfies CustomLanguages
+
+export const RUSSIAN_TOOLBAR_EXPECTATIONS = {
+  delete: 'Удалить',
+  overriddenDelete: 'Моя кнопка удаления',
+  duplicate: 'Создать копию'
+}

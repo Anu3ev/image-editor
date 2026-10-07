@@ -4,6 +4,7 @@ import type { EditorOptions } from '../../src/main'
 export interface LocalizedEditorOptions {
   containerId: string
   language?: string
+  customLanguages?: EditorOptions['customLanguages']
   toolbar?: EditorOptions['toolbar']
   initialState?: EditorOptions['initialState']
 }

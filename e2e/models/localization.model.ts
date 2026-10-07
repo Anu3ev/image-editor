@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import type { ImageEditor } from '../../src/main'
+import type { ImageEditor, CustomLanguages } from '../../src/main'
 import type { CanvasFullState } from '../../src/editor/history-manager'
 import type { LocalizedEditorOptions } from '../types'
 import { E2E_EDITOR_FONTS } from '../fixtures/data/editor-fonts.data'
@@ -79,17 +79,25 @@ export class LocalizationModel {
     }, containerId)
   }
 
+  /** Reads the original resource option so tests can verify it was not mutated during initialization. */
+  async customLanguageResources(containerId: string): Promise<CustomLanguages | undefined> {
+    return this.page.evaluate((id) => {
+      const editor = window[id] as ImageEditor
+      return editor.options.customLanguages
+    }, containerId)
+  }
+
   /** Returns the localized initialization error before an editor can be created. */
-  async missingContainerError({ containerId, language }: LocalizedEditorOptions): Promise<string> {
-    return this.page.evaluate(async({ moduleUrl, containerId: id, language: locale }) => {
+  async missingContainerError({ containerId, language, customLanguages }: LocalizedEditorOptions): Promise<string> {
+    return this.page.evaluate(async({ moduleUrl, containerId: id, language: locale, customLanguages: resources }) => {
       const { default: initEditor } = await import(/* @vite-ignore */ moduleUrl)
       try {
-        await initEditor(id, { language: locale })
+        await initEditor(id, { language: locale, customLanguages: resources })
       } catch (error) {
         return error instanceof Error ? error.message : String(error)
       }
       throw new Error('Expected initialization to reject a missing container')
-    }, { moduleUrl: EDITOR_MODULE_URL, containerId, language })
+    }, { moduleUrl: EDITOR_MODULE_URL, containerId, language, customLanguages })
   }
 
   /** Sends an unsupported action to the actual browser worker. */

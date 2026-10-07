@@ -7,8 +7,8 @@ describe('ModuleLoader localization', () => {
   })
 
   it('keeps module errors independent across languages', async() => {
-    const russian = new ModuleLoader(createTranslator('ru'))
-    const english = new ModuleLoader(createTranslator('en'))
+    const russian = new ModuleLoader(createTranslator({ language: 'ru' }))
+    const english = new ModuleLoader(createTranslator({ language: 'en' }))
     await expect(russian.loadModule('example')).rejects.toThrow('Неизвестный модуль «example»')
     await expect(english.loadModule('example')).rejects.toThrow('Unknown module "example"')
   })

@@ -7,7 +7,7 @@ import { createScaleBaseline, createScaleRawIntent } from '../../../test-utils/s
 
 describe('Geometry and snapping localization', () => {
   it('passes the session language through deep scale parameter validation', () => {
-    const runtime = new ScaleSnappingRuntime(createTranslator('ru'))
+    const runtime = new ScaleSnappingRuntime(createTranslator({ language: 'ru' }))
     runtime.startSession({ baseline: createScaleBaseline() })
 
     expect(() => runtime.resolveScalePlan({
@@ -17,8 +17,8 @@ describe('Geometry and snapping localization', () => {
   })
 
   it('keeps concurrent session languages independent', () => {
-    const russianRuntime = new ScaleSnappingRuntime(createTranslator('ru'))
-    const englishRuntime = new ScaleSnappingRuntime(createTranslator('en'))
+    const russianRuntime = new ScaleSnappingRuntime(createTranslator({ language: 'ru' }))
+    const englishRuntime = new ScaleSnappingRuntime(createTranslator({ language: 'en' }))
     const baseline = createScaleBaseline()
     russianRuntime.startSession({ baseline })
     englishRuntime.startSession({ baseline })
@@ -40,7 +40,7 @@ describe('Geometry and snapping localization', () => {
       centerY: 5
     })
 
-    expect(() => getObjectExactBounds({ object, t: createTranslator('ru') }))
+    expect(() => getObjectExactBounds({ object, t: createTranslator({ language: 'ru' }) }))
       .toThrow('Некорректные пользовательские границы прилипания: координаты границ должны быть конечными числами')
   })
 
@@ -48,7 +48,7 @@ describe('Geometry and snapping localization', () => {
     expect(() => resolveCommonDisplayDistance({
       firstDistance: 10,
       secondDistance: Number.NaN,
-      t: createTranslator('ru')
+      t: createTranslator({ language: 'ru' })
     })).toThrow('Отображаемое расстояние должно быть конечным числом')
     expect(() => resolveCommonDisplayDistance({ firstDistance: Number.NaN, secondDistance: 10 }))
       .toThrow('Display distance must be finite')

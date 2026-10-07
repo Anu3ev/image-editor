@@ -14,7 +14,7 @@ export default async function initEditor(
   containerId: string,
   options: Partial<EditorOptions> = {}
 ): Promise<ImageEditor> {
-  const t = createTranslator(options.language)
+  const t = createTranslator(options)
   const adjustedOptions: EditorOptions = {
     ...defaults,
     toolbar: createDefaultActions(t),
@@ -63,6 +63,7 @@ export default async function initEditor(
 
 export type { ImageEditor } from './editor'
 export type { EditorOptions } from './editor/types/options'
+export type { EditorLocale, CustomLanguages } from './editor/i18n'
 export type { EditorFontDefinition, EditorFontFaceDescriptors } from './editor/types/font'
 export type {
   ImportImageOptions,
