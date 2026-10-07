@@ -1,4 +1,5 @@
 import initListeners from './listeners.js'
+import addSampleComposition from './sample-composition.js'
 import {
   getRequestedEditorVersion,
   loadEditorModule
@@ -16,6 +17,7 @@ function getDemoInitOptions() {
   return demoWindow.__EDITOR_DEMO_INIT_OPTIONS ?? {}
 }
 
+/** Initializes the development demo and loads sample objects only when requested. */
 document.addEventListener('DOMContentLoaded', async() => {
   try {
     const { default: initEditor } = await loadEditorModule()
@@ -34,6 +36,10 @@ document.addEventListener('DOMContentLoaded', async() => {
     })
 
     initListeners(editorInstance)
+
+    if (new URLSearchParams(window.location.search).get('example') === 'promo') {
+      await addSampleComposition(editorInstance)
+    }
   } catch (error) {
     console.error('[image-editor demo] Initialization failed:', error)
     const status = document.createElement('p')

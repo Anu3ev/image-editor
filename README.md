@@ -1,16 +1,28 @@
 # Fabric Image Editor
 
 [![Unit Coverage](./badges/coverage-total.svg)](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
+[![npm version](https://img.shields.io/npm/v/%40anu3ev%2Ffabric-image-editor)](https://www.npmjs.com/package/@anu3ev/fabric-image-editor)
+[![Tests](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml/badge.svg)](https://github.com/Anu3ev/image-editor/actions/workflows/test.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-A modern, powerful browser-based image editor built with [FabricJS](https://fabricjs.com/) and TypeScript. This library provides a complete image editing solution with professional features for web applications.
+**An image editor you can build into your web application.**
 
-🚀 **[Live Demo](https://anu3ev.github.io/image-editor/)**
+Let users crop images, add text and shapes, work with layers, reuse compositions, and export the result. Built with TypeScript and [Fabric.js](https://fabricjs.com/), the library provides editing tools, undo/redo, and state restoration through an API you can connect to your own interface.
+
+🚀 **[Live Demo](https://anu3ev.github.io/image-editor/)** · [Integration guide](./guides/integration.md)
 
 ## Why this project matters
 
-This project demonstrates the architecture behind complex browser-based visual tools, not just a collection of canvas controls.
+Users can prepare and revise images without leaving your application.
 
-It keeps FabricJS rendering concerns separate from workflows such as canvas state management, history, layers, crop sessions, text editing, background composition, and export. The result is a TypeScript editor that host applications can integrate through a focused public API and editor events.
+Examples of where an integrated editor can fit:
+
+| Your application | What users can do with an integrated editor |
+| --- | --- |
+| E-commerce administration | Prepare product images with captions, promotional labels, and a consistent layout. |
+| CMS or publishing tools | Crop and compose an illustration while preparing an article or page. |
+| Marketing tools | Reuse a saved composition and change its text, images, or background. |
+| Applications with AI image generation | Edit the generated image before saving it. The application supplies the AI service. |
 
 ## Built with this library
 
@@ -40,12 +52,10 @@ The live demo exercises the same workflows exposed through the public API.
 
 ## For hiring managers
 
-This repository is relevant for teams building design tools, visual editors, CMS and editorial workflows, e-commerce creative tools, and AI-assisted content interfaces.
-
-It demonstrates practical work with:
+This repository demonstrates practical work with:
 
 - stateful browser interactions built on top of a canvas runtime;
-- undoable workflows, serialization, template restore, and export;
+- editing with undo/redo, serialization, template restore, and export;
 - modular TypeScript architecture with explicit manager ownership;
 - public APIs and events designed for host-application integration;
 - regression coverage for interaction-heavy scenarios such as crop, selection, scaling, snapping, and text editing.
@@ -55,6 +65,8 @@ It demonstrates practical work with:
 I can integrate this editor into your application and adapt it to your workflow.
 
 This can include image loading and saving, custom tools, editor open/close lifecycle, and error handling in your application.
+
+I also provide support during integration and after launch, including troubleshooting, maintenance, and further development. We can agree on the scope and support arrangements around your product's needs.
 
 [Contact me on LinkedIn](https://www.linkedin.com/in/alexander-s-anufriev/) to discuss your integration.
 
@@ -71,7 +83,7 @@ This can include image loading and saving, custom tools, editor open/close lifec
 
 ### Advanced Capabilities
 - **Background Management** - Color, multi-stop gradient, and image backgrounds
-- **Image Import/Export** - Support for PNG, JPG, SVG, and PDF formats
+- **Image Import/Export** - Import PNG, JPEG, WebP, and SVG; export PNG, JPEG, WebP, SVG, and PDF
 - **Precision Alignment** - Snapping to montage edges/centers and nearby objects with visual guides and spacing detection
 - **Live Measurements** - Hold `Alt` with a selection to display distance guides to the hovered object or montage area
 - **Web Worker Integration** - Heavy operations run in background threads
@@ -87,7 +99,6 @@ This can include image loading and saving, custom tools, editor open/close lifec
 - **Event System** - Rich event handling for integration
 - **Responsive Design** - Adapts to different screen sizes and containers
 - **Testing Infrastructure** - Jest test suite with 80%+ coverage
-- **Web Worker Support** - Background processing for heavy operations
 
 ## 📦 Installation
 
@@ -98,390 +109,38 @@ npm install @anu3ev/fabric-image-editor
 **Requirements:**
 - Node.js ≥ 20.0.0
 - NPM ≥ 9.0.0
-- Modern browser with ES2016+ support
+- Browser with ES2022 support and the APIs listed in [Browser Support](#-browser-support)
 
 ## 🚀 Quick Start
 
-### TypeScript imports
-
-```typescript
-import initEditor, { type EditorOptions, type ImageEditor } from '@anu3ev/fabric-image-editor'
-
-const options: Partial<EditorOptions> = {
-  initialImage: { source: '/image.png', scale: 'image-contain' },
-  toolbar: { offsetTop: 12 }
-}
-const editor: ImageEditor = await initEditor('editor', options)
-```
-
-### Basic Setup
-
-Create a container in your HTML and initialize the editor:
+Add a container to your page:
 
 ```html
 <div id="editor"></div>
 ```
 
-```javascript
-import initEditor from '@anu3ev/fabric-image-editor'
-
-document.addEventListener('DOMContentLoaded', async () => {
-  const editor = await initEditor('editor', {
-    montageAreaWidth: 512,
-    montageAreaHeight: 512,
-    editorContainerWidth: '100%',
-    editorContainerHeight: '100vh'
-  })
-
-  // The editor is now ready to use!
-  console.log('Editor initialized:', editor)
-})
-```
-
-### Deletion Guards and Clone Preparation
-
-The editor does not know application-specific object roles. If an application needs to protect a domain object from user deletion, pass a rule through `canDeleteObject`.
-
-```javascript
-const MAIN_IMAGE_HANDLE = 'main-image'
-
-const editor = await initEditor('editor', {
-  canDeleteObject: (object) => {
-    return object.customData?.handle !== MAIN_IMAGE_HANDLE
-  }
-})
-```
-
-The rule is checked by shared delete operations, so keyboard deletion, toolbar deletion, direct `DeletionManager` calls, and `cut()` use the same result. Locked objects are still skipped by the editor itself. If a technical operation must delete a protected object, call deletion with `ignoreDeleteGuard: true`.
-
-When deletion is skipped by the guard, the editor fires `editor:objects-delete-skipped`. The event is only a notification for UI code; it does not cancel deletion, because the decision was already made by `canDeleteObject`.
-
-```javascript
-editor.canvas.on('editor:objects-delete-skipped', ({ skippedObjects }) => {
-  console.log('Some objects were not deleted:', skippedObjects)
-})
-```
-
-Use `prepareObjectClone` when copied objects must not keep a domain marker from the source object. The callback receives only clones. The editor calls it for the root clone and for nested objects inside groups or active selections.
-
-```javascript
-const editor = await initEditor('editor', {
-  prepareObjectClone: (object) => {
-    if (object.customData?.handle !== MAIN_IMAGE_HANDLE) return
-
-    delete object.customData.handle
-  }
-})
-```
-
-This hook is used by `copy()`, `cut()`, `copyPaste()`, and `paste()`. Before the hook is called, the editor detaches `customData` on the clone so the callback does not accidentally mutate the original object.
-
-### Working with Images
-
-```javascript
-// Import an image
-await editor.imageManager.importImage({
-  source: 'path/to/image.jpg',
-  scale: 'image-contain' // 'image-contain', 'image-cover', 'scale-montage'
-})
-
-// Export the canvas
-const result = await editor.imageManager.exportCanvasAsImageFile({
-  fileName: 'edited-image.png',
-  contentType: 'image/png' // Supports: 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
-})
-
-// Handle the exported file (result.image is File, Blob, or Base64 string)
-const url = URL.createObjectURL(result.image)
-// Use the URL for download or display
-```
-
-### Managing Backgrounds
-
-```javascript
-// Set a color background
-editor.backgroundManager.setColorBackground({ color: '#ff0000' })
-
-// Set a gradient background (supports multi-stop ramps)
-editor.backgroundManager.setGradientBackground({
-  gradient: {
-    type: 'linear', // 'linear' or 'radial'
-    angle: 120,
-    colorStops: [
-      { offset: 0, color: '#ff8a00' },
-      { offset: 45, color: '#e52e71' },
-      { offset: 100, color: '#4a00e0' }
-    ]
-  },
-  customData: {
-    customProperty: 'value'
-  },
-  withoutSave: false
-})
-
-// Simple two-stop gradients still work:
-// use startColor/endColor with optional startPosition/endPosition (0-100).
-// For radial gradients pass centerX/centerY/radius in percentages.
-
-// Set an image background
-await editor.backgroundManager.setImageBackground({ imageSource: 'bg-image.jpg' })
-
-// Remove background
-editor.backgroundManager.removeBackground()
-```
-
-Offsets in `colorStops` use percentages from 0 to 100 and are normalized for Fabric gradients.
-
-### Working with Text
-
-```javascript
-// Add a text layer with custom style
-const textbox = editor.textManager.addText({
-  text: 'Привет, Fabric!',
-  fontFamily: 'Cormorant',
-  fontSize: 64,
-  bold: true,
-  align: 'center',
-  color: '#1f2933'
-})
-
-// Placement uses Fabric semantics: left/top + originX/originY
-editor.textManager.addText({
-  text: 'Pinned to montage top-left',
-  left: 0,
-  top: 0,
-  originX: 'left',
-  originY: 'top'
-})
-
-// Update existing text
-editor.textManager.updateText({
-  target: textbox,
-  style: {
-    text: 'HELLO FABRIC',
-    uppercase: true,
-    strokeColor: '#2563eb',
-    strokeWidth: 2
-  }
-})
-
-// Background styling with padding and rounded corners
-const bgTextbox = editor.textManager.addText({
-  text: 'New text',
-  backgroundColor: '#ffffff',
-  backgroundOpacity: 0.85,
-  paddingTop: 24,
-  paddingRight: 32,
-  paddingBottom: 24,
-  paddingLeft: 32,
-  radiusTopLeft: 8,
-  radiusTopRight: 8,
-  radiusBottomRight: 8,
-  radiusBottomLeft: 8
-})
-
-editor.textManager.updateText({
-  target: bgTextbox,
-  style: {
-    paddingTop: 40,
-    paddingBottom: 40,
-    radiusTopLeft: 16,
-    radiusTopRight: 16
-  }
-})
-```
-
-### Working with Shapes
-
-`ShapeManager` works with composite objects: an outer shape plus an inner text node that stay in sync during layout, scaling, history restore, copy/paste, and template rehydration.
-
-Built-in preset keys: `circle`, `triangle`, `square`, `diamond`, `pentagon`, `hexagon`, `star`, `sparkle`, `heart`, `arrow-right-fat`, `arrow-up-fat`, `arrow-right`, `arrow-down-fat`, `arrow-up-down`, `arrow-left-right`, `drop`, `cross`, `gear`, `badge`, `bookmark`, `tag`, `moon`.
-
-```javascript
-// Create a shape group with text
-const badge = await editor.shapeManager.add({
-  presetKey: 'badge',
-  options: {
-    id: 'promo-badge',
-    left: 0,
-    top: 0,
-    originX: 'left',
-    originY: 'top',
-    width: 220,
-    height: 160,
-    text: 'SALE',
-    fill: '#111827',
-    stroke: '#f59e0b',
-    strokeWidth: 6,
-    textStyle: {
-      fontSize: 34,
-      color: '#ffffff',
-      bold: true
-    },
-    alignH: 'center',
-    alignV: 'middle'
-  }
-})
-
-// Update shape-only styling
-editor.shapeManager.setOpacity({
-  target: badge,
-  opacity: 0.9
-})
-
-editor.shapeManager.setStroke({
-  target: badge,
-  stroke: '#22c55e',
-  strokeWidth: 4,
-  dash: [12, 6]
-})
-
-// Update inner text with layout-aware recalculation
-editor.shapeManager.updateTextStyle({
-  target: 'promo-badge',
-  style: {
-    text: 'LIMITED',
-    uppercase: true,
-    fontSize: 30,
-    color: '#f9fafb'
-  }
-})
-
-// Swap preset while preserving text, transforms, and metadata
-await editor.shapeManager.update({
-  target: badge,
-  presetKey: 'tag',
-  options: {
-    fill: '#dc2626',
-    width: 240
-  }
-})
-```
-
-All mutating `ShapeManager` methods save to history by default. Pass `withoutSave: true` for internal or batched updates.
-
-### Cropping Canvas and Images
-
-`CropManager` provides a transient crop mode for the montage area and raster images. The crop frame can be moved and resized with Fabric controls, constrained by editor size limits, and optionally allowed to extend beyond the source object.
-
-```javascript
-// Start crop mode for the montage area
-editor.cropManager.startCanvasCrop({
-  aspectRatio: {
-    width: 1,
-    height: 1
-  },
-  preserveAspectRatio: true,
-  allowFrameOverflow: true,
-  showGrid: true,
-  cancelOnSelectionClear: true
-})
-
-// Or start with an explicit crop frame size
-editor.cropManager.startCanvasCrop({
-  size: {
-    width: 800,
-    height: 600
-  }
-})
-
-// Start crop mode for a raster image.
-// If target is omitted, CropManager uses the active object.
-editor.cropManager.startImageCrop({
-  target: imageObject,
-  aspectRatio: {
-    width: 16,
-    height: 9
-  }
-})
-
-// Update active crop mode from UI controls
-editor.cropManager.setAspectRatio({
-  aspectRatio: {
-    width: 4,
-    height: 3
-  }
-})
-
-editor.cropManager.setSize({
-  size: {
-    width: 512,
-    height: 512
-  }
-})
-
-editor.cropManager.setPreserveAspectRatio({
-  preserveAspectRatio: false
-})
-
-// Apply or cancel the active crop mode
-const cropResult = editor.cropManager.apply()
-editor.cropManager.cancel()
-```
-
-`startCanvasCrop()` resizes the montage area when applied. `startImageCrop()` updates the selected image so the visible content inside the crop frame stays visually in place. Crop mode is runtime-only: it is not serialized into history until `apply()` commits the result.
-
-Crop behavior options:
-- `allowFrameOverflow` defaults to `true` and lets the crop frame become larger than the source object.
-- `showGrid` defaults to `true` and draws a composition grid inside the crop frame.
-- `cancelOnSelectionClear` defaults to `true` and cancels crop mode when the crop frame loses focus.
-- `preserveAspectRatio` defaults to `true` and keeps the current aspect ratio during crop resize; `Shift` temporarily inverts the active mode for any resize control.
-
-`CropManager` public methods:
-- `startCanvasCrop()` enters crop mode for the montage area.
-- `startImageCrop()` enters crop mode for a `FabricImage` target or the active image object.
-- `setAspectRatio()` updates the active crop frame by width/height ratio.
-- `setSize()` updates the active crop frame by explicit dimensions.
-- `setPreserveAspectRatio()` toggles whether crop resize keeps the current aspect ratio for the active crop frame.
-- `getState()` returns the active crop state, including mode, frame, target, options, and result rect.
-- `apply()` commits the active crop and saves the new state to history.
-- `cancel()` exits crop mode without changing the montage area or image.
-
-### Configuring Fonts
-
-By default the editor ships with a curated Google Fonts collection (Latin + Cyrillic coverage).
-If you want to use your own fonts, supply a `fonts` array – the provided list will replace the defaults.
+Initialize the editor after the container is mounted:
 
 ```typescript
 import initEditor from '@anu3ev/fabric-image-editor'
 
-await initEditor('editor', {
-  fonts: [
-    {
-      family: 'Alegreya Sans',
-      source: "url('https://fonts.gstatic.com/s/alegreyasans/v26/5aUz9_-1phKLFgshYDvh6Vwt7VptvQ.woff2') format('woff2')",
-      descriptors: {
-        style: 'normal',
-        weight: '400',
-        display: 'swap'
-      }
-    },
-    {
-      family: 'My Custom Font',
-      source: "url('https://example.com/fonts/my-font.woff2') format('woff2')",
-      descriptors: {
-        style: 'normal',
-        weight: '400',
-        display: 'swap',
-        unicodeRange: 'U+0000-00FF'
-      }
-    }
-  ]
+/** Editor instance owned by this page or component. */
+const editor = await initEditor('editor', {
+  montageAreaWidth: 512,
+  montageAreaHeight: 512,
+  editorContainerWidth: '100%',
+  editorContainerHeight: '600px',
+  fonts: []
 })
 ```
 
-> ℹ️ Leave `fonts` undefined to rely on the built-in defaults. Passing the property replaces that set with the fonts you specify.
+`fonts: []` skips the default font downloads. Call `editor.destroy()` when the owning page or component is removed.
+
+See the [integration guide](./guides/integration.md) for configuration, image import/export, text, shapes, cropping, and other editing operations.
 
 ## 🎮 Demo Application
 
-The repository includes a comprehensive demo showcasing all features:
-
-```bash
-git clone https://github.com/Anu3ev/image-editor.git
-cd image-editor
-npm install
-npm run dev
-```
+The repository includes a development demo for trying library operations. See [Run the demo from source](./CONTRIBUTING.md#run-the-demo-from-source) for local setup.
 
 Visit the demo at: **https://anu3ev.github.io/image-editor/**
 
@@ -513,7 +172,7 @@ The editor follows a modular architecture with specialized managers:
 - **`WorkerManager`** - Web Worker integration for heavy operations
 - **`FontManager`** - Font loading via FontFace API or fallback @font-face injection
 - **`ModuleLoader`** - Dynamic module loading (jsPDF, etc.)
-- **`ErrorManager`** - Error handling and user notifications
+- **`ErrorManager`** - Error and warning events for the application to handle
 - **`TemplateManager`** (`src/editor/template-manager/index.ts`) - Serializes and reapplies object/group templates with optional background preservation
 
 ### UI Components
@@ -521,313 +180,104 @@ The editor follows a modular architecture with specialized managers:
 - **`CustomizedControls`** - Custom FabricJS controls and interactions
 - **`InteractionBlocker`** - UI blocking during operations
 - **`AngleIndicatorManager`** - Rotation angle badge shown while rotating selected objects (toggle via `showRotationAngle`)
+- **`ObjectSizeIndicatorManager`** - Size feedback while scaling (toggle via `showObjectSizeOnScale`)
+- **`ViewportScrollbarManager`** - Viewport scrollbars for panning (toggle via `showViewportScrollbars`)
+- **`CursorIndicator`** - Shared indicator for values shown next to the pointer
 
-## 📚 API Reference
+### How the parts work together
 
-### Editor Initialization
+1. Initialization creates the managers, loads fonts and initial content, and establishes the starting history state. `initEditor()` waits for `editor.ready` before returning.
+2. A UI action calls the relevant manager. That manager coordinates geometry, rendering, editor events, and history where the operation requires them.
+3. Undo/redo and template application restore objects and their editor-specific behavior. Text and shapes need their layout and interaction state restored alongside their serialized properties.
+4. Crop frames, guides, and interaction overlays are temporary runtime state. They are kept separate from the composition that is saved or exported.
+5. `destroy()` releases the instance's listeners, workers, managed image URLs, and UI resources. The application owns its surrounding components, API requests, and persistent storage.
 
-```javascript
-initEditor(containerId, options): Promise<ImageEditor>
-```
+See [Find the right part of the code](./CONTRIBUTING.md#find-the-right-part-of-the-code) for source entry points and manager-specific documentation.
 
-**Parameters:**
-- `containerId` (string) - HTML container element ID
-- `options` (CanvasOptions) - Configuration object
-
-Await `initEditor()` before using the editor. The promise rejects if initialization fails or the editor is destroyed before it is ready. Direct `ImageEditor` instances expose the same completion through `editor.ready`.
-
-Call `editor.destroy()` before mounting another editor in the same container. Repeated calls are safe; mounting a second editor without destroying the first is rejected.
-
-**Common Options:**
-```javascript
-{
-  // Canvas dimensions (internal resolution)
-  montageAreaWidth: 512,
-  montageAreaHeight: 512,
-
-  // Container dimensions (display size)
-  editorContainerWidth: '800px',
-  editorContainerHeight: '600px',
-
-  // Initial image
-  initialImage: {
-    source: 'path/to/image.jpg',
-    scale: 'image-contain'
-  },
-
-  // Content types for import
-  acceptContentTypes: ['image/png', 'image/jpeg', 'image/svg+xml'],
-
-  // Callback when ready
-  _onReadyCallback: (editor) => console.log('Ready!'),
-
-  // Optional user-delete rule. Return false to skip this object.
-  canDeleteObject: (object) => true,
-
-  // Optional clone preparation for copy, cut, duplicate, and paste.
-  prepareObjectClone: (object) => {}
-}
-```
-
-### Core Methods
-
-#### Image Operations
-```javascript
-// Import image from file or URL
-await editor.imageManager.importImage({
-  source: File | string,
-  scale: 'image-contain' // or 'image-cover', 'scale-montage'
-})
-
-// Export canvas as image
-await editor.imageManager.exportCanvasAsImageFile({
-  fileName: 'export.png',
-  contentType: 'image/png' // 'image/png', 'image/jpeg', 'image/svg+xml', 'application/pdf'
-})
-```
-
-#### Canvas Control
-```javascript
-// Scale montage area to fit image
-editor.canvasManager.scaleMontageAreaToImage()
-
-// Set canvas dimensions
-editor.canvasManager.setCanvasBackstoreWidth(800)
-editor.canvasManager.setCanvasBackstoreHeight(600)
-
-// Zoom operations
-editor.canvas.zoomToPoint(point, zoomLevel)
-```
-
-#### Object Transformations
-```javascript
-// Fit object to montage area
-editor.transformManager.fitObject({
-  type: 'contain',
-  fitAsOneObject: true
-})
-
-// Reset object transformations
-editor.transformManager.resetObject()
-
-// Flip operations
-editor.transformManager.flipX()
-editor.transformManager.flipY()
-```
-
-#### Layer Management
-```javascript
-// Layer operations
-editor.layerManager.sendToBack(object)
-editor.layerManager.bringToFront(object)
-editor.layerManager.sendBackwards(object)
-editor.layerManager.bringForward(object)
-```
-
-#### Shape Management
-```javascript
-// Add a new shape group
-const shape = await editor.shapeManager.add({
-  presetKey: 'hexagon',
-  options: {
-    text: 'Hello',
-    fill: '#2563eb',
-    width: 220,
-    height: 180
-  }
-})
-
-// Rebuild the same shape group with another preset
-await editor.shapeManager.update({
-  target: shape,
-  presetKey: 'diamond',
-  options: {
-    text: 'Updated',
-    alignH: 'center',
-    alignV: 'middle'
-  }
-})
-
-// Shape-only styling
-editor.shapeManager.setFill({ target: shape, fill: '#7c3aed' })
-editor.shapeManager.setStroke({ target: shape, stroke: '#111827', strokeWidth: 3 })
-editor.shapeManager.setOpacity({ target: shape, opacity: 0.85 })
-
-// Text styling inside the shape
-editor.shapeManager.updateTextStyle({
-  target: shape,
-  style: {
-    fontSize: 28,
-    color: '#ffffff',
-    bold: true
-  }
-})
-
-editor.shapeManager.setTextAlign({
-  target: shape,
-  horizontal: 'center',
-  vertical: 'middle'
-})
-
-await editor.shapeManager.setRounding({
-  target: shape,
-  rounding: 20
-})
-
-editor.shapeManager.remove({ target: shape })
-```
-
-`target` can be omitted to use the active shape group. You can also pass the shape group itself, an inner Fabric object from that group, or the group's `id` string.
-
-`ShapeManager` public methods:
-- `add()` creates a new shape group from a preset and optional text/style overrides.
-- `update()` swaps the preset while preserving existing text, transforms, and object metadata.
-- `remove()` deletes the shape group from canvas.
-- `setFill()`, `setStroke()`, and `setOpacity()` update the visual style of the outer shape node.
-- `getTextNode()` returns the inner `Textbox` so it can be inspected or passed into other APIs.
-- `updateTextStyle()` applies `TextManager`-style updates to the inner text and recalculates the group layout.
-- `setTextAlign()` changes horizontal (`left`, `center`, `right`, `justify`) and vertical alignment inside the shape bounds.
-- `setRounding()` enables or updates corner rounding for roundable presets.
-
-#### Crop Operations
-```javascript
-// Start montage crop mode
-editor.cropManager.startCanvasCrop({
-  aspectRatio: {
-    width: 1,
-    height: 1
-  }
-})
-
-// Start image crop mode for an explicit target
-editor.cropManager.startImageCrop({
-  target: imageObject,
-  size: {
-    width: 512,
-    height: 512
-  }
-})
-
-// Read the active crop state
-const cropState = editor.cropManager.getState()
-
-// Commit or discard the active crop mode
-editor.cropManager.apply()
-editor.cropManager.cancel()
-```
-
-Crop frame dimensions are clamped to editor limits. Pass `allowFrameOverflow: false` when the frame must stay inside the montage area or image bounds.
-
-#### Alignment & Guides
-- Objects snap to montage area edges/centers and nearby objects while dragging, with guides for matches and equal spacing.
-- Hold `Ctrl` during drag to temporarily disable snapping (movement still follows the configured move step).
-- Hold `Alt` with an active selection to show measurement overlays to the hovered object or montage area; distances are labeled on the helper layer and the toolbar hides temporarily until guides clear.
-
-#### History Control
-```javascript
-// Undo/Redo
-editor.historyManager.undo()
-editor.historyManager.redo()
-
-// Save state
-editor.historyManager.saveState()
-
-// Load from JSON
-editor.historyManager.loadStateFromFullState(jsonState)
-```
-
-### Template Management
-
-```javascript
-// Serialize the current selection into a template object
-const template = editor.templateManager.serializeSelection({
-  withBackground: false
-})
-
-// Serialization returns null when there is nothing to save
-if (template) {
-  // Apply the template without clearing existing objects
-  await editor.templateManager.applyTemplate({ template })
-}
-```
-
-`TemplateManager` keeps layout fidelity by storing positions, styles, and (optionally) background data so you can rehydrate saved compositions.
+Jest covers library behavior; Playwright exercises browser interactions. The coverage badge links to the unit-test workflow.
 
 ## 🛠️ Development
 
-### Building the Library
-
-```bash
-# Development mode with demo app and watch
-npm run dev
-
-# Development build to dev-build folder
-npm run dev:build
-
-# Production build (library to dist/)
-npm run build
-
-# Build for GitHub Pages (demo to docs/)
-npm run build:docs
-```
-
-### Testing
-
-```bash
-# Run all tests
-npm test
-
-# Watch mode for development
-npm run test:watch
-
-# Coverage report
-npm run test:coverage
-
-# CI mode
-npm run test:ci
-```
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for local setup, build commands, type checking, linting, and unit and browser tests.
 
 ### Project Structure
 
-```
+```text
 src/
-├── main.ts              # Entry point, exports initEditor()
+├── main.ts                         # Public initialization function and exported types
 ├── editor/
-│   ├── index.ts          # ImageEditor class
-│   ├── defaults.ts       # Default configuration
-│   ├── constants.ts      # Constants and limits
-│   ├── listeners.ts      # Event handling
-│   ├── background-manager/    # Background functionality
-│   ├── canvas-manager/        # Canvas operations
-│   ├── clipboard-manager/     # Copy/paste operations
-│   ├── crop-manager/          # Montage and image crop mode
-│   ├── customized-controls/   # Custom FabricJS controls
-│   ├── deletion-manager/      # Object deletion
-│   ├── error-manager/         # Error handling
-│   ├── grouping-manager/      # Object grouping
-│   ├── history-manager/       # Undo/redo system
-│   ├── image-manager/         # Image import/export
-│   ├── interaction-blocker/   # UI blocking during operations
-│   ├── layer-manager/         # Layer management
-│   ├── module-loader/         # Dynamic module loading
-│   ├── object-lock-manager/   # Object locking
-│   ├── selection-manager/     # Selection handling
-│   ├── shape-manager/         # Shape creation
-│   ├── text-manager/          # Text objects and styling
-│   ├── font-manager/          # Font loading utilities
-│   ├── transform-manager/     # Object transformations
-│   ├── worker-manager/        # Web Worker management
-│   ├── ui/                    # UI components (toolbar)
-│   └── types/                 # TypeScript definitions
-├── editor/default-fonts.ts    # Built-in Google font presets
-├── demo/                 # Demo application
-specs/                    # Test specifications
-docs/                     # GitHub Pages build output
-dev-build/                # Development build output
-dist/                     # Production library build
-vite.config.*.js         # Vite configurations
-jest.config.ts           # Jest test configuration
+│   ├── index.ts                    # ImageEditor and manager ownership
+│   ├── defaults.ts                 # Default editor options
+│   ├── constants.ts                # Shared values and limits
+│   ├── default-fonts.ts            # Default font definitions
+│   ├── listeners.ts                # Browser and canvas event handling
+│   ├── object-serialization.ts      # Shared object serialization properties
+│   ├── background-manager/
+│   ├── canvas-manager/
+│   ├── clipboard-manager/
+│   ├── crop-manager/
+│   ├── customized-controls/
+│   ├── deletion-manager/
+│   ├── error-manager/
+│   ├── font-manager/
+│   ├── grouping-manager/
+│   ├── history-manager/
+│   ├── image-manager/
+│   ├── interaction-blocker/
+│   ├── layer-manager/
+│   ├── measurement-manager/
+│   ├── module-loader/
+│   ├── object-lock-manager/
+│   ├── pan-constraint-manager/
+│   ├── selection-manager/
+│   ├── shape-manager/              # Creation, layout, editing, scaling, and restoration
+│   ├── snapping-manager/           # Guide rendering and interaction-specific snapping
+│   ├── template-manager/
+│   ├── text-manager/
+│   ├── transform-manager/
+│   ├── worker-manager/
+│   ├── zoom-manager/
+│   ├── types/                      # Options, events, fonts, and Fabric/browser types
+│   ├── utils/                      # Shared geometry and browser utilities
+│   └── ui/
+│       ├── angle-indicator/
+│       ├── cursor-indicator/
+│       ├── object-size-indicator/
+│       ├── toolbar-manager/
+│       └── viewport-scrollbar-manager/
+└── demo/                           # Development interface for exercising the API
+    ├── index.html
+    ├── style.css
+    ├── js/                         # Demo initialization, controls, and listeners
+    └── vendor/                     # Demo CSS dependencies
+specs/
+├── src/editor/                     # Jest unit tests
+├── test-utils/                     # Shared test fixtures, mocks, and assertions
+├── __mocks__/
+└── setupTests.ts
+e2e/
+├── tests/                          # Playwright interaction scenarios
+├── models/                         # Editor and manager-specific browser models
+├── fixtures/                       # Test setup and scenario data
+├── helpers/                        # Shared browser test support
+├── types/                          # Shared browser test contracts
+└── assets/                         # Local assets used by browser tests
+guides/integration.md               # API usage and integration examples
+CONTRIBUTING.md                     # Setup, builds, checks, and contribution workflow
+assets/                            # README screenshots and GIFs
+badges/                            # Checked-in coverage badge
+scripts/build-declarations.mjs      # Package declaration assembly
+.github/workflows/                  # Quality checks, publishing, and demo deployment
+vite.config.*.js                    # Development, library, and demo builds
+jest.config.ts
+playwright.config.ts
+tsconfig*.json
+dist/                              # Generated npm library build
+dev-build/                         # Generated development library build
+docs/                              # Generated GitHub Pages demo
 ```
+
+The manager responsibilities are described above; their source directories contain the implementation and, where available, more detailed READMEs. `docs/` is build output, while written documentation lives in the root Markdown files and `guides/`.
 
 ## 🎯 Planned Features
 
@@ -835,36 +285,22 @@ The following features are planned for future releases:
 
 - **Drawing Mode** - Freehand drawing tools and brushes
 - **Filters & Effects** - Image filters and visual effects
-- **Extended Shape Library** - Additional shapes beyond current rectangles, circles, and triangles
+- **Extended Shape Library** - Additional shapes beyond the existing preset library
 - **Multi-language** - Internationalization support
 
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-### Development Setup
-```bash
-git clone https://github.com/Anu3ev/image-editor.git
-cd image-editor
-npm install
-npm run dev
-```
-
-### Running Tests
-```bash
-npm test                 # Run all tests
-npm run test:watch      # Development mode
-npm run test:coverage   # Coverage report
-```
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions and contribution guidelines.
 
 ## 🔧 Browser Support
 
-- **Chrome** ≥ 88
-- **Firefox** ≥ 85
-- **Safari** ≥ 14
-- **Edge** ≥ 88
+The library runs in the browser and is built as ES modules targeting ES2022. Worker-based image processing uses Web Workers, `createImageBitmap`, and `OffscreenCanvas`. Remote images and fonts must allow the required cross-origin requests.
 
-All modern browsers with ES2016+ and Web Workers support.
+Browser tests are configured for Chromium.
+
+For applications with server rendering, load and initialize the editor on the client after its container exists.
 
 ## 📄 License
 
