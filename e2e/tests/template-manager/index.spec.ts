@@ -286,7 +286,7 @@ test.describe('Готовый шаблон', () => {
 })
 
 test.describe('Картинка из шаблона после замены src', () => {
-  test.use({ editorRouteMocks: TEMPLATE_REPLACED_IMAGE_ROUTE_MOCKS })
+  test.use({ editorRouteMocks: [TEMPLATE_REPLACED_IMAGE_ROUTE_MOCKS, { scope: 'test' }] })
 
   for (const { label, template: imageTemplate } of TEMPLATE_REPLACED_IMAGE_CASES) {
     test(`${label} остаётся в центре исходного места`, async({
