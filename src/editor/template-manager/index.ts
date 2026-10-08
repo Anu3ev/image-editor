@@ -122,7 +122,8 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'serializeSelection',
         code: errorCodes.TEMPLATE_MANAGER.NO_OBJECTS_SELECTED,
-        message: 'No objects to serialize into a template'
+        message: 'No objects to serialize into a template',
+        userMessage: this.editor.t('notifications.template.noSelection')
       })
       return null
     }
@@ -183,7 +184,8 @@ export default class TemplateManager {
     const context = TemplateManager._resolveApplyTemplateContext({
       template,
       montageArea,
-      errorManager
+      errorManager,
+      emptyTemplateMessage: this.editor.t('notifications.template.empty')
     })
 
     if (!context) return null
@@ -207,7 +209,8 @@ export default class TemplateManager {
         baseWidth: meta.baseWidth,
         baseHeight: meta.baseHeight,
         useRelativePositions,
-        errorManager
+        errorManager,
+        invalidTemplateMessage: this.editor.t('notifications.template.applyFailed')
       })
 
       if (!preparedTemplateObjects) return null
@@ -235,6 +238,7 @@ export default class TemplateManager {
         method: 'applyTemplate',
         code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
         message: 'Failed to apply the template',
+        userMessage: this.editor.t('notifications.template.applyFailed'),
         data: {
           templateId,
           error
@@ -318,11 +322,13 @@ export default class TemplateManager {
   private static _resolveApplyTemplateContext({
     template,
     montageArea,
-    errorManager
+    errorManager,
+    emptyTemplateMessage
   }: {
     template: TemplateDefinition
     montageArea?: FabricObject | null
     errorManager: ImageEditor['errorManager']
+    emptyTemplateMessage: string
   }): ApplyTemplateContext | null {
     const { objects, meta: templateMeta, id: templateId } = template ?? {}
 
@@ -331,7 +337,8 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'applyTemplate',
         code: errorCodes.TEMPLATE_MANAGER.INVALID_TEMPLATE,
-        message: 'The template contains no objects'
+        message: 'The template contains no objects',
+        userMessage: emptyTemplateMessage
       })
       return null
     }
@@ -530,7 +537,8 @@ export default class TemplateManager {
     baseWidth,
     baseHeight,
     useRelativePositions,
-    errorManager
+    errorManager,
+    invalidTemplateMessage
   }: {
     template: TemplateDefinition
     imageManager: ImageEditor['imageManager']
@@ -538,6 +546,7 @@ export default class TemplateManager {
     baseHeight: number
     useRelativePositions: boolean
     errorManager: ImageEditor['errorManager']
+    invalidTemplateMessage: string
   }): Promise<PreparedTemplateObjects | null> {
     const preparedTemplate = await imageManager.prepareSerializedImageSources({ state: template })
     const preparedObjects = Array.isArray(preparedTemplate.objects) ? preparedTemplate.objects : []
@@ -554,7 +563,8 @@ export default class TemplateManager {
         origin: 'TemplateManager',
         method: 'applyTemplate',
         code: errorCodes.TEMPLATE_MANAGER.INVALID_TEMPLATE,
-        message: 'Failed to create the template objects'
+        message: 'Failed to create the template objects',
+        userMessage: invalidTemplateMessage
       })
 
       return null

@@ -829,6 +829,7 @@ export default class HistoryManager {
         method: 'undo',
         code: 'UNDO_ERROR',
         message: 'Failed to undo the action',
+        userMessage: this.editor.t('notifications.history.undoFailed'),
         data: error as Error
       })
     } finally {
@@ -883,6 +884,7 @@ export default class HistoryManager {
         method: 'redo',
         code: 'REDO_ERROR',
         message: 'Failed to redo the action',
+        userMessage: this.editor.t('notifications.history.redoFailed'),
         data: error as Error
       })
     } finally {

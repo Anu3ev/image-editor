@@ -93,7 +93,7 @@ const stopObservingErrors = editor.canvas.on('editor:error', ({ code, message })
 stopObservingErrors()
 ```
 
-Use the event's `code` to map failures to your application's messages. Initialization can reject before the application subscribes, so also catch the promise returned by `initEditor()`.
+For notifications, display the optional `userMessage` as plain text, or use your application's fallback for the event's `code`. This applies to both `editor:error` and `editor:warning`, including entries in `editor.errorManager.buffer`. The `message` field is a technical diagnostic, not display text. Library-authored `userMessage` values use the instance language and the `notifications` branch of its `customLanguages` catalog; explicitly supplied messages are forwarded unchanged. Initialization can reject before the application subscribes, so also catch the promise returned by `initEditor()`.
 
 Typed events are declared in [`events.d.ts`](../src/editor/types/events.d.ts). Examples include `editor:history-changed`, `editor:canvas-exported`, `editor:template-applied`, and `editor:objects-delete-skipped`.
 

@@ -1,8 +1,13 @@
 import { fileURLToPath } from 'node:url'
 import type { Page } from '@playwright/test'
-import type { ImageEditor, CustomLanguages } from '../../src/main'
+import type { ImageEditor, CustomLanguages, ErrorItem } from '../../src/main'
 import type { CanvasFullState } from '../../src/editor/history-manager'
-import type { LocalizedEditorOptions } from '../types'
+import type {
+  LocalizedEditorOptions,
+  LocalizedFailureSnapshot,
+  LocalizedResizeOptions,
+  LocalizedResizeSnapshot
+} from '../types'
 import { E2E_EDITOR_FONTS } from '../fixtures/data/editor-fonts.data'
 
 const EDITOR_MODULE_URL = `/@fs${fileURLToPath(new URL('../../src/main.ts', import.meta.url))}`
@@ -111,6 +116,69 @@ export class LocalizationModel {
       }
       throw new Error('Expected the worker to reject an unsupported action')
     }, { containerId, action })
+  }
+
+  /** Attempts a public export with no selection and captures the resulting error. */
+  async exportWithoutSelection(containerId: string): Promise<LocalizedFailureSnapshot> {
+    return this.page.evaluate(async(id) => {
+      const editor = window[id] as ImageEditor
+      editor.canvas.discardActiveObject()
+      editor.errorManager.cleanBuffer()
+      const events: ErrorItem[] = []
+      const unsubscribe = editor.canvas.on('editor:error', (event) => { events.push(event) })
+
+      try {
+        const result = await editor.imageManager.exportObjectAsImageFile()
+        return { failed: result === null, events, buffer: [...editor.errorManager.buffer] }
+      } finally {
+        unsubscribe()
+      }
+    }, containerId)
+  }
+
+  /** Attempts to crop the current non-image selection through the public manager. */
+  async cropInvalidSelection(containerId: string): Promise<LocalizedFailureSnapshot> {
+    return this.page.evaluate((id) => {
+      const editor = window[id] as ImageEditor
+      editor.errorManager.cleanBuffer()
+      const events: ErrorItem[] = []
+      const unsubscribe = editor.canvas.on('editor:error', (event) => { events.push(event) })
+
+      try {
+        const result = editor.cropManager.startImageCrop()
+        return { failed: result === null, events, buffer: [...editor.errorManager.buffer] }
+      } finally {
+        unsubscribe()
+      }
+    }, containerId)
+  }
+
+  /** Resizes a raster fixture through the real worker and captures its public warning. */
+  async resizeImage(options: LocalizedResizeOptions): Promise<LocalizedResizeSnapshot> {
+    return this.page.evaluate(async({ containerId, sourceWidth, sourceHeight, maxWidth, maxHeight }) => {
+      const editor = window[containerId] as ImageEditor
+      const source = document.createElement('canvas')
+      source.width = sourceWidth
+      source.height = sourceHeight
+      editor.errorManager.cleanBuffer()
+      const events: ErrorItem[] = []
+      const unsubscribe = editor.canvas.on('editor:warning', (event) => { events.push(event) })
+
+      try {
+        const blob = await editor.imageManager.resizeImageToBoundaries({
+          dataURL: source.toDataURL('image/png'),
+          maxWidth,
+          maxHeight,
+          sizeType: 'max'
+        })
+        const bitmap = await createImageBitmap(blob)
+        const { width, height } = bitmap
+        bitmap.close()
+        return { width, height, events, buffer: [...editor.errorManager.buffer] }
+      } finally {
+        unsubscribe()
+      }
+    }, options)
   }
 
   /** Releases every additional editor created by this test. */

@@ -1,4 +1,5 @@
 import { createTranslator } from '../../../../src/editor/i18n'
+import ErrorManager from '../../../../src/editor/error-manager'
 import { createCanvasExportRequest } from '../../../../src/editor/image-manager/canvas-export'
 import { createObjectExportRequest } from '../../../../src/editor/image-manager/object-export'
 import { exportSVGStringAsFile } from '../../../../src/editor/image-manager/export-utils'
@@ -29,18 +30,87 @@ describe('ImageManager localized filenames and English diagnostics', () => {
     )
   })
 
-  it('keeps export errors in English for a Russian editor and preserves the exception message', async() => {
+  it.each([
+    ['en', 'The image could not be exported.'],
+    ['ru', 'Не удалось экспортировать изображение.']
+  ])('emits localized export notifications with unchanged diagnostics for %s', async(language, userMessage) => {
     const setup = createImageManagerTestSetup()
-    setup.mockEditor.t = createTranslator({ language: 'ru' })
+    const errorManager = new ErrorManager({ editor: setup.mockEditor })
+    setup.mockEditor.errorManager = errorManager
+    setup.mockEditor.t = createTranslator({ language })
     setup.mockCanvas.clone.mockRejectedValueOnce(new Error('Custom browser failure'))
+    jest.spyOn(console, 'error').mockImplementation(() => {})
     try {
-      await expect(setup.imageManager.exportCanvasAsImageFile()).resolves.toBeNull()
-      expect(setup.mockEditor.errorManager.emitError).toHaveBeenCalledWith(expect.objectContaining({
+      await expect(setup.imageManager.exportCanvasAsImageFile({ fileName: 'customer.png' })).resolves.toBeNull()
+      const event = {
         code: 'IMAGE_EXPORT_FAILED',
         origin: 'ImageManager',
         method: 'exportCanvasAsImageFile',
-        message: 'Failed to export the image: Custom browser failure'
-      }))
+        message: 'Failed to export the image: Custom browser failure',
+        userMessage,
+        data: {
+          contentType: 'image/png',
+          fileName: 'customer.png',
+          exportAsBase64: false,
+          exportAsBlob: false
+        }
+      }
+      expect(setup.mockCanvas.fire).toHaveBeenCalledWith('editor:error', event)
+      expect(errorManager.buffer).toStrictEqual([{ type: 'editor:error', ...event }])
+      expect(console.error).toHaveBeenCalledWith(
+        'ImageManager. exportCanvasAsImageFile. IMAGE_EXPORT_FAILED. Failed to export the image: Custom browser failure',
+        event.data
+      )
+    } finally {
+      setup.restore()
+    }
+  })
+
+  it.each([
+    {
+      sizeType: 'max' as const,
+      message: 'The image exceeds the maximum canvas size and will be reduced to fit 800×600 while preserving its aspect ratio.',
+      userMessage: 'Изображение будет уменьшено до 800×600 с сохранением пропорций.'
+    },
+    {
+      sizeType: 'min' as const,
+      message: 'The image is smaller than the minimum canvas size and will be enlarged to meet 40×30 while preserving its aspect ratio.',
+      userMessage: 'Изображение будет увеличено как минимум до 40×30 с сохранением пропорций.'
+    }
+  ])('localizes $sizeType resize warnings while retaining the worker payload', async({ sizeType, message, userMessage }) => {
+    const setup = createImageManagerTestSetup()
+    const errorManager = new ErrorManager({ editor: setup.mockEditor })
+    setup.mockEditor.errorManager = errorManager
+    setup.mockEditor.t = createTranslator({ language: 'ru' })
+    jest.spyOn(console, 'warn').mockImplementation(() => {})
+    const data = {
+      dataURL: 'data:image/png;base64,original',
+      sizeType,
+      contentType: 'image/png',
+      quality: 1,
+      maxWidth: 800,
+      maxHeight: 600,
+      minWidth: 40,
+      minHeight: 30
+    }
+    try {
+      await expect(setup.imageManager.resizeImageToBoundaries(data)).resolves.toBeInstanceOf(Blob)
+      const event = {
+        code: 'IMAGE_RESIZE_WARNING',
+        origin: 'ImageManager',
+        method: 'resizeImageToBoundaries',
+        message,
+        userMessage,
+        data
+      }
+      expect(setup.mockCanvas.fire).toHaveBeenCalledWith('editor:warning', event)
+      expect(errorManager.buffer).toStrictEqual([{ type: 'editor:warning', ...event }])
+      expect(setup.mockWorkerManager.post).toHaveBeenCalledWith('resizeImage', data)
+      expect(errorManager.buffer[0].data).toBe(setup.mockCanvas.fire.mock.calls[0][1].data)
+      expect(console.warn).toHaveBeenCalledWith(
+        `ImageManager. resizeImageToBoundaries. IMAGE_RESIZE_WARNING. ${message}`,
+        data
+      )
     } finally {
       setup.restore()
     }

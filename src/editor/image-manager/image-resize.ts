@@ -49,6 +49,9 @@ function emitImageResizeWarning({
     method: 'resizeImageToBoundaries',
     code: 'IMAGE_RESIZE_WARNING',
     message,
+    userMessage: sizeType === 'min'
+      ? editor.t('notifications.image.resizeMin', { width: minWidth, height: minHeight })
+      : editor.t('notifications.image.resizeMax', { width: maxWidth, height: maxHeight }),
     data
   })
 }

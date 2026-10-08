@@ -46,6 +46,7 @@ export default class ErrorManager {
    * @param options.code — Error code (from errorCodes)
    * @param options.data — Additional data (optional)
    * @param options.message — Error message (optional; uses the error code if omitted)
+   * @param options.userMessage — Optional end-user text, forwarded unchanged
    * @fires editor:error
    */
   public emitError({
@@ -53,7 +54,8 @@ export default class ErrorManager {
     method: providedMethod,
     code,
     data,
-    message
+    message,
+    userMessage
   }: ErrorItem): void {
     const method = providedMethod === undefined ? 'Unknown Method' : providedMethod
     if (!ErrorManager.isValidErrorCode(code)) {
@@ -74,6 +76,7 @@ export default class ErrorManager {
       origin,
       method,
       message: msg,
+      ...userMessage === undefined ? {} : { userMessage },
       data
     }
 
@@ -93,6 +96,7 @@ export default class ErrorManager {
    * @param ptions.code — Warning code (from errorCodes)
    * @param options.data — Additional data (optional)
    * @param options.message — Warning message (optional; uses the warning code if omitted)
+   * @param options.userMessage — Optional end-user text, forwarded unchanged
    * @fires editor:warning
    */
   public emitWarning({
@@ -100,6 +104,7 @@ export default class ErrorManager {
     method: providedMethod,
     code,
     message,
+    userMessage,
     data
   }: ErrorItem): void {
     const method = providedMethod === undefined ? 'Unknown Method' : providedMethod
@@ -118,6 +123,7 @@ export default class ErrorManager {
       origin,
       method,
       message: msg,
+      ...userMessage === undefined ? {} : { userMessage },
       data
     }
 

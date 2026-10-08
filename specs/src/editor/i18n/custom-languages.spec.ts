@@ -77,6 +77,39 @@ describe('Custom editor languages', () => {
     expect(english('ui.toolbar.delete')).toBe('Delete')
   })
 
+  it('partially overrides notification text and keeps built-in and English fallbacks', () => {
+    const customLanguages: CustomLanguages = {
+      ru: { notifications: { image: { exportFailed: 'Повторите экспорт.' } } },
+      pt: { notifications: { image: { exportFailed: 'Tente exportar novamente.' } } },
+      en: { notifications: { image: { importFailed: 'Try importing the image again.' } } }
+    }
+    const russian = createTranslator({ language: 'ru', customLanguages })
+    const portuguese = createTranslator({ language: 'pt', customLanguages })
+
+    expect(russian('notifications.image.exportFailed')).toBe('Повторите экспорт.')
+    expect(russian('notifications.image.importFailed')).toBe('Не удалось импортировать изображение.')
+    expect(russian('notifications.clipboard.copyFailed')).toBe('Не удалось скопировать объект.')
+    expect(portuguese('notifications.image.exportFailed')).toBe('Tente exportar novamente.')
+    expect(portuguese('notifications.image.importFailed')).toBe('Try importing the image again.')
+    expect(portuguese('notifications.image.noSelection')).toBe('Select an object to export.')
+  })
+
+  it('isolates custom notification text between editors and from later caller mutations', () => {
+    const locale = { notifications: { image: { exportFailed: 'First export notification' } } }
+    const first = createTranslator({ language: 'ru', customLanguages: { ru: locale } })
+    const second = createTranslator({
+      language: 'ru',
+      customLanguages: { ru: { notifications: { image: { exportFailed: 'Second export notification' } } } }
+    })
+    locale.notifications.image.exportFailed = 'Changed after initialization'
+
+    expect(first('notifications.image.exportFailed')).toBe('First export notification')
+    expect(second('notifications.image.exportFailed')).toBe('Second export notification')
+    expect(createTranslator({ language: 'ru' })('notifications.image.exportFailed')).toBe('Не удалось экспортировать изображение.')
+    expect(english('notifications.image.exportFailed')).toBe('The image could not be exported.')
+    expect(first('notifications.image.exportFailed')).toBe('First export notification')
+  })
+
   it('merges case-equivalent locale entries without dropping previous nested keys', () => {
     const t = createTranslator({
       language: 'pt',
@@ -146,11 +179,15 @@ describe('Custom editor languages', () => {
 
 describe('Public custom-language types', () => {
   it('accepts optional nested keys and arbitrary translated strings in editor options', () => {
-    const locale = { ui: { toolbar: { delete: 'Any translated string' } } } satisfies EditorLocale
+    const locale = {
+      ui: { toolbar: { delete: 'Any translated string' } },
+      notifications: { image: { exportFailed: 'Any export notification' } }
+    } satisfies EditorLocale
     const customLanguages = { 'my-locale': locale, en: {} } satisfies CustomLanguages
     const options: Partial<EditorOptions> = { language: 'my-locale', customLanguages }
 
     expect(createTranslator(options)('ui.toolbar.delete')).toBe('Any translated string')
+    expect(createTranslator(options)('notifications.image.exportFailed')).toBe('Any export notification')
   })
 
   it('rejects unknown nested keys and non-string leaves at compile time', () => {

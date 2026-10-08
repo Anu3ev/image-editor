@@ -572,6 +572,7 @@ describe('undo/redo', () => {
       method: 'undo',
       code: 'UNDO_ERROR',
       message: 'Failed to undo the action',
+      userMessage: 'The action could not be undone.',
       data: error
     })
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
@@ -603,6 +604,7 @@ describe('undo/redo', () => {
       method: 'redo',
       code: 'REDO_ERROR',
       message: 'Failed to redo the action',
+      userMessage: 'The action could not be redone.',
       data: error
     })
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())

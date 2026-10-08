@@ -68,7 +68,7 @@ describe('Built-in catalog consistency', () => {
   ] as const)('preserves nested domains and resolves every %s leaf', (language, catalog) => {
     expect(catalog.ui).toHaveProperty('toolbar.duplicate')
     expect(catalog.text).toHaveProperty('defaults.newText')
-    expect(Object.keys(catalog).sort()).toEqual(['image', 'text', 'ui'])
+    expect(Object.keys(catalog).sort()).toEqual(['image', 'notifications', 'text', 'ui'])
     expect(Object.keys(catalog.image)).toEqual(['filenames'])
     expect(Object.keys(catalog.text)).toEqual(['defaults'])
     expect(Object.keys(catalog.ui).sort()).toEqual(['indicators', 'toolbar'])

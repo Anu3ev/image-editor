@@ -219,6 +219,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setColorBackground',
         message: 'Failed to set the background color',
+        userMessage: this.editor.t('notifications.background.colorFailed'),
         data: { error, color, customData, fromTemplate, withoutSave }
       })
     }
@@ -283,6 +284,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setGradientBackground',
         message: 'Failed to set the background gradient',
+        userMessage: this.editor.t('notifications.background.gradientFailed'),
         data: { error, gradient, customData, fromTemplate, withoutSave }
       })
     }
@@ -407,6 +409,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setImageBackground',
         message: 'Failed to set the background image',
+        userMessage: this.editor.t('notifications.background.imageFailed'),
         data: { error, imageSource, customData, fromTemplate, withoutSave }
       })
     }
@@ -455,6 +458,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'setPreparedImageBackground',
         message: 'Failed to set the prepared image as the background',
+        userMessage: this.editor.t('notifications.background.imageFailed'),
         data: { error, image, customData, fromTemplate, withoutSave }
       })
     }
@@ -485,6 +489,7 @@ export default class BackgroundManager {
         origin: 'BackgroundManager',
         method: 'removeBackground',
         message: 'Failed to remove the background',
+        userMessage: this.editor.t('notifications.background.removeFailed'),
         data: { error, withoutSave }
       })
     }

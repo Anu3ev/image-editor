@@ -285,6 +285,7 @@ export default class ImageManager {
         method: 'exportCanvasAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
         message: `Failed to export the image: ${error instanceof Error ? error.message : String(error)}`,
+        userMessage: this.editor.t('notifications.image.exportFailed'),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,
@@ -329,6 +330,7 @@ export default class ImageManager {
         method: 'exportObjectAsImageFile',
         code: 'NO_OBJECT_SELECTED',
         message: 'No object selected for export',
+        userMessage: this.editor.t('notifications.image.noSelection'),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,
@@ -351,6 +353,7 @@ export default class ImageManager {
         method: 'exportObjectAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
         message: `Failed to export the object: ${error instanceof Error ? error.message : String(error)}`,
+        userMessage: this.editor.t('notifications.image.exportFailed'),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,

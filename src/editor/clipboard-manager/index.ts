@@ -212,6 +212,7 @@ export default class ClipboardManager {
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
         message: 'Failed to clone the object for the internal clipboard',
+        userMessage: this.editor.t('notifications.clipboard.copyFailed'),
         data: error as object
       })
       return false
@@ -234,6 +235,7 @@ export default class ClipboardManager {
         method,
         code: 'COPY_FAILED',
         message: 'Failed to copy the object to the system clipboard',
+        userMessage: this.editor.t('notifications.clipboard.systemCopyFailed'),
         data: error as object
       })
     })
@@ -250,7 +252,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: '_copyToSystemClipboard',
         code: 'CLIPBOARD_NOT_SUPPORTED',
-        message: 'navigator.clipboard is not supported in this browser or an HTTPS connection is unavailable.'
+        message: 'navigator.clipboard is not supported in this browser or an HTTPS connection is unavailable.',
+        userMessage: this.editor.t('notifications.clipboard.unavailable')
       })
       return false
     }
@@ -273,6 +276,7 @@ export default class ClipboardManager {
         method: '_copyToSystemClipboard',
         code: 'COPY_FAILED',
         message: 'Failed to copy the object',
+        userMessage: this.editor.t('notifications.clipboard.systemCopyFailed'),
         data: error as object
       })
       return false
@@ -333,6 +337,7 @@ export default class ClipboardManager {
         method: '_copyTextToClipboard',
         code: 'CLIPBOARD_WRITE_TEXT_FAILED',
         message: `Failed to write text to the clipboard: ${error}`,
+        userMessage: this.editor.t('notifications.clipboard.systemCopyFailed'),
         data: error as object
       })
       return false
@@ -460,6 +465,7 @@ export default class ClipboardManager {
         method: '_handleImageImport',
         code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
         message: 'Pasting the image from the clipboard was canceled or failed',
+        userMessage: this.editor.t('notifications.clipboard.pasteImageCanceled'),
         data: { error }
       })
     }
@@ -540,6 +546,7 @@ export default class ClipboardManager {
         method: 'copyPaste',
         code: 'COPY_PASTE_FAILED',
         message: 'Failed to create a copy of the object',
+        userMessage: this.editor.t('notifications.clipboard.duplicateFailed'),
         data: error as object
       })
       return false
@@ -596,6 +603,7 @@ export default class ClipboardManager {
         method: 'cut',
         code: 'CUT_FAILED',
         message: 'Failed to cut the object',
+        userMessage: this.editor.t('notifications.clipboard.cutFailed'),
         data: error as object
       })
       return false
@@ -658,6 +666,7 @@ export default class ClipboardManager {
             method: 'handlePasteEvent',
             code: 'PASTE_IMAGE_FAILED',
             message: 'Failed to paste the image from the clipboard',
+            userMessage: this.editor.t('notifications.clipboard.pasteImageFailed'),
             data: error as object
           })
         })
@@ -682,6 +691,7 @@ export default class ClipboardManager {
             method: 'handlePasteEvent',
             code: 'PASTE_HTML_IMAGE_FAILED',
             message: 'Failed to paste the image from HTML',
+            userMessage: this.editor.t('notifications.clipboard.pasteImageFailed'),
             data: error as object
           })
         })
@@ -738,6 +748,7 @@ export default class ClipboardManager {
         method: 'paste',
         code: 'PASTE_FAILED',
         message: 'Failed to paste the object',
+        userMessage: this.editor.t('notifications.clipboard.pasteFailed'),
         data: error as object
       })
       return false

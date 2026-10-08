@@ -3,9 +3,14 @@ import {
   CUSTOM_LOCALIZATION_CONTENT,
   CUSTOM_LANGUAGE_RESOURCES,
   CUSTOM_LANGUAGE_EXPECTATIONS,
+  CUSTOM_NOTIFICATION_RESOURCES,
   LOCALIZATION_EXAMPLES,
   LOCALIZATION_ERROR_EXPECTATIONS,
   LOCALIZATION_MISSING_CONTAINER,
+  LOCALIZATION_NOTIFICATION_DIAGNOSTICS,
+  LOCALIZATION_NOTIFICATION_MESSAGES,
+  LOCALIZATION_RESIZE_IMAGE,
+  LOCALIZATION_RESIZED_DIMENSIONS,
   LOCALIZATION_WORKER_ACTION,
   RUSSIAN_OVERRIDE_RESOURCES,
   RUSSIAN_TOOLBAR_EXPECTATIONS
@@ -188,5 +193,98 @@ test.describe('Editor initialization language', () => {
         action: LOCALIZATION_WORKER_ACTION
       })).toBe(LOCALIZATION_ERROR_EXPECTATIONS.unknownWorkerAction)
     }
+  })
+})
+
+test.describe('Localized user notifications', () => {
+  test('keeps export diagnostics English and user messages local to each instance', async({ editorModel }) => {
+    const english = 'export-notification-english'
+    const russian = 'export-notification-russian'
+    await test.step('Create simultaneous English and Russian editors', async() => {
+      await editorModel.localization.create({ containerId: english, language: 'en' })
+      await editorModel.localization.create({ containerId: russian, language: 'ru' })
+    })
+
+    for (const example of [
+      { containerId: russian, userMessage: LOCALIZATION_NOTIFICATION_MESSAGES.ru.noSelection },
+      { containerId: english, userMessage: LOCALIZATION_NOTIFICATION_MESSAGES.en.noSelection }
+    ]) {
+      await test.step(`Read the failed export notification from ${example.containerId}`, async() => {
+        const snapshot = await editorModel.localization.exportWithoutSelection(example.containerId)
+        expect(snapshot.failed).toBe(true)
+        expect(snapshot.events).toHaveLength(1)
+        expect(snapshot.events[0]).toMatchObject({
+          ...LOCALIZATION_NOTIFICATION_DIAGNOSTICS.noSelection,
+          userMessage: example.userMessage
+        })
+        expect(snapshot.buffer).toEqual([{ type: 'editor:error', ...snapshot.events[0] }])
+      })
+    }
+  })
+
+  test('reports a localized crop error for a selected text object', async({ editorModel }) => {
+    const containerId = 'crop-notification-russian'
+    await editorModel.localization.create({ containerId, language: 'ru' })
+    await editorModel.localization.addText({ containerId })
+
+    const snapshot = await editorModel.localization.cropInvalidSelection(containerId)
+
+    expect(snapshot.failed).toBe(true)
+    expect(snapshot.events).toHaveLength(1)
+    expect(snapshot.events[0]).toMatchObject({
+      ...LOCALIZATION_NOTIFICATION_DIAGNOSTICS.invalidCrop,
+      userMessage: LOCALIZATION_NOTIFICATION_MESSAGES.ru.invalidCrop
+    })
+    expect(snapshot.buffer).toEqual([{ type: 'editor:error', ...snapshot.events[0] }])
+  })
+
+  test('localizes the real resize warning and interpolates its bounds', async({ editorModel }) => {
+    const containerId = 'resize-notification-russian'
+    await editorModel.localization.create({ containerId, language: 'ru' })
+
+    const snapshot = await test.step('Resize a raster image through the public image manager', async() => {
+      return editorModel.localization.resizeImage({ containerId, ...LOCALIZATION_RESIZE_IMAGE })
+    })
+
+    await test.step('Check the resized bitmap and both public notification channels', () => {
+      expect(snapshot).toMatchObject(LOCALIZATION_RESIZED_DIMENSIONS)
+      expect(snapshot.events).toHaveLength(1)
+      expect(snapshot.events[0]).toMatchObject({
+        ...LOCALIZATION_NOTIFICATION_DIAGNOSTICS.resizeMax,
+        userMessage: LOCALIZATION_NOTIFICATION_MESSAGES.ru.resizeMax
+      })
+      expect(snapshot.buffer).toEqual([{ type: 'editor:warning', ...snapshot.events[0] }])
+    })
+  })
+
+  test('uses partial custom notification resources and falls back to English for missing keys', async({ editorModel }) => {
+    const containerId = 'custom-notification-language'
+    await editorModel.localization.create({
+      containerId,
+      language: 'pt-BR',
+      customLanguages: CUSTOM_NOTIFICATION_RESOURCES
+    })
+
+    await test.step('Read the custom export notification with its original English diagnostic', async() => {
+      const snapshot = await editorModel.localization.exportWithoutSelection(containerId)
+      expect(snapshot.failed).toBe(true)
+      expect(snapshot.events).toHaveLength(1)
+      expect(snapshot.events[0]).toMatchObject({
+        ...LOCALIZATION_NOTIFICATION_DIAGNOSTICS.noSelection,
+        userMessage: LOCALIZATION_NOTIFICATION_MESSAGES.customNoSelection
+      })
+    })
+
+    await test.step('Read the English fallback for an untranslated crop notification', async() => {
+      await editorModel.localization.addText({ containerId })
+      const snapshot = await editorModel.localization.cropInvalidSelection(containerId)
+      expect(snapshot.failed).toBe(true)
+      expect(snapshot.events).toHaveLength(1)
+      expect(snapshot.events[0]).toMatchObject({
+        ...LOCALIZATION_NOTIFICATION_DIAGNOSTICS.invalidCrop,
+        userMessage: LOCALIZATION_NOTIFICATION_MESSAGES.en.invalidCrop
+      })
+      expect(await editorModel.localization.customLanguageResources(containerId)).toEqual(CUSTOM_NOTIFICATION_RESOURCES)
+    })
   })
 })

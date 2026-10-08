@@ -1003,6 +1003,7 @@ export default class CropManager {
       method: 'startImageCrop',
       code: errorCodes.CROP_MANAGER.INVALID_IMAGE_TARGET,
       message: 'Select a raster image object to crop an image.',
+      userMessage: this.editor.t('notifications.crop.invalidTarget'),
       data: {
         targetType: target?.type,
         targetId: target?.id
@@ -1019,6 +1020,7 @@ export default class CropManager {
       method: 'startImageCrop',
       code: errorCodes.CROP_MANAGER.LOCKED_IMAGE_TARGET,
       message: 'A locked image cannot be cropped.',
+      userMessage: this.editor.t('notifications.crop.lockedTarget'),
       data: {
         targetType: target.type,
         targetId: target.id

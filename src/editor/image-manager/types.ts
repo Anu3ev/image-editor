@@ -79,7 +79,10 @@ export interface ImageManagerErrorPayload {
   code: string
   origin?: string
   method?: string
+  /** Technical diagnostic; not intended for end-user notifications. */
   message?: string
+  /** Optional display text, localized by its owner and forwarded unchanged. */
+  userMessage?: string
   data?: object
 }
 

@@ -175,9 +175,10 @@ one instance's customizations never affect another.
 Each instance has its own i18next translator. The language is fixed at
 initialization; create a new instance to choose another language. Built-in
 toolbar labels, indicators, default inserted text, and export filenames use that
-language. Library-generated technical errors, error-event messages, console logs,
-warnings, and diagnostics remain in English and are not part of the `EditorLocale`
-override schema. Caller-provided messages and external errors are preserved. Your
+language. Actionable errors and warnings may also include a localized `userMessage`,
+customizable through the `notifications` branch of `EditorLocale`. Technical
+`message` fields and console diagnostics remain in English. Caller-provided
+messages and external errors are preserved without translation. Your
 text, custom toolbar labels, serialized content, event names, and error codes stay
 unchanged. The demo remains English-only.
 

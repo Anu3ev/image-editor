@@ -273,6 +273,7 @@ export function emitInvalidContentTypeError({
     method: 'importImage',
     code: 'INVALID_CONTENT_TYPE',
     message,
+    userMessage: editor.t('notifications.image.unsupportedFormat'),
     data: {
       source,
       format,
@@ -511,6 +512,7 @@ export function emitImportFailed({
     method: 'importImage',
     code: 'IMPORT_FAILED',
     message: `Failed to import the image: ${error instanceof Error ? error.message : String(error)}`,
+    userMessage: editor.t('notifications.image.importFailed'),
     data: request
   })
 }

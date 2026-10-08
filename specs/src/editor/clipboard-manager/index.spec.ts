@@ -268,6 +268,7 @@ describe('ClipboardManager', () => {
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
         message: 'Failed to clone the object for the internal clipboard',
+        userMessage: 'The object could not be copied.',
         data: expect.any(Error)
       })
     })
@@ -1137,6 +1138,7 @@ describe('ClipboardManager', () => {
         method: '_handleImageImport',
         code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
         message: 'Pasting the image from the clipboard was canceled or failed',
+        userMessage: 'Pasting the image was canceled or failed.',
         data: { error: expect.any(Error) }
       })
     })
@@ -1222,6 +1224,7 @@ describe('ClipboardManager', () => {
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
         message: 'Failed to clone the object for the internal clipboard',
+        userMessage: 'The object could not be copied.',
         data: expect.any(Error)
       })
     })
@@ -1238,6 +1241,7 @@ describe('ClipboardManager', () => {
         method: 'paste',
         code: 'PASTE_FAILED',
         message: 'Failed to paste the object',
+        userMessage: 'The object could not be pasted.',
         data: expect.any(Error)
       })
     })
@@ -1254,6 +1258,7 @@ describe('ClipboardManager', () => {
         method: 'copyPaste',
         code: 'COPY_PASTE_FAILED',
         message: 'Failed to create a copy of the object',
+        userMessage: 'The object could not be duplicated.',
         data: expect.any(Error)
       })
     })
@@ -1275,6 +1280,7 @@ describe('ClipboardManager', () => {
         method: 'handlePasteEvent',
         code: 'PASTE_IMAGE_FAILED',
         message: 'Failed to paste the image from the clipboard',
+        userMessage: 'The image could not be pasted.',
         data: expect.any(Error)
       })
     })
@@ -1303,6 +1309,7 @@ describe('ClipboardManager', () => {
         method: 'handlePasteEvent',
         code: 'PASTE_HTML_IMAGE_FAILED',
         message: 'Failed to paste the image from HTML',
+        userMessage: 'The image could not be pasted.',
         data: expect.any(Error)
       })
     })
