@@ -1,36 +1,33 @@
 import FontManager from '../../../../src/editor/font-manager'
-import { createTranslator } from '../../../../src/editor/i18n'
 import { createFontManagerTestSetup, resetFontManagerRegistry } from '../../../test-utils/managers/font'
 
-describe('FontManager localization', () => {
+describe('FontManager technical warnings', () => {
   beforeEach(() => resetFontManagerRegistry())
   afterEach(() => jest.restoreAllMocks())
 
-  it('localizes font-load warnings and preserves the original error', async() => {
+  it('reports English font-load warnings and preserves the original error', async() => {
     const setup = createFontManagerTestSetup()
     const error = new Error('Custom font failure')
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
     setup.setFontFaceMock(jest.fn(() => ({ load: () => Promise.reject(error) })))
     const font = { family: '<Custom Font>', source: 'https://example.com/custom.woff2' }
-    const t = createTranslator({ language: 'ru' })
     try {
-      await new FontManager([font], t).loadFonts()
-      expect(warn).toHaveBeenCalledWith(t('fonts.warnings.fontFaceLoadFailed', { family: font.family }), error)
+      await new FontManager([font]).loadFonts()
+      expect(warn).toHaveBeenCalledWith(`Failed to load font "${font.family}" using the FontFace API`, error)
     } finally {
       setup.restore()
     }
   })
 
-  it('localizes FontFaceSet warnings using the same instance translator', async() => {
+  it('reports English FontFaceSet warnings with the original error', async() => {
     const setup = createFontManagerTestSetup()
     const error = new Error('Custom set failure')
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {})
     setup.fontSet.forEach.mockImplementation(() => { throw error })
     setup.setFontFaceMock(undefined)
-    const t = createTranslator({ language: 'ru' })
     try {
-      await new FontManager([{ family: 'Example', source: 'https://example.com/font.woff2' }], t).loadFonts()
-      expect(warn).toHaveBeenCalledWith(t('fonts.warnings.fontFaceSetCheckFailed'), error)
+      await new FontManager([{ family: 'Example', source: 'https://example.com/font.woff2' }]).loadFonts()
+      expect(warn).toHaveBeenCalledWith('Failed to check whether the font was already loaded through FontFaceSet', error)
     } finally {
       setup.restore()
     }

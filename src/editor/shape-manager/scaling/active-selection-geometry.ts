@@ -5,7 +5,6 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type {
   ShapeGroup,
   ShapeTransformOriginX,
@@ -89,10 +88,8 @@ export type ActiveSelectionCommittedFrame = Readonly<{
 
 /** Saves the frame's last visible state before transferring scale into child objects. */
 export function captureActiveSelectionCommittedFrame({
-  t = english,
   selection
 }: {
-  t?: Translate
   selection: ActiveSelection
 }): ActiveSelectionCommittedFrame {
   const center = selection.getCenterPoint()
@@ -100,10 +97,10 @@ export function captureActiveSelectionCommittedFrame({
   const height = selection.height * Math.abs(selection.scaleY ?? 1)
 
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    throw new Error(t('shape.errors.invalidRestoredSelectionSize'))
+    throw new Error('The restored selection frame must have positive finite dimensions')
   }
   if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    throw new Error(t('shape.errors.invalidRestoredSelectionCenter'))
+    throw new Error('The restored selection frame center must have finite coordinates')
   }
 
   return {
@@ -127,11 +124,9 @@ export function captureActiveSelectionCommittedFrame({
  * for the selection's nonuniform scale.
  */
 export function captureRotatedActiveSelectionShapeGeometry({
-  t = english,
   group,
   selection
 }: {
-  t?: Translate
   group: ShapeGroup
   selection: ActiveSelection
 }): RotatedActiveSelectionShapeGeometry | null {
@@ -141,9 +136,9 @@ export function captureRotatedActiveSelectionShapeGeometry({
   if (!hasSupportedSelectionTransform({ selection })) return null
 
   const center = group.getRelativeCenterPoint()
-  if (!Number.isFinite(angle)) throw new Error(t('shape.errors.invalidRotatedShapeAngle'))
+  if (!Number.isFinite(angle)) throw new Error('The rotated shape angle must be finite')
   if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    throw new Error(t('shape.errors.invalidRotatedShapeCenter'))
+    throw new Error('The rotated shape center must have finite coordinates')
   }
 
   return { angle, center }
@@ -154,12 +149,10 @@ export function captureRotatedActiveSelectionShapeGeometry({
  * and receives the already calculated canonical dimensions without skew in scene coordinates.
  */
 export function applyRotatedActiveSelectionShapeGeometry({
-  t = english,
   geometry,
   group,
   selection
 }: {
-  t?: Translate
   geometry: RotatedActiveSelectionShapeGeometry
   group: ShapeGroup
   selection: ActiveSelection
@@ -178,10 +171,10 @@ export function applyRotatedActiveSelectionShapeGeometry({
   )
 
   if (!Number.isFinite(sceneCenter.x) || !Number.isFinite(sceneCenter.y)) {
-    throw new Error(t('shape.errors.invalidFinalRotatedShapeCenter'))
+    throw new Error('The final center of the rotated shape must have finite coordinates')
   }
   if (!localMatrix.every(Number.isFinite)) {
-    throw new Error(t('shape.errors.invalidRotatedShapeCompensationMatrix'))
+    throw new Error('The rotated shape compensation matrix must contain finite values')
   }
 
   util.applyTransformToObject(group, localMatrix)

@@ -1177,7 +1177,7 @@ class Listeners {
               return true
             }
           } catch (error) {
-            console.warn(this.editor.t('editor.warnings.selectionContainerCheckFailed', { selector }), error)
+            console.warn(`Error checking the selection container with selector "${selector}":`, error)
           }
         }
       }

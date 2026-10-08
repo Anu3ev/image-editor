@@ -1,5 +1,4 @@
 /* eslint-disable no-use-before-define -- Public contracts appear before internal calculations. */
-import { english, type Translate } from '../../i18n'
 import {
   MOVE_SNAP_STEP,
   SNAP_THRESHOLD,
@@ -234,22 +233,20 @@ export const FREE_MOVEMENT_HOLD_STATE: MovementHoldState = Object.freeze({
  * Validates and captures initial geometry, targets, and thresholds for a movement gesture.
  */
 export function createMovementGestureBaseline({
-  t = english,
   bounds,
   position,
   environment
 }: {
-  t?: Translate
   bounds: Bounds
   position: MovementTargetPosition
   environment: MovementSnapEnvironment
 }): MovementGestureBaseline {
-  const exactBounds = createExactBoundsSnapshot({ t, bounds })
-  const exactPosition = createPositionSnapshot({ t, position })
+  const exactBounds = createExactBoundsSnapshot({ bounds })
+  const exactPosition = createPositionSnapshot({ position })
   const spacingSources = environment.spacingSources.map(({ id, bounds: candidateBounds }) => {
     return Object.freeze({
       id,
-      bounds: createExactBoundsSnapshot({ t, bounds: candidateBounds })
+      bounds: createExactBoundsSnapshot({ bounds: candidateBounds })
     })
   })
   const spacingBounds = spacingSources.map(({ bounds: candidateBounds }) => candidateBounds)
@@ -264,7 +261,7 @@ export function createMovementGestureBaseline({
     position: exactPosition,
     candidates: environment.candidates,
     spacingBounds: Object.freeze(spacingBounds),
-    spacingChains: createMovementSpacingChains({ t, sources: [...spacingSources, activeSpacingSource] }),
+    spacingChains: createMovementSpacingChains({ sources: [...spacingSources, activeSpacingSource] }),
     spacingPatterns: Object.freeze({
       vertical: Object.freeze(spacingPatterns.vertical.map((pattern) => Object.freeze({ ...pattern }))),
       horizontal: Object.freeze(spacingPatterns.horizontal.map((pattern) => Object.freeze({ ...pattern })))
@@ -277,19 +274,17 @@ export function createMovementGestureBaseline({
  * Calculates one final translation from raw intent and the current hold state.
  */
 export function resolveMovementSnapPlan({
-  t = english,
   baseline,
   intent,
   holdState
 }: {
-  t?: Translate
   baseline: MovementGestureBaseline
   intent: MovementRawIntent
   holdState: MovementHoldState
 }): MovementSnapPlan {
-  const rawIntent = createRawIntentSnapshot({ t, intent })
-  assertMovementHoldState({ t, baseline, holdState })
-  assertRawIntentMatchesBaseline({ t, baseline, intent: rawIntent })
+  const rawIntent = createRawIntentSnapshot({ intent })
+  assertMovementHoldState({ baseline, holdState })
+  assertRawIntentMatchesBaseline({ baseline, intent: rawIntent })
 
   if (rawIntent.modifiers.ctrlKey) {
     return createDisabledMovementPlan({ rawIntent })
@@ -299,8 +294,8 @@ export function resolveMovementSnapPlan({
     baseline,
     intent: rawIntent,
     proposals: {
-      x: resolveAxisProposal({ t, axis: 'x', baseline, intent: rawIntent, hold: holdState.x }),
-      y: resolveAxisProposal({ t, axis: 'y', baseline, intent: rawIntent, hold: holdState.y })
+      x: resolveAxisProposal({ axis: 'x', baseline, intent: rawIntent, hold: holdState.x }),
+      y: resolveAxisProposal({ axis: 'y', baseline, intent: rawIntent, hold: holdState.y })
     }
   })
   const nextPosition = resolveNextMovementPosition({
@@ -331,18 +326,16 @@ export function resolveMovementSnapPlan({
  * Verifies actual geometry before updating hold state and guides.
  */
 export function verifyMovementSnapPlan({
-  t = english,
   baseline,
   plan,
   finalGeometry
 }: {
-  t?: Translate
   baseline: MovementGestureBaseline
   plan: MovementSnapPlan
   finalGeometry: FinalMovementGeometry
 }): MovementSnapVerification {
-  const bounds = createExactBoundsSnapshot({ t, bounds: finalGeometry.bounds })
-  const position = createPositionSnapshot({ t, position: finalGeometry.position })
+  const bounds = createExactBoundsSnapshot({ bounds: finalGeometry.bounds })
+  const position = createPositionSnapshot({ position: finalGeometry.position })
   const dimensionsPreserved = areBoundsDimensionsEqual({
     first: baseline.bounds,
     second: bounds,
@@ -391,13 +384,11 @@ function createDisabledMovementPlan({
 
 /** Selects exactly one held or new constraint on one axis. */
 function resolveAxisProposal({
-  t = english,
   axis,
   baseline,
   intent,
   hold
 }: {
-  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   intent: MovementRawIntent
@@ -406,7 +397,6 @@ function resolveAxisProposal({
   if (!intent.axes[axis]) return null
 
   const heldProposal = resolveHeldAxisProposal({
-    t,
     axis,
     baseline,
     intent,
@@ -421,7 +411,6 @@ function resolveAxisProposal({
     threshold: baseline.thresholds.acquire
   })
   const spacing = resolveSpacingConstraint({
-    t,
     axis,
     baseline,
     bounds: intent.bounds,
@@ -438,13 +427,11 @@ function resolveAxisProposal({
 
 /** Preserves the previous line or spacing constraint within its release zone. */
 function resolveHeldAxisProposal({
-  t = english,
   axis,
   baseline,
   intent,
   hold
 }: {
-  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   intent: MovementRawIntent
@@ -460,7 +447,6 @@ function resolveHeldAxisProposal({
   }
   if (hold.kind === 'spacing') {
     return resolveHeldSpacingConstraint({
-      t,
       axis,
       baseline,
       bounds: intent.bounds,
@@ -498,20 +484,17 @@ function resolveHeldLineConstraint({
 
 /** Preserves a specific spacing candidate without switching within the release zone. */
 function resolveHeldSpacingConstraint({
-  t = english,
   axis,
   baseline,
   bounds,
   hold
 }: {
-  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   bounds: Bounds
   hold: HeldMovementSpacingAxisHold
 }): PlannedMovementSpacingConstraint | null {
   const constraint = resolveSpacingConstraint({
-    t,
     axis,
     baseline,
     bounds,
@@ -715,7 +698,6 @@ function resolveProposalDelta({
 
 /** Converts an equal-spacing calculation to a constraint for one axis. */
 function resolveSpacingConstraint({
-  t = english,
   axis,
   baseline,
   bounds,
@@ -723,7 +705,6 @@ function resolveSpacingConstraint({
   transition,
   previousContext = null
 }: {
-  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   bounds: Bounds
@@ -732,7 +713,6 @@ function resolveSpacingConstraint({
   previousContext?: Readonly<SpacingSelectionContext> | null
 }): PlannedMovementSpacingConstraint | null {
   const calculation = calculateMovementAxisSpacing({
-    t,
     axis,
     baseline,
     bounds,
@@ -741,11 +721,10 @@ function resolveSpacingConstraint({
   })
   if (!calculation.context || !calculation.guides.length) return null
   if (!calculation.selections.length) {
-    throw new Error(t('snapping.movement.spacing.selectedIntervalsRequired'))
+    throw new Error('Movement spacing result must describe its selected intervals')
   }
 
   return createPlannedMovementSpacingConstraint({
-    t,
     axis,
     baseline,
     bounds,
@@ -757,7 +736,6 @@ function resolveSpacingConstraint({
 
 /** Creates a constraint from a verified equal-spacing calculation result. */
 function createPlannedMovementSpacingConstraint({
-  t = english,
   axis,
   baseline,
   bounds,
@@ -765,7 +743,6 @@ function createPlannedMovementSpacingConstraint({
   transition,
   calculation
 }: {
-  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   bounds: Bounds
@@ -774,14 +751,12 @@ function createPlannedMovementSpacingConstraint({
   calculation: MovementSpacingCalculation
 }): PlannedMovementSpacingConstraint {
   const context = freezeSpacingContext({ context: calculation.context })
-  if (!context) throw new Error(t('snapping.movement.spacing.contextRequired'))
+  if (!context) throw new Error('Movement spacing result must contain a context')
   const selections = freezeSpacingSelections({
-    t,
     selections: calculation.selections
   })
-  const primarySelection = resolvePrimarySpacingSelection({ t, selections })
+  const primarySelection = resolvePrimarySpacingSelection({ selections })
   const correction = resolveMovementSpacingCorrection({
-    t,
     axis,
     baseline,
     bounds,
@@ -809,15 +784,13 @@ function createPlannedMovementSpacingConstraint({
 
 /** Returns the single primary interval of the calculated equal spacing. */
 function resolvePrimarySpacingSelection({
-  t = english,
   selections
 }: {
-  t?: Translate
   selections: readonly ResolvedSpacingSelection[]
 }): ResolvedSpacingSelection {
   const primarySelections = selections.filter(({ isPrimary }) => isPrimary)
   if (primarySelections.length !== 1) {
-    throw new Error(t('snapping.movement.spacing.singlePrimaryIntervalRequired'))
+    throw new Error('Movement spacing result must identify exactly one primary interval')
   }
 
   return primarySelections[0]
@@ -825,14 +798,12 @@ function resolvePrimarySpacingSelection({
 
 /** Calculates equal spacing using the threshold for the selected axis. */
 function calculateMovementAxisSpacing({
-  t = english,
   axis,
   baseline,
   bounds,
   threshold,
   previousContext
 }: {
-  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   bounds: Bounds
@@ -851,8 +822,8 @@ function calculateMovementAxisSpacing({
   }
 
   return axis === 'x'
-    ? calculateHorizontalSpacing({ ...params, t })
-    : calculateVerticalSpacing({ ...params, t })
+    ? calculateHorizontalSpacing({ ...params })
+    : calculateVerticalSpacing({ ...params })
 }
 
 /** Creates a stable identifier from the exact primary interval data. */
@@ -1148,15 +1119,13 @@ function translateBounds({
 
 /** Validates and copies raw intent before any target changes. */
 function createRawIntentSnapshot({
-  t = english,
   intent
 }: {
-  t?: Translate
   intent: MovementRawIntent
 }): MovementRawIntent {
   return Object.freeze({
-    bounds: createExactBoundsSnapshot({ t, bounds: intent.bounds }),
-    position: createPositionSnapshot({ t, position: intent.position }),
+    bounds: createExactBoundsSnapshot({ bounds: intent.bounds }),
+    position: createPositionSnapshot({ position: intent.position }),
     axes: Object.freeze({
       x: intent.axes.x,
       y: intent.axes.y
@@ -1169,11 +1138,9 @@ function createRawIntentSnapshot({
 
 /** Verifies that Fabric movement preserved the initial geometry and produced a pure translation. */
 function assertRawIntentMatchesBaseline({
-  t = english,
   baseline,
   intent
 }: {
-  t?: Translate
   baseline: MovementGestureBaseline
   intent: MovementRawIntent
 }): void {
@@ -1194,23 +1161,23 @@ function assertRawIntentMatchesBaseline({
     return areNumbersNear(expectedBounds[edge], intent.bounds[edge])
   })
   if (!matchesBaseline) {
-    throw new Error(t('snapping.movement.rawIntent.mustTranslateBaseline'))
+    throw new Error('Movement raw intent must be a translation of the gesture baseline')
   }
 }
 
 /** Validates and copies the moving object's exact bounds. */
-function createExactBoundsSnapshot({ t = english, bounds }: { t?: Translate; bounds: Bounds }): Bounds {
+function createExactBoundsSnapshot({ bounds }: { bounds: Bounds }): Bounds {
   const { left, right, top, bottom, centerX, centerY } = bounds
   const values = [left, right, top, bottom, centerX, centerY]
   if (!values.every(Number.isFinite) || right < left || bottom < top) {
-    throw new Error(t('snapping.movement.bounds.mustBeFiniteAndOrdered'))
+    throw new Error('Movement snapping bounds must contain finite, ordered values')
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (Math.abs(centerX - expectedCenterX) > EXACT_BOUNDS_CENTER_EPSILON
     || Math.abs(centerY - expectedCenterY) > EXACT_BOUNDS_CENTER_EPSILON) {
-    throw new Error(t('snapping.movement.bounds.centersMustMatchEdges'))
+    throw new Error('Movement snapping bounds must derive their center coordinates from their edges')
   }
 
   return Object.freeze({ left, right, top, bottom, centerX, centerY })
@@ -1218,14 +1185,12 @@ function createExactBoundsSnapshot({ t = english, bounds }: { t?: Translate; bou
 
 /** Validates and copies the Fabric target position. */
 function createPositionSnapshot({
-  t = english,
   position
 }: {
-  t?: Translate
   position: MovementTargetPosition
 }): MovementTargetPosition {
   if (!Number.isFinite(position.left) || !Number.isFinite(position.top)) {
-    throw new Error(t('snapping.movement.targetPosition.coordinatesMustBeFinite'))
+    throw new Error('Movement snapping target position must contain finite coordinates')
   }
 
   return Object.freeze({
@@ -1250,26 +1215,22 @@ function createMovementSnapThresholds({
 
 /** Verifies that the supplied hold state belongs to the current baseline. */
 function assertMovementHoldState({
-  t = english,
   baseline,
   holdState
 }: {
-  t?: Translate
   baseline: MovementGestureBaseline
   holdState: MovementHoldState
 }): void {
-  assertAxisHold({ t, axis: 'x', baseline, hold: holdState.x })
-  assertAxisHold({ t, axis: 'y', baseline, hold: holdState.y })
+  assertAxisHold({ axis: 'x', baseline, hold: holdState.x })
+  assertAxisHold({ axis: 'y', baseline, hold: holdState.y })
 }
 
 /** Validates the candidate and active anchor of one held axis. */
 function assertAxisHold({
-  t = english,
   axis,
   baseline,
   hold
 }: {
-  t?: Translate
   axis: MovementSceneAxis
   baseline: MovementGestureBaseline
   hold: MovementAxisHold
@@ -1279,18 +1240,18 @@ function assertAxisHold({
     if (!hold.candidateId.trim()
       || !Number.isFinite(hold.context.distance)
       || hold.context.distance < 0) {
-      throw new Error(t('snapping.movement.hold.invalidSpacingConstraint', { axis }))
+      throw new Error(`Movement hold state contains an invalid ${axis} spacing constraint`)
     }
 
     return
   }
   if (hold.candidate.axis !== axis || resolveAnchorAxis({ anchor: hold.activeAnchor }) !== axis) {
-    throw new Error(t('snapping.movement.hold.invalidConstraint', { axis }))
+    throw new Error(`Movement hold state contains an invalid ${axis} constraint`)
   }
 
   const candidate = baseline.candidates[hold.candidate.snapshotIndex]
   if (!candidate || candidate.id !== hold.candidate.id || candidate.position !== hold.candidate.position) {
-    throw new Error(t('snapping.movement.hold.candidateNotInBaseline'))
+    throw new Error('The movement hold state candidate does not belong to the active baseline')
   }
 }
 
@@ -1324,10 +1285,8 @@ function areBoundsDimensionsEqual({
 
 /** Copies and freezes selected spacing options along with their identities. */
 function freezeSpacingSelections({
-  t = english,
   selections
 }: {
-  t?: Translate
   selections: readonly ResolvedSpacingSelection[]
 }): readonly ResolvedSpacingSelection[] {
   return Object.freeze(selections.map((selection) => {
@@ -1339,10 +1298,10 @@ function freezeSpacingSelections({
         kind: identity.kind,
         side: identity.side,
         before: identity.before
-          ? createExactBoundsSnapshot({ t, bounds: identity.before })
+          ? createExactBoundsSnapshot({ bounds: identity.before })
           : null,
         after: identity.after
-          ? createExactBoundsSnapshot({ t, bounds: identity.after })
+          ? createExactBoundsSnapshot({ bounds: identity.after })
           : null,
         pattern: identity.pattern
           ? Object.freeze({ ...identity.pattern })

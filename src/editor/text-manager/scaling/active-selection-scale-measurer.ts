@@ -6,7 +6,6 @@ import {
   type TMat2D,
   type Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type CanvasManager from '../../canvas-manager'
 import type { ObjectPlacement } from '../../canvas-manager'
 import {
@@ -143,20 +142,18 @@ const ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_EPSILON = 0.000001
 
 /** Creates exact bounds from four coordinates. */
 function createBounds({
-  t = english,
   bottom,
   left,
   right,
   top
 }: {
-  t?: Translate
   bottom: number
   left: number
   right: number
   top: number
 }): ObjectBounds {
   if (![bottom, left, right, top].every(Number.isFinite) || right <= left || bottom <= top) {
-    throw new Error(t('text.errors.invalidMeasuredSelectionSize'))
+    throw new Error('The measured bounds of a selection containing text must have positive finite dimensions')
   }
 
   return Object.freeze({
@@ -190,11 +187,10 @@ function createSelectionScaleFrame({
 }
 
 /** Combines the exact bounds of all measured children in the selection. */
-function mergeBounds({ t = english, bounds }: { t?: Translate; bounds: readonly ObjectBounds[] }): ObjectBounds {
-  if (bounds.length < 2) throw new Error(t('text.errors.selectionMeasurementRequiresTwoObjects'))
+function mergeBounds({ bounds }: { bounds: readonly ObjectBounds[] }): ObjectBounds {
+  if (bounds.length < 2) throw new Error('Measuring a selection requires at least two objects')
 
   return createBounds({
-    t,
     bottom: Math.max(...bounds.map(({ bottom }) => bottom)),
     left: Math.min(...bounds.map(({ left }) => left)),
     right: Math.max(...bounds.map(({ right }) => right)),
@@ -204,10 +200,8 @@ function mergeBounds({ t = english, bounds }: { t?: Translate; bounds: readonly 
 
 /** Converts a Fabric anchor point into an offset from the frame center. */
 function resolveOriginOffset({
-  t = english,
   origin
 }: {
-  t?: Translate
   origin: Transform['originX'] | Transform['originY']
 }): number {
   if (origin === 'left' || origin === 'top') return -0.5
@@ -215,25 +209,23 @@ function resolveOriginOffset({
   if (origin === 'center') return 0
   if (typeof origin === 'number' && Number.isFinite(origin)) return origin - 0.5
 
-  throw new Error(t('text.errors.unsupportedSelectionScaleAnchor'))
+  throw new Error('Scaling a selection containing text requires a supported fixed point')
 }
 
 /** Returns the offset that aligns the measured frame's fixed point with its position at gesture start. */
 function resolveFrameTranslation({
-  t = english,
   bounds,
   fixedAnchor,
   transform
 }: {
-  t?: Translate
   bounds: ObjectBounds
   fixedAnchor: ActiveSelectionTextScalePoint
   transform: Transform
 }): ActiveSelectionTextScalePoint {
   const width = bounds.right - bounds.left
   const height = bounds.bottom - bounds.top
-  const originX = bounds.centerX + (resolveOriginOffset({ t, origin: transform.originX }) * width)
-  const originY = bounds.centerY + (resolveOriginOffset({ t, origin: transform.originY }) * height)
+  const originX = bounds.centerX + (resolveOriginOffset({ origin: transform.originX }) * width)
+  const originY = bounds.centerY + (resolveOriginOffset({ origin: transform.originY }) * height)
 
   return Object.freeze({ x: fixedAnchor.x - originX, y: fixedAnchor.y - originY })
 }
@@ -256,17 +248,14 @@ function resolveScaledChildCenter({
 
 /** Translates the measured domain geometry together with the final selection frame. */
 function translateDomainChildren({
-  t = english,
   children,
   translation
 }: {
-  t?: Translate
   children: readonly ActiveSelectionScaleDomainChildMeasurement[]
   translation: ActiveSelectionTextScalePoint
 }): readonly ActiveSelectionScaleDomainChildMeasurement[] {
   return Object.freeze(children.map(({ bounds, center, target }) => Object.freeze({
     bounds: createBounds({
-      t,
       bottom: bounds.bottom + translation.y,
       left: bounds.left + translation.x,
       right: bounds.right + translation.x,
@@ -282,11 +271,9 @@ function translateDomainChildren({
 
 /** Projects the local frame through the selection's original rotation and position. */
 function projectLocalBoundsToScene({
-  t = english,
   bounds,
   matrix
 }: {
-  t?: Translate
   bounds: ObjectBounds
   matrix: TMat2D
 }): ObjectBounds {
@@ -298,7 +285,6 @@ function projectLocalBoundsToScene({
   ].map((point) => point.transform(matrix))
 
   return createBounds({
-    t,
     bottom: Math.max(...corners.map(({ y }) => y)),
     left: Math.min(...corners.map(({ x }) => x)),
     right: Math.max(...corners.map(({ x }) => x)),
@@ -343,9 +329,6 @@ function haveSameCanonicalValues({
 
 /** Measures and applies the canonical text geometry of a single selection. */
 export default class ActiveSelectionTextScaleMeasurer {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /** Non-text children that must retain linear resizing. */
   private readonly affineItems: readonly ActiveSelectionAffineScaleItem[]
 
@@ -393,7 +376,6 @@ export default class ActiveSelectionTextScaleMeasurer {
 
   /** Creates a measurer from the immutable start of a supported gesture. */
   constructor({
-    t = english,
     affineChildren = [],
     canvasManager,
     children,
@@ -402,8 +384,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     selection,
     transform
   }: {
-  t?: Translate
-    affineChildren?: readonly FabricObject[]
+  affineChildren?: readonly FabricObject[]
     canvasManager: CanvasManager
     children: readonly EditorTextbox[]
     domainSource?: ActiveSelectionScaleDomainSource | null
@@ -411,18 +392,16 @@ export default class ActiveSelectionTextScaleMeasurer {
     selection: ActiveSelection
     transform: Transform
   }) {
-    this.t = t
-
-    if (children.length < 1) throw new Error(this.t('text.errors.compositionScaleRequiresText'))
+    if (children.length < 1) throw new Error('Scaling a composition containing text requires at least one text object')
     if (children.length + affineChildren.length + (domainSource?.targets.length ?? 0) < 2) {
-      throw new Error(this.t('text.errors.selectionScaleRequiresTwoObjects'))
+      throw new Error('Scaling a selection requires at least two objects')
     }
 
     this.canvasManager = canvasManager
     this.domainSource = domainSource
     this.selection = selection
     this.transform = transform
-    this.projectionModes = createRectangularScaleProjectionModes({ t: this.t, projection })
+    this.projectionModes = createRectangularScaleProjectionModes({ projection })
     this.baseline = this._captureBaseline({ projection, selection })
     this.items = Object.freeze(children.map((target) => this._createItem({ target })))
     this.affineItems = Object.freeze(affineChildren.map((target) => this._createAffineItem({ target })))
@@ -471,7 +450,6 @@ export default class ActiveSelectionTextScaleMeasurer {
     return this._measureCanonicalMultipliers({
       mode,
       multipliers: resolveRectangularScaleMultipliers({
-        t: this.t,
         projectionMode: mode,
         effectiveValues: values
       })
@@ -511,7 +489,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     const confirmedLiveState = this._captureCurrentLiveState()
 
     if (measurement.domainMeasurement) {
-      if (!this.domainSource) throw new Error(this.t('text.errors.geometryConfirmationRequiresSource'))
+      if (!this.domainSource) throw new Error('Confirming domain geometry requires its source')
 
       this.domainSource.confirmAppliedState({ measurement: measurement.domainMeasurement })
     }
@@ -619,7 +597,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     measurement.children.forEach((childMeasurement, index) => {
       const item = this.items[index]
       if (!item || item.target !== childMeasurement.target) {
-        throw new Error(this.t('text.errors.measuredTextOrderMismatch'))
+        throw new Error('The measured state must match the original text order')
       }
 
       this._applyChildMeasurement({
@@ -641,7 +619,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     measurement.affineChildren.forEach((childMeasurement, index) => {
       const item = this.affineItems[index]
       if (!item || item.target !== childMeasurement.target) {
-        throw new Error(this.t('text.errors.affineGeometryOrderMismatch'))
+        throw new Error('Affine geometry must match the original object order')
       }
 
       this._applyAffineChildMeasurement({ childMeasurement, frame, item })
@@ -656,7 +634,7 @@ export default class ActiveSelectionTextScaleMeasurer {
   }): void {
     if (!measurement.domainMeasurement) return
     if (!this.domainSource) {
-      throw new Error(this.t('text.errors.measuredGeometryRequiresApplicationSource'))
+      throw new Error('Measured domain geometry must have a source through which it can be applied')
     }
 
     this.domainSource.apply({
@@ -675,7 +653,9 @@ export default class ActiveSelectionTextScaleMeasurer {
     selection: ActiveSelection
   }): ActiveSelectionTextScaleBaseline {
     const matrix = [...selection.calcTransformMatrix()] as TMat2D
-    if (!matrix.every(Number.isFinite)) throw new Error(this.t('text.errors.invalidSelectionMatrix'))
+    if (!matrix.every(Number.isFinite)) {
+      throw new Error('The matrix of a selection containing text must contain finite values')
+    }
 
     const fixedAnchorLocal = new Point(projection.fixedAnchor.x, projection.fixedAnchor.y)
       .transform(util.invertTransform(matrix))
@@ -692,7 +672,7 @@ export default class ActiveSelectionTextScaleMeasurer {
 
   /** Creates a measurement copy and saves the live text object's original state. */
   private _createItem({ target }: { target: EditorTextbox }): ActiveSelectionTextScaleItem {
-    const measurementTextbox = createTextScalingMeasurementTextbox({ t: this.t, target })
+    const measurementTextbox = createTextScalingMeasurementTextbox({ target })
 
     return Object.freeze({
       base: captureTextScaleBase({ textbox: target }),
@@ -716,13 +696,13 @@ export default class ActiveSelectionTextScaleMeasurer {
     const canonicalValues = [target.angle ?? 0, target.skewX ?? 0, target.skewY ?? 0, target.strokeWidth ?? 0]
     if (target.group !== this.selection || hasUnsupportedState
       || canonicalValues.some((value) => !areNumbersNear({ first: value, second: 0 }))) {
-      throw new Error(this.t('text.errors.noncanonicalAffineChildTransform'))
+      throw new Error('An affine child must have a canonical transform')
     }
 
     const width = target.width * target.scaleX
     const height = target.height * target.scaleY
     if (![width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
-      throw new Error(this.t('text.errors.invalidAffineChildSize'))
+      throw new Error('An affine child must have positive finite dimensions')
     }
 
     return Object.freeze({
@@ -759,7 +739,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     mode: RectangularScaleGestureMode
     multipliers: RectangularScaleMultipliers
   }): RectangularScaleMultipliers {
-    if (mode === 'vertical') throw new Error(this.t('text.errors.verticalSelectionControlsHidden'))
+    if (mode === 'vertical') throw new Error('Top and bottom side handles are hidden for selections containing text')
 
     let resolved: RectangularScaleMultipliers
     if (mode === 'uniform') {
@@ -793,17 +773,17 @@ export default class ActiveSelectionTextScaleMeasurer {
     resolved: RectangularScaleMultipliers
   }): void {
     if (![resolved.x, resolved.y].every(Number.isFinite) || Math.min(resolved.x, resolved.y) <= 0) {
-      throw new Error(this.t('text.errors.invalidDomainMultipliers'))
+      throw new Error('The domain source must return positive finite multipliers')
     }
     if (resolved.x < requested.x - ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_EPSILON
       || resolved.y < requested.y - ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_EPSILON) {
-      throw new Error(this.t('text.errors.domainWeakenedTextConstraints'))
+      throw new Error('The domain source must not relax text constraints that have already been applied')
     }
     if (mode === 'uniform' && !areNumbersNear({ first: resolved.x, second: resolved.y })) {
-      throw new Error(this.t('text.errors.uniformScaleMultiplierMismatch'))
+      throw new Error('Uniform scaling must preserve equal multipliers')
     }
     if (mode === 'horizontal' && !areNumbersNear({ first: resolved.y, second: 1 })) {
-      throw new Error(this.t('text.errors.horizontalScaleChangedVerticalMultiplier'))
+      throw new Error('Horizontal scaling must not change the vertical multiplier')
     }
   }
 
@@ -815,21 +795,21 @@ export default class ActiveSelectionTextScaleMeasurer {
   }): void {
     const sourceTargets = this.domainSource?.targets
     if (!sourceTargets || sourceTargets.length !== measurement.children.length) {
-      throw new Error(this.t('text.errors.domainMeasurementMissingObjects'))
+      throw new Error('The domain measurement must contain all declared objects')
     }
 
     const matchesSource = measurement.children.every(({ target }, index) => {
       return target === sourceTargets[index]
     })
     if (!matchesSource) {
-      throw new Error(this.t('text.errors.domainObjectOrderMismatch'))
+      throw new Error('The order of domain objects must match their order at session start')
     }
   }
 
   /** Returns the current handle's projection mode. */
   private _resolveProjectionMode({ mode }: { mode: RectangularScaleGestureMode }): ScaleProjectionModeInput {
     const projectionMode = this.projectionModes.find(({ id }) => id === mode)
-    if (!projectionMode) throw new Error(this.t('text.errors.missingSelectedScaleProjection'))
+    if (!projectionMode) throw new Error('The selected projection must exist for text scaling')
 
     return projectionMode
   }
@@ -852,7 +832,6 @@ export default class ActiveSelectionTextScaleMeasurer {
     const projectionMode = this._resolveProjectionMode({ mode })
     const samples = this._createProjectionSamples({ geometry, projectionMode })
     const projection = createActiveSelectionTextScaleStepProjection({
-      t: this.t,
       bounds: geometry.bounds,
       projectionMode,
       samples,
@@ -878,7 +857,9 @@ export default class ActiveSelectionTextScaleMeasurer {
     if (cache.size <= ACTIVE_SELECTION_TEXT_SCALE_CACHE_SIZE) return
 
     const oldestKey = cache.keys().next().value
-    if (typeof oldestKey !== 'string') throw new Error(this.t('text.errors.emptySelectionMeasurementCache'))
+    if (typeof oldestKey !== 'string') {
+      throw new Error('The measurement cache for a selection containing text must not be empty')
+    }
     cache.delete(oldestKey)
   }
 
@@ -971,9 +952,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       ? (['right', 'bottom'] as const)
       : (['right'] as const)
     const projection = createScaleProjection({
-      t: this.t,
       bounds: createBounds({
-        t: this.t,
         bottom: geometry.frame.scaleY,
         left: 0,
         right: geometry.frame.scaleX,
@@ -996,7 +975,6 @@ export default class ActiveSelectionTextScaleMeasurer {
       }
     })
     const solution = resolveScaleProjection({
-      t: this.t,
       projection,
       rawValues: geometry.values,
       constraints,
@@ -1005,7 +983,6 @@ export default class ActiveSelectionTextScaleMeasurer {
     if (!solution) return null
 
     const multipliers = resolveRectangularScaleMultipliers({
-      t: this.t,
       projectionMode: mode,
       effectiveValues: solution.values
     })
@@ -1030,7 +1007,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     this.canonicalGeometries.set(key, geometry)
     if (this.canonicalGeometries.size > ACTIVE_SELECTION_TEXT_SCALE_GEOMETRY_CACHE_SIZE) {
       const oldestKey = this.canonicalGeometries.keys().next().value
-      if (typeof oldestKey !== 'string') throw new Error(this.t('text.errors.emptyGeometryCache'))
+      if (typeof oldestKey !== 'string') throw new Error('The text geometry cache must not be empty')
       this.canonicalGeometries.delete(oldestKey)
     }
 
@@ -1051,7 +1028,6 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
     const domainMeasurement = this._measureDomainGeometry({ mode, multipliers })
     const merged = mergeBounds({
-      t: this.t,
       bounds: [
         ...measuredChildren.map(({ bounds }) => bounds),
         ...measuredAffineChildren.map(({ bounds }) => bounds),
@@ -1059,13 +1035,11 @@ export default class ActiveSelectionTextScaleMeasurer {
       ]
     })
     const translation = resolveFrameTranslation({
-      t: this.t,
       bounds: merged,
       fixedAnchor: this.baseline.fixedAnchorLocal,
       transform: this.transform
     })
     const localBounds = createBounds({
-      t: this.t,
       bottom: merged.bottom + translation.y,
       left: merged.left + translation.x,
       right: merged.right + translation.x,
@@ -1082,7 +1056,7 @@ export default class ActiveSelectionTextScaleMeasurer {
           })
         })
       })),
-      bounds: projectLocalBoundsToScene({ t: this.t, bounds: localBounds, matrix: this.baseline.matrix }),
+      bounds: projectLocalBoundsToScene({ bounds: localBounds, matrix: this.baseline.matrix }),
       children: Object.freeze(measuredChildren.map(({ bounds: _bounds, ...child }) => Object.freeze({
         ...child,
         center: Object.freeze({
@@ -1091,7 +1065,6 @@ export default class ActiveSelectionTextScaleMeasurer {
         })
       }))),
       domainChildren: translateDomainChildren({
-        t: this.t,
         children: domainMeasurement?.children ?? [],
         translation
       }),
@@ -1123,7 +1096,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     const matchesRequested = areNumbersNear({ first: measurement.multipliers.x, second: multipliers.x })
       && areNumbersNear({ first: measurement.multipliers.y, second: multipliers.y })
     if (!matchesRequested) {
-      throw new Error(this.t('text.errors.domainGeometryMultiplierMismatch'))
+      throw new Error('Domain geometry must match the already selected multipliers')
     }
 
     return measurement
@@ -1147,7 +1120,6 @@ export default class ActiveSelectionTextScaleMeasurer {
 
     return Object.freeze({
       bounds: createBounds({
-        t: this.t,
         bottom: center.y + (height / 2),
         left: center.x - (width / 2),
         right: center.x + (width / 2),
@@ -1201,7 +1173,6 @@ export default class ActiveSelectionTextScaleMeasurer {
 
     return Object.freeze({
       bounds: createBounds({
-        t: this.t,
         bottom: bounds.top + bounds.height,
         left: bounds.left,
         right: bounds.left + bounds.width,
@@ -1253,7 +1224,6 @@ export default class ActiveSelectionTextScaleMeasurer {
       const values = [...geometry.values]
       values[variableIndex] += ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_STEP * (2 ** step)
       const multipliers = resolveRectangularScaleMultipliers({
-        t: this.t,
         projectionMode: geometry.mode,
         effectiveValues: values
       })
@@ -1268,7 +1238,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       if (changesGeometry) return sample
     }
 
-    throw new Error(this.t('text.errors.noDistinctSelectionScaleGeometry'))
+    throw new Error('Could not find distinguishable scaling geometry for a selection containing text')
   }
 
   /** Applies canonical properties and compensates for the shared frame's temporary scale. */
@@ -1358,7 +1328,6 @@ export default class ActiveSelectionTextScaleMeasurer {
   }): void {
     const bounds = this.selection.getBoundingRect()
     const actualBounds = createBounds({
-      t: this.t,
       bottom: bounds.top + bounds.height,
       left: bounds.left,
       right: bounds.left + bounds.width,
@@ -1367,11 +1336,10 @@ export default class ActiveSelectionTextScaleMeasurer {
     const boundsMatch = (['left', 'right', 'top', 'bottom'] as const).every((edge) => {
       return areNumbersNear({ first: actualBounds[edge], second: measurement.bounds[edge] })
     })
-    if (!boundsMatch) throw new Error(this.t('text.errors.selectionFrameMeasurementMismatch'))
+    if (!boundsMatch) throw new Error('The selection frame must match the measured geometry')
 
     const visibleChildrenBounds = this._readVisibleChildrenLocalBounds({ measurement })
     const expectedChildrenBounds = createBounds({
-      t: this.t,
       bottom: measurement.frame.center.y + (measurement.frame.height / 2),
       left: measurement.frame.center.x - (measurement.frame.width / 2),
       right: measurement.frame.center.x + (measurement.frame.width / 2),
@@ -1381,7 +1349,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       return areNumbersNear({ first: visibleChildrenBounds[edge], second: expectedChildrenBounds[edge] })
     })
     if (!visibleChildrenMatch) {
-      throw new Error(this.t('text.errors.visibleChildBoundsMismatch'))
+      throw new Error('The visible child bounds must match the measured frame')
     }
 
     measurement.children.forEach(({ canonicalState, target }) => {
@@ -1392,7 +1360,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       }
       const actualState = captureTextCornerScaleCanonicalState({ textbox: target })
       if (!areTextCornerScaleCanonicalStatesEqual({ actual: actualState, expected: expectedState })) {
-        throw new Error(this.t('text.errors.liveCanonicalStateMismatch'))
+        throw new Error('The live text must match the measured canonical state')
       }
     })
 
@@ -1421,7 +1389,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       const centerMatches = areNumbersNear({ first: actualCenter.x, second: expectedCenter.x })
         && areNumbersNear({ first: actualCenter.y, second: expectedCenter.y })
       if (!scaleMatches || !centerMatches) {
-        throw new Error(this.t('text.errors.affineChildGeometryMismatch'))
+        throw new Error('An affine child must match the measured geometry')
       }
     })
   }
@@ -1443,7 +1411,6 @@ export default class ActiveSelectionTextScaleMeasurer {
     })
 
     return createBounds({
-      t: this.t,
       bottom: Math.max(...points.map(({ y }) => y)),
       left: Math.min(...points.map(({ x }) => x)),
       right: Math.max(...points.map(({ x }) => x)),

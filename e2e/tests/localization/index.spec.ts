@@ -4,6 +4,7 @@ import {
   CUSTOM_LANGUAGE_RESOURCES,
   CUSTOM_LANGUAGE_EXPECTATIONS,
   LOCALIZATION_EXAMPLES,
+  LOCALIZATION_ERROR_EXPECTATIONS,
   LOCALIZATION_MISSING_CONTAINER,
   LOCALIZATION_WORKER_ACTION,
   RUSSIAN_OVERRIDE_RESOURCES,
@@ -21,23 +22,23 @@ test.describe('Editor initialization language', () => {
       expect(await editorModel.localization.optionActionLabels(containerId)).toContain(example.duplicate)
     })
 
-    test(`interpolates ${example.language} initialization errors`, async({ editorModel }) => {
+    test(`keeps initialization errors English with the ${example.language} UI`, async({ editorModel }) => {
       const message = await editorModel.localization.missingContainerError({
         containerId: LOCALIZATION_MISSING_CONTAINER,
         language: example.language
       })
 
-      expect(message).toBe(example.missingContainer)
+      expect(message).toBe(LOCALIZATION_ERROR_EXPECTATIONS.missingContainer)
     })
 
-    test(`translates real worker errors into ${example.language}`, async({ editorModel }) => {
+    test(`keeps real worker errors English with the ${example.language} UI`, async({ editorModel }) => {
       const containerId = `worker-${example.language}`
       await editorModel.localization.create({ containerId, language: example.language })
 
       expect(await editorModel.localization.workerError({
         containerId,
         action: LOCALIZATION_WORKER_ACTION
-      })).toBe(example.unknownWorkerAction)
+      })).toBe(LOCALIZATION_ERROR_EXPECTATIONS.unknownWorkerAction)
     })
   }
 
@@ -73,7 +74,8 @@ test.describe('Editor initialization language', () => {
     const containerId = 'custom-content'
     await editorModel.localization.create({
       containerId,
-      language: 'ru',
+      language: 'pt-BR',
+      customLanguages: CUSTOM_LANGUAGE_RESOURCES,
       toolbar: {
         actions: [{ handle: 'copyPaste', name: CUSTOM_LOCALIZATION_CONTENT.toolbarLabel }]
       }
@@ -142,12 +144,12 @@ test.describe('Editor initialization language', () => {
     expect(await editorModel.localization.optionActionLabels(containerId)).toContain(CUSTOM_LANGUAGE_EXPECTATIONS.duplicate)
   })
 
-  test('uses custom translations and interpolation before editor initialization', async({ editorModel }) => {
+  test('keeps initialization errors English with custom UI translations', async({ editorModel }) => {
     expect(await editorModel.localization.missingContainerError({
       containerId: LOCALIZATION_MISSING_CONTAINER,
       language: 'pt-BR',
       customLanguages: CUSTOM_LANGUAGE_RESOURCES
-    })).toBe(CUSTOM_LANGUAGE_EXPECTATIONS.missingContainer)
+    })).toBe(LOCALIZATION_ERROR_EXPECTATIONS.missingContainer)
   })
 
   test('deep-merges a partial Russian override without losing built-in siblings', async({ editorModel }) => {
@@ -164,7 +166,7 @@ test.describe('Editor initialization language', () => {
     expect(labels).toContain(RUSSIAN_TOOLBAR_EXPECTATIONS.duplicate)
   })
 
-  test('keeps custom resource inputs and another Russian instance unchanged', async({ editorModel }) => {
+  test('isolates custom UI resources while keeping both instances’ worker errors English', async({ editorModel }) => {
     const custom = 'isolated-custom-resources'
     const builtin = 'isolated-builtin-resources'
     await editorModel.localization.create({
@@ -180,5 +182,11 @@ test.describe('Editor initialization language', () => {
     expect(await editorModel.localization.toolbarLabels(builtin)).toContain(RUSSIAN_TOOLBAR_EXPECTATIONS.delete)
     expect(await editorModel.localization.customLanguageResources(custom)).toEqual(RUSSIAN_OVERRIDE_RESOURCES)
     expect(await editorModel.localization.customLanguageResources(builtin)).toBeUndefined()
+    for (const containerId of [custom, builtin]) {
+      expect(await editorModel.localization.workerError({
+        containerId,
+        action: LOCALIZATION_WORKER_ACTION
+      })).toBe(LOCALIZATION_ERROR_EXPECTATIONS.unknownWorkerAction)
+    }
   })
 })

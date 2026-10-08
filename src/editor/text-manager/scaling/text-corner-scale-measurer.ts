@@ -1,5 +1,4 @@
 import type { Transform } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type CanvasManager from '../../canvas-manager'
 import type { ObjectPlacement } from '../../canvas-manager'
 import { getObjectExactBounds, type ObjectBounds } from '../../utils/geometry'
@@ -58,9 +57,6 @@ function createFixedAnchorPlacement({
 
 /** Measures canonical text geometry without changing the object on the canvas. */
 export default class TextCornerScaleMeasurer {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /** Base properties of the measurement text object. */
   private readonly base: TextScaleBaseState
 
@@ -87,24 +83,20 @@ export default class TextCornerScaleMeasurer {
 
   /** Creates an independent measurement Textbox with the canvas object's original properties. */
   constructor({
-    t = english,
     canvasManager,
     gesture,
     target,
     transform
   }: {
-  t?: Translate
-    canvasManager: CanvasManager
+  canvasManager: CanvasManager
     gesture: TextCornerScaleGestureProjection
     target: EditorTextbox
     transform: Transform
   }) {
-    this.t = t
-
     this.canvasManager = canvasManager
     this.gesture = gesture
     this.placement = canvasManager.getObjectPlacement({ object: target })
-    this.textbox = createTextScalingMeasurementTextbox({ t: this.t, target })
+    this.textbox = createTextScalingMeasurementTextbox({ target })
     this.base = captureTextScaleBase({ textbox: this.textbox })
     this.minimumScale = resolveMinimumTextScalingBounds({ base: this.base }).proportionalScale
     this.transform = transform
@@ -130,13 +122,13 @@ export default class TextCornerScaleMeasurer {
       samples,
       scale: appliedScale
     })
-    if (!projection) throw new Error(this.t('text.errors.scaleProjectionCreationFailed'))
+    if (!projection) throw new Error('Could not build the text scaling projection')
 
     const measurement = Object.freeze({ canonicalState, projection, scale: appliedScale })
     this.measurements.set(appliedScale, measurement)
     if (this.measurements.size > TEXT_CORNER_SCALE_MEASUREMENT_CACHE_SIZE) {
       const oldestScale = this.measurements.keys().next().value
-      if (typeof oldestScale !== 'number') throw new Error(this.t('text.errors.emptyMeasurementCache'))
+      if (typeof oldestScale !== 'number') throw new Error('The text measurement cache must not be empty')
 
       this.measurements.delete(oldestScale)
     }
@@ -170,7 +162,7 @@ export default class TextCornerScaleMeasurer {
       if (changesGeometry) return Object.freeze(samples)
     }
 
-    throw new Error(this.t('text.errors.noDistinctCornerScaleGeometry'))
+    throw new Error('Could not find distinguishable text corner scaling geometry')
   }
 
   /** Applies the specified multiplier and returns exact text bounds. */
@@ -201,8 +193,8 @@ export default class TextCornerScaleMeasurer {
       shouldRoundDimensions: false
     })
 
-    const bounds = getObjectExactBounds({ t: this.t, object: this.textbox })
-    if (!bounds) throw new Error(this.t('text.errors.scaledGeometryMeasurementFailed'))
+    const bounds = getObjectExactBounds({ object: this.textbox })
+    if (!bounds) throw new Error('Could not measure the text geometry after scaling')
 
     return Object.freeze({
       canonicalState: captureTextCornerScaleCanonicalState({ textbox: this.textbox }),

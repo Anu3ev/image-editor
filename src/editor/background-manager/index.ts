@@ -218,7 +218,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setColorBackground',
-        message: this.editor.t('background.errors.setColorFailed'),
+        message: 'Failed to set the background color',
         data: { error, color, customData, fromTemplate, withoutSave }
       })
     }
@@ -282,7 +282,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setGradientBackground',
-        message: this.editor.t('background.errors.setGradientFailed'),
+        message: 'Failed to set the background gradient',
         data: { error, gradient, customData, fromTemplate, withoutSave }
       })
     }
@@ -406,7 +406,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setImageBackground',
-        message: this.editor.t('background.errors.setImageFailed'),
+        message: 'Failed to set the background image',
         data: { error, imageSource, customData, fromTemplate, withoutSave }
       })
     }
@@ -454,7 +454,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setPreparedImageBackground',
-        message: this.editor.t('background.errors.setPreparedImageFailed'),
+        message: 'Failed to set the prepared image as the background',
         data: { error, image, customData, fromTemplate, withoutSave }
       })
     }
@@ -484,7 +484,7 @@ export default class BackgroundManager {
         code: 'BACKGROUND_REMOVAL_FAILED',
         origin: 'BackgroundManager',
         method: 'removeBackground',
-        message: this.editor.t('background.errors.removeFailed'),
+        message: 'Failed to remove the background',
         data: { error, withoutSave }
       })
     }
@@ -589,7 +589,7 @@ export default class BackgroundManager {
     }) ?? {}
 
     if (!image) {
-      throw new Error(this.editor.t('background.errors.imageLoadFailed'))
+      throw new Error('Failed to load the image')
     }
 
     this._setImageBackgroundObject({ image, customData })

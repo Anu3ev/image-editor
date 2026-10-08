@@ -1,4 +1,3 @@
-import { english, type Translate } from '../../i18n'
 import {
   createScaleProjection,
   resolveScaleProjection,
@@ -68,23 +67,19 @@ function didReachTextCornerScaleConstraints({
 
 /** Calculates the next multiplier from exact local text geometry. */
 function resolveNextScale({
-  t = english,
   constraints,
   measurement,
   plan
 }: {
-  t?: Translate
   constraints: readonly ScaleProjectionConstraint[]
   measurement: TextCornerScaleMeasurement
   plan: ScaleSnapPlan
 }): number | null {
   const projection = createScaleProjection({
-    t,
     bounds: measurement.projection.bounds,
     input: measurement.projection.projection
   })
   const solution = resolveScaleProjection({
-    t,
     projection,
     rawValues: [measurement.scale],
     constraints,
@@ -110,14 +105,12 @@ function isNewScale({
 
 /** Finds a multiplier for a specific set of preselected guides. */
 function resolveTextCornerScaleMeasurementForConstraints({
-  t = english,
   constraints,
   initialScale,
   measurer,
   plan,
   preferredScale
 }: {
-  t?: Translate
   constraints: ScaleSnapConstraints
   initialScale: number
   measurer: TextCornerScaleMeasurementSource
@@ -143,7 +136,7 @@ function resolveTextCornerScaleMeasurementForConstraints({
     measuredScales.push(measurement.scale)
     if (didReachTextCornerScaleConstraints({ constraints, measurement, plan })) return measurement
 
-    const nextScale = resolveNextScale({ t, constraints: projectionConstraints, measurement, plan })
+    const nextScale = resolveNextScale({ constraints: projectionConstraints, measurement, plan })
     if (nextScale === null || !isNewScale({ measuredScales, scale: nextScale })) return null
 
     scale = nextScale
@@ -157,12 +150,10 @@ function resolveTextCornerScaleMeasurementForConstraints({
  * The Textbox on the canvas remains unchanged.
  */
 export function resolveTextCornerScaleSnapMeasurement({
-  t = english,
   measurer,
   plan,
   preferredScale
 }: {
-  t?: Translate
   measurer: TextCornerScaleMeasurementSource
   plan: ScaleSnapPlan
   preferredScale?: number
@@ -171,7 +162,6 @@ export function resolveTextCornerScaleSnapMeasurement({
   if (!Number.isFinite(initialScale)) return null
 
   return resolveTextCornerScaleMeasurementForConstraints({
-    t,
     constraints: plan.refinementCandidates,
     initialScale,
     measurer,
@@ -237,13 +227,11 @@ export function resolveReachedTextCornerScaleConstraints({
 
 /** Selects a measurement that reaches at least one planned guide. */
 export function resolveReachedTextCornerScaleFallback({
-  t = english,
   measurer,
   plan,
   pointerMeasurement,
   preferredScale
 }: {
-  t?: Translate
   measurer: TextCornerScaleMeasurementSource
   plan: ScaleSnapPlan
   pointerMeasurement: TextCornerScaleMeasurement
@@ -254,7 +242,7 @@ export function resolveReachedTextCornerScaleFallback({
 }> {
   const [plannedScale] = plan.effectiveValues
   if (typeof plannedScale !== 'number' || !Number.isFinite(plannedScale)) {
-    throw new Error(t('text.errors.invalidCornerScalePlanMultiplier'))
+    throw new Error('The text corner scaling plan must contain a finite multiplier')
   }
 
   if (typeof preferredScale === 'number' && Number.isFinite(preferredScale)) {
@@ -283,7 +271,6 @@ export function resolveReachedTextCornerScaleFallback({
 
   for (const constraints of createTextCornerScaleSingleConstraintAttempts({ plan })) {
     const measurement = resolveTextCornerScaleMeasurementForConstraints({
-      t,
       constraints,
       initialScale: plannedScale,
       measurer,

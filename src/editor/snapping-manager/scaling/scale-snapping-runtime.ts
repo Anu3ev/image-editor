@@ -1,5 +1,4 @@
 /* eslint-disable no-use-before-define -- The public class is declared before internal validation helpers. */
-import { english, type Translate } from '../../i18n'
 import {
   FREE_SCALE_HOLD_STATE,
   refineScaleSnapPlan,
@@ -80,13 +79,6 @@ const EMPTY_SCALE_RUNTIME_CLEANUP: ScaleRuntimeCleanup = Object.freeze({
  * The class itself does not modify Fabric objects.
  */
 export class ScaleSnappingRuntime {
-  private readonly t: Translate
-
-  /** Creates an isolated runtime using the editor's translator. */
-  constructor(t: Translate = english) {
-    this.t = t
-  }
-
   private _session: ActiveScaleRuntimeSession | null = null
 
   private readonly _issuedTokens = new WeakSet<ScalePlanToken>()
@@ -98,7 +90,7 @@ export class ScaleSnappingRuntime {
    */
   startSession({ baseline }: { baseline: ScaleGestureBaseline }): void {
     if (this._session) {
-      throw new Error(this.t('snapping.scale.runtime.sessionAlreadyActive'))
+      throw new Error('Scale snapping runtime already has an active session')
     }
 
     this._session = {
@@ -137,23 +129,18 @@ export class ScaleSnappingRuntime {
     const session = this._getActiveSession()
     const duplicateRecord = session.markerRecords.get(marker)
     if (duplicateRecord) {
-      assertSameScaleProjectionMode({
-        t: this.t,
-        first: duplicateRecord.intent.projectionMode,
-        second: intent.projectionMode
-      })
-      assertSameScaleValues({ t: this.t, first: duplicateRecord.intent.values, second: intent.values })
-      assertSameScaleModifiers({ t: this.t, first: duplicateRecord.intent.modifiers, second: intent.modifiers })
+      assertSameScaleProjectionMode({ first: duplicateRecord.intent.projectionMode, second: intent.projectionMode })
+      assertSameScaleValues({ first: duplicateRecord.intent.values, second: intent.values })
+      assertSameScaleModifiers({ first: duplicateRecord.intent.modifiers, second: intent.modifiers })
 
       return createDuplicateScaleRuntimeStep({ record: duplicateRecord })
     }
 
     if (session.pendingStep) {
-      throw new Error(this.t('snapping.scale.runtime.previousPlanVerificationRequired'))
+      throw new Error('Previous scale plan token must be verified before the next pointer marker')
     }
 
     const plan = resolveScaleSnapPlan({
-      t: this.t,
       baseline: session.baseline,
       intent,
       holdState: session.holdState,
@@ -185,10 +172,10 @@ export class ScaleSnappingRuntime {
 
     const { pendingStep } = session
     if (!pendingStep) {
-      throw new Error(this.t('snapping.scale.runtime.noPointerStepToRefine'))
+      throw new Error('Scale snapping runtime has no pointer step to refine')
     }
 
-    const refinedPlan = refineScaleSnapPlan({ t: this.t, plan: pendingStep.plan, refinement })
+    const refinedPlan = refineScaleSnapPlan({ plan: pendingStep.plan, refinement })
     pendingStep.plan = refinedPlan
 
     return refinedPlan
@@ -209,10 +196,10 @@ export class ScaleSnappingRuntime {
 
     const { pendingStep } = session
     if (!pendingStep) {
-      throw new Error(this.t('snapping.scale.runtime.noPointerStepToVerify'))
+      throw new Error('Scale snapping runtime has no pointer step to verify')
     }
 
-    const verification = verifyScaleSnapPlan({ t: this.t, plan: pendingStep.plan, finalGeometry })
+    const verification = verifyScaleSnapPlan({ plan: pendingStep.plan, finalGeometry })
     this._consumedTokens.add(token)
     pendingStep.verification = verification
     session.pendingStep = null
@@ -246,7 +233,7 @@ export class ScaleSnappingRuntime {
    */
   private _getActiveSession(): ActiveScaleRuntimeSession {
     if (!this._session) {
-      throw new Error(this.t('snapping.scale.runtime.noActiveSession'))
+      throw new Error('Scale snapping runtime has no active session')
     }
 
     return this._session
@@ -293,13 +280,13 @@ export class ScaleSnappingRuntime {
     token: ScalePlanToken
   }): void {
     if (!this._issuedTokens.has(token)) {
-      throw new Error(this.t('snapping.scale.runtime.foreignPlanToken'))
+      throw new Error('Foreign scale plan token')
     }
     if (this._consumedTokens.has(token)) {
-      throw new Error(this.t('snapping.scale.runtime.planTokenAlreadyUsed'))
+      throw new Error('Scale plan token has already been used')
     }
     if (!session.pendingStep || session.pendingStep.token !== token) {
-      throw new Error(this.t('snapping.scale.runtime.planTokenPointerStepMismatch'))
+      throw new Error('Scale plan token does not belong to the current pointer step')
     }
   }
 }
@@ -339,16 +326,14 @@ function createDuplicateScaleRuntimeStep({
  * Checks the scaling mode when handling the same event again.
  */
 function assertSameScaleProjectionMode({
-  t = english,
   first,
   second
 }: {
-  t?: Translate
   first: string
   second: string
 }): void {
   if (first !== second) {
-    throw new Error(t('snapping.scale.runtime.pointerMarkerProjectionModeMismatch'))
+    throw new Error('Native scale pointer marker was reused with a different projection mode')
   }
 }
 
@@ -356,11 +341,9 @@ function assertSameScaleProjectionMode({
  * Checks scale values when handling the same event again.
  */
 function assertSameScaleValues({
-  t = english,
   first,
   second
 }: {
-  t?: Translate
   first: readonly number[]
   second: readonly number[]
 }): void {
@@ -368,7 +351,7 @@ function assertSameScaleValues({
     && first.every((value, index) => value === second[index])
 
   if (!hasSameValues) {
-    throw new Error(t('snapping.scale.runtime.pointerMarkerTransformMismatch'))
+    throw new Error('Native scale pointer marker was reused with different transform values')
   }
 }
 
@@ -376,16 +359,14 @@ function assertSameScaleValues({
  * Checks modifier keys when handling the same event again.
  */
 function assertSameScaleModifiers({
-  t = english,
   first,
   second
 }: {
-  t?: Translate
   first: ScaleRawIntent['modifiers']
   second: ScaleRawIntent['modifiers']
 }): void {
   if (first.ctrlKey !== second.ctrlKey
     || first.shiftKey !== second.shiftKey) {
-    throw new Error(t('snapping.scale.runtime.pointerMarkerModifiersMismatch'))
+    throw new Error('Native scale pointer marker was reused with different modifiers')
   }
 }

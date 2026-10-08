@@ -36,10 +36,12 @@ function emitImageResizeWarning({
     minWidth,
     minHeight
   } = data
-  let message = editor.t('image.warnings.shrinkToMaximumSize', { maxWidth, maxHeight })
+  let message = 'The image exceeds the maximum canvas size and will be reduced to fit '
+    + `${maxWidth}×${maxHeight} while preserving its aspect ratio.`
 
   if (sizeType === 'min') {
-    message = editor.t('image.warnings.enlargeToMinimumSize', { minWidth, minHeight })
+    message = 'The image is smaller than the minimum canvas size and will be enlarged to meet '
+      + `${minWidth}×${minHeight} while preserving its aspect ratio.`
   }
 
   editor.errorManager.emitWarning({
@@ -115,7 +117,7 @@ export async function resizeImageToBoundaries({
 
   const resizedBlob = await editor.workerManager.post('resizeImage', data)
   if (!(resizedBlob instanceof Blob)) {
-    throw new Error(editor.t('image.errors.workerResizeBlobExpected'))
+    throw new Error('The resizeImage worker must return a Blob')
   }
 
   if (!asBase64) return resizedBlob
@@ -128,7 +130,7 @@ export async function resizeImageToBoundaries({
   )
 
   if (typeof dataUrl !== 'string') {
-    throw new Error(editor.t('image.errors.workerDataUrlStringExpected'))
+    throw new Error('The toDataURL worker must return a string')
   }
 
   return dataUrl as Base64URLString

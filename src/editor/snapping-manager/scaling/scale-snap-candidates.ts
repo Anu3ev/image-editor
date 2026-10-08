@@ -1,5 +1,4 @@
 /* eslint-disable no-use-before-define -- The exported function is declared before internal validation helpers. */
-import { english, type Translate } from '../../i18n'
 import type {
   ScaleSceneAxis,
   ScaleSceneEdge
@@ -35,15 +34,13 @@ type ScaleSnapSourceLine = Readonly<{
  * Creates an ordered candidate list for all moving object edges.
  */
 export function createScaleSnapCandidates({
-  t = english,
   targetEdges,
   sources
 }: {
-  t?: Translate
   targetEdges: readonly ScaleSceneEdge[]
   sources: readonly ScaleSnapCandidateSource[]
 }): readonly ScaleSnapCandidateInput[] {
-  assertCandidateInputs({ t, targetEdges, sources })
+  assertCandidateInputs({ targetEdges, sources })
 
   const candidates: ScaleSnapCandidateInput[] = []
   for (const source of sources) {
@@ -68,46 +65,44 @@ export function createScaleSnapCandidates({
 
 /** Checks identifier uniqueness and validity of the initial geometry. */
 function assertCandidateInputs({
-  t = english,
   targetEdges,
   sources
 }: {
-  t?: Translate
   targetEdges: readonly ScaleSceneEdge[]
   sources: readonly ScaleSnapCandidateSource[]
 }): void {
   if (!targetEdges.length) {
-    throw new Error(t('snapping.scale.targetEdges.edgeRequired'))
+    throw new Error('Scale snapping must have at least one target edge')
   }
   if (new Set(targetEdges).size !== targetEdges.length) {
-    throw new Error(t('snapping.scale.targetEdges.mustBeUnique'))
+    throw new Error('Scale snap target edges must be unique')
   }
 
   const sourceIds = new Set<string>()
   for (const source of sources) {
     if (!source.id.trim() || sourceIds.has(source.id)) {
-      throw new Error(t('snapping.scale.source.idMustBeUniqueAndNonEmpty', { sourceId: source.id }))
+      throw new Error(`Scale snap source ID "${source.id}" must be non-empty and unique`)
     }
     sourceIds.add(source.id)
-    assertSourceBounds({ t, source })
+    assertSourceBounds({ source })
   }
 }
 
 /** Validates the exact bounds of one source object. */
-function assertSourceBounds({ t = english, source }: { t?: Translate; source: ScaleSnapCandidateSource }): void {
+function assertSourceBounds({ source }: { source: ScaleSnapCandidateSource }): void {
   const { left, right, top, bottom, centerX, centerY } = source.bounds
   const values = [left, right, top, bottom, centerX, centerY]
   if (!values.every(Number.isFinite)) {
-    throw new Error(t('snapping.scale.source.boundsMustBeFinite', { sourceId: source.id }))
+    throw new Error(`The bounds of scale snap source "${source.id}" must be finite`)
   }
   if (right < left || bottom < top) {
-    throw new Error(t('snapping.scale.source.boundsMustBeOrdered', { sourceId: source.id }))
+    throw new Error(`The bounds of scale snap source "${source.id}" must be ordered`)
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (centerX !== expectedCenterX || centerY !== expectedCenterY) {
-    throw new Error(t('snapping.scale.source.centersMustMatchEdges', { sourceId: source.id }))
+    throw new Error(`Scale snap source "${source.id}" must derive its center coordinates from its edges`)
   }
 }
 

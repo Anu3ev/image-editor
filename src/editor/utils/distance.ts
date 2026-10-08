@@ -1,17 +1,13 @@
 /**
  * Rounds a finite distance for display and stops the calculation if the geometry is invalid.
  */
-import { english, type Translate } from '../i18n'
-
 export const resolveDisplayDistance = ({
-  t = english,
   distance
 }: {
-  t?: Translate
   distance: number
 }): number => {
   if (!Number.isFinite(distance)) {
-    throw new Error(t('geometry.errors.nonFiniteDisplayDistance'))
+    throw new Error('Display distance must be finite')
   }
 
   return Math.round(Math.max(0, distance))
@@ -34,16 +30,14 @@ export type CommonDisplayDistance = {
  * Compares two rounded distance labels and returns their common value for the UI.
  */
 export const resolveCommonDisplayDistance = ({
-  t = english,
   firstDistance,
   secondDistance
 }: {
-  t?: Translate
   firstDistance: number
   secondDistance: number
 }): CommonDisplayDistance => {
-  const firstDisplayDistance = resolveDisplayDistance({ t, distance: firstDistance })
-  const secondDisplayDistance = resolveDisplayDistance({ t, distance: secondDistance })
+  const firstDisplayDistance = resolveDisplayDistance({ distance: firstDistance })
+  const secondDisplayDistance = resolveDisplayDistance({ distance: secondDistance })
   const displayDistanceDiff = Math.abs(firstDisplayDistance - secondDisplayDistance)
   const commonDisplayDistance = Math.max(firstDisplayDistance, secondDisplayDistance)
 

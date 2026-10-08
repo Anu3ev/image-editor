@@ -176,7 +176,7 @@ export default class SelectionManager {
     }
 
     if (!didFinish) {
-      throw new Error(this.editor.t('selection.errors.shapeScaleSessionNotFinished'))
+      throw new Error('The shape scaling session must finish after commit')
     }
 
     return true

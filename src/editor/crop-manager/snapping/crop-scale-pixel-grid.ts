@@ -1,4 +1,3 @@
-import { english, type Translate } from '../../i18n'
 import {
   applyScalingStepCandidate,
   captureScalingStepRounding,
@@ -9,17 +8,12 @@ import { resolveCropGuardedScalingStep } from './crop-scale-snap-guards'
 
 /** Pixel rounding for a crop whose size is measured in the source image. */
 interface CropScalingStepOptions extends ScalingStepOptions {
-  t?: Translate
   target: CropFrame
 }
 
 /** Rounds the legacy resize in source pixels, preserving the guides and fixed side. */
 export function applyCropScalingStep({
-  t = english,
-  target,
-  transform,
-  preservePlacement,
-  snapGuards = []
+  target, transform, preservePlacement, snapGuards = []
 }: CropScalingStepOptions): void {
   const displaySize = target.getObjectDisplaySize()
   const rounding = captureScalingStepRounding({
@@ -34,7 +28,7 @@ export function applyCropScalingStep({
 
   const scale = snapGuards.length === 0
     ? rounding.fallbackScale
-    : resolveCropGuardedScalingStep({ t, target, transform, ...rounding, preservePlacement, snapGuards })
+    : resolveCropGuardedScalingStep({ target, transform, ...rounding, preservePlacement, snapGuards })
 
   applyScalingStepCandidate({ target, transform, preservePlacement, rounding, scale })
 }

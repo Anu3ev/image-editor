@@ -1,5 +1,4 @@
 /* eslint-disable no-use-before-define -- Exported functions are declared before internal calculations. */
-import { english, type Translate } from '../../i18n'
 import type { ObjectBounds } from '../../utils/geometry'
 
 /** Coordinate axis along which a guide is checked. */
@@ -81,29 +80,27 @@ const EMPTY_PROJECTED_EDGE_POSITIONS: ProjectedScaleEdgePositions = Object.freez
  * Builds and validates a linear model from the exact gesture-start geometry.
  */
 export function createScaleProjection({
-  t = english,
   bounds,
   input
 }: {
-  t?: Translate
   bounds: ObjectBounds
   input: ScaleProjectionInput
 }): ScaleProjection {
-  assertProjectionVariables({ t, input })
+  assertProjectionVariables({ input })
   if (input.edges.length === 0) {
-    throw new Error(t('snapping.scale.projection.movingSceneEdgeRequired'))
+    throw new Error('Scale projection must contain at least one moving scene edge')
   }
 
   const edgeNames = new Set<ScaleSceneEdge>()
   const edges = input.edges.map((edgeInput) => {
     if (edgeNames.has(edgeInput.edge)) {
-      throw new Error(t('snapping.scale.projection.duplicateEdge', { edge: edgeInput.edge }))
+      throw new Error(`The scale projection contains a duplicate ${edgeInput.edge} edge`)
     }
     edgeNames.add(edgeInput.edge)
 
-    return createProjectionEdge({ t, bounds, input: edgeInput, variableCount: input.variables.length })
+    return createProjectionEdge({ bounds, input: edgeInput, variableCount: input.variables.length })
   })
-  assertProjectionVariablesAffectGeometry({ t, edges, variables: input.variables })
+  assertProjectionVariablesAffectGeometry({ edges, variables: input.variables })
 
   return Object.freeze({
     variables: Object.freeze([...input.variables]),
@@ -130,15 +127,13 @@ export function getScaleProjectionEdge({
  * Calculates all participating edge positions for the given canonical values.
  */
 export function projectScaleEdgePositions({
-  t = english,
   projection,
   values
 }: {
-  t?: Translate
   projection: ScaleProjection
   values: readonly number[]
 }): ProjectedScaleEdgePositions {
-  assertProjectionValues({ t, projection, values })
+  assertProjectionValues({ projection, values })
   const positions: Record<ScaleSceneEdge, number | null> = { ...EMPTY_PROJECTED_EDGE_POSITIONS }
 
   for (const projectionEdge of projection.edges) {
@@ -152,54 +147,49 @@ export function projectScaleEdgePositions({
  * Finds canonical values satisfying one or two constraints.
  */
 export function resolveScaleProjection({
-  t = english,
   projection,
   rawValues,
   constraints,
   epsilon
 }: {
-  t?: Translate
   projection: ScaleProjection
   rawValues: readonly number[]
   constraints: readonly ScaleProjectionConstraint[]
   epsilon: number
 }): ScaleProjectionSolution | null {
-  assertProjectionValues({ t, projection, values: rawValues })
-  assertProjectionConstraints({ t, projection, constraints, epsilon })
+  assertProjectionValues({ projection, values: rawValues })
+  assertProjectionConstraints({ projection, constraints, epsilon })
 
   if (constraints.length === 0) {
-    return createProjectionSolution({ t, projection, values: rawValues })
+    return createProjectionSolution({ projection, values: rawValues })
   }
   if (constraints.length === 1) {
-    return resolveSingleConstraint({ t, projection, rawValues, constraint: constraints[0], epsilon })
+    return resolveSingleConstraint({ projection, rawValues, constraint: constraints[0], epsilon })
   }
 
-  return resolveConstraintPair({ t, projection, rawValues, constraints, epsilon })
+  return resolveConstraintPair({ projection, rawValues, constraints, epsilon })
 }
 
 /**
  * Returns the canonical parameter change required for one constraint.
  */
 export function getScaleProjectionCorrectionMagnitude({
-  t = english,
   projection,
   rawValues,
   constraint
 }: {
-  t?: Translate
   projection: ScaleProjection
   rawValues: readonly number[]
   constraint: ScaleProjectionConstraint
 }): number {
   const solution = resolveScaleProjection({
-    t,
     projection,
     rawValues,
     constraints: [constraint],
     epsilon: PROJECTION_RANK_EPSILON
   })
   if (!solution) {
-    throw new Error(t('snapping.scale.projection.constraintCannotBeProjected', { edge: constraint.edge }))
+    throw new Error(`The scale constraint for the ${constraint.edge} edge cannot be projected`)
   }
 
   return resolveVectorDistance({ projection, first: rawValues, second: solution.values })
@@ -215,25 +205,25 @@ export function resolveScaleSceneEdgeAxis({ edge }: { edge: ScaleSceneEdge }): S
 /**
  * Validates canonical size parameters, their initial values, and weights.
  */
-function assertProjectionVariables({ t = english, input }: { t?: Translate; input: ScaleProjectionInput }): void {
+function assertProjectionVariables({ input }: { input: ScaleProjectionInput }): void {
   const { variables, baselineValues, variableSceneWeights } = input
   if (variables.length === 0 || variables.length > MAX_SCALE_PROJECTION_VARIABLES) {
-    throw new Error(t('snapping.scale.projection.oneOrTwoVariablesRequired'))
+    throw new Error('Scale projection must contain one or two variables')
   }
   if (variables.length !== baselineValues.length) {
-    throw new Error(t('snapping.scale.projection.baselineValueCountMismatch'))
+    throw new Error('The scale projection must contain the same number of variables and baseline values')
   }
   if (variables.length !== variableSceneWeights.length) {
-    throw new Error(t('snapping.scale.projection.sceneWeightCountMismatch'))
+    throw new Error('The scale projection must contain the same number of variables and scene weights')
   }
   if (new Set(variables).size !== variables.length) {
-    throw new Error(t('snapping.scale.projection.variablesMustBeUnique'))
+    throw new Error('Scale projection variables must be unique')
   }
   if (!baselineValues.every(Number.isFinite)) {
-    throw new Error(t('snapping.scale.projection.baselineValuesMustBeFinite'))
+    throw new Error('Scale projection baseline values must be finite')
   }
   if (!variableSceneWeights.every((weight) => Number.isFinite(weight) && weight > 0)) {
-    throw new Error(t('snapping.scale.projection.sceneWeightsMustBePositiveFinite'))
+    throw new Error('Scale projection scene weights must be finite positive numbers')
   }
 }
 
@@ -241,21 +231,19 @@ function assertProjectionVariables({ t = english, input }: { t?: Translate; inpu
  * Creates and validates a linear model of one participating edge.
  */
 function createProjectionEdge({
-  t = english,
   bounds,
   input,
   variableCount
 }: {
-  t?: Translate
   bounds: ObjectBounds
   input: ScaleProjectionEdgeInput
   variableCount: number
 }): ScaleProjectionEdge {
   if (input.coefficients.length !== variableCount) {
-    throw new Error(t('snapping.scale.projection.invalidCoefficientCount', { edge: input.edge }))
+    throw new Error(`The scale projection has an invalid number of coefficients for the ${input.edge} edge`)
   }
   if (!input.coefficients.every(Number.isFinite)) {
-    throw new Error(t('snapping.scale.projection.coefficientsMustBeFinite', { edge: input.edge }))
+    throw new Error(`Scale projection coefficients for the ${input.edge} edge must be finite`)
   }
 
   return Object.freeze({
@@ -268,11 +256,9 @@ function createProjectionEdge({
 
 /** Checks that each canonical parameter changes at least one edge. */
 function assertProjectionVariablesAffectGeometry({
-  t = english,
   edges,
   variables
 }: {
-  t?: Translate
   edges: readonly ScaleProjectionEdge[]
   variables: readonly ScaleProjectionVariable[]
 }): void {
@@ -281,7 +267,7 @@ function assertProjectionVariablesAffectGeometry({
       return Math.abs(coefficients[index]) > PROJECTION_RANK_EPSILON
     })
     if (!affectsGeometry) {
-      throw new Error(t('snapping.scale.projection.variableMustAffectEdge', { variable }))
+      throw new Error(`Scale projection variable "${variable}" must affect at least one edge`)
     }
   })
 }
@@ -290,19 +276,17 @@ function assertProjectionVariablesAffectGeometry({
  * Validates the number and finiteness of the supplied scale values.
  */
 function assertProjectionValues({
-  t = english,
   projection,
   values
 }: {
-  t?: Translate
   projection: ScaleProjection
   values: readonly number[]
 }): void {
   if (values.length !== projection.variables.length) {
-    throw new Error(t('snapping.scale.projection.invalidValueCount'))
+    throw new Error('The scale projection has an invalid number of values')
   }
   if (!values.every(Number.isFinite)) {
-    throw new Error(t('snapping.scale.projection.valuesMustBeFinite'))
+    throw new Error('Scale projection values must be finite')
   }
 }
 
@@ -310,36 +294,33 @@ function assertProjectionValues({
  * Validates edge constraints and the allowed solution error.
  */
 function assertProjectionConstraints({
-  t = english,
   projection,
   constraints,
   epsilon
 }: {
-  t?: Translate
   projection: ScaleProjection
   constraints: readonly ScaleProjectionConstraint[]
   epsilon: number
 }): void {
   if (constraints.length > 2) {
-    throw new Error(t('snapping.scale.projection.tooManySceneConstraints'))
+    throw new Error('Scale projection supports at most two scene constraints')
   }
   if (!Number.isFinite(epsilon) || epsilon < 0) {
-    throw new Error(t('snapping.scale.projection.epsilonMustBeNonNegativeFinite'))
+    throw new Error('Scale projection epsilon must be a finite non-negative number')
   }
   if (new Set(constraints.map(({ axis }) => axis)).size !== constraints.length) {
-    throw new Error(t('snapping.scale.projection.constraintsMustUseDifferentAxes'))
+    throw new Error('Scale projection constraints must use different scene axes')
   }
 
   for (const constraint of constraints) {
     const projectionEdge = getScaleProjectionEdge({ projection, edge: constraint.edge })
     if (!projectionEdge || projectionEdge.axis !== constraint.axis) {
-      throw new Error(t('snapping.scale.projection.edgeMissingOnAxis', {
-        edge: constraint.edge,
-        axis: constraint.axis
-      }))
+      throw new Error(
+        `The scale projection does not contain the ${constraint.edge} edge on the ${constraint.axis} axis`
+      )
     }
     if (!Number.isFinite(constraint.position)) {
-      throw new Error(t('snapping.scale.projection.constraintMustBeFinite', { edge: constraint.edge }))
+      throw new Error(`The scale projection constraint for the ${constraint.edge} edge must be finite`)
     }
   }
 }
@@ -368,13 +349,11 @@ function projectEdgePosition({
  * Finds scale values that satisfy one constraint while staying closest to the raw input values.
  */
 function resolveSingleConstraint({
-  t = english,
   projection,
   rawValues,
   constraint,
   epsilon
 }: {
-  t?: Translate
   projection: ScaleProjection
   rawValues: readonly number[]
   constraint: ScaleProjectionConstraint
@@ -382,20 +361,20 @@ function resolveSingleConstraint({
 }): ScaleProjectionSolution | null {
   const projectionEdge = getScaleProjectionEdge({ projection, edge: constraint.edge })
   if (!projectionEdge) {
-    throw new Error(t('snapping.scale.projection.edgeMissing', { edge: constraint.edge }))
+    throw new Error(`The scale projection does not contain the ${constraint.edge} edge`)
   }
 
-  const rawPositions = projectScaleEdgePositions({ t, projection, values: rawValues })
+  const rawPositions = projectScaleEdgePositions({ projection, values: rawValues })
   const rawPosition = rawPositions[constraint.edge]
   if (rawPosition === null) {
-    throw new Error(t('snapping.scale.projection.edgePositionUnresolved', { edge: constraint.edge }))
+    throw new Error(`The scale projection did not resolve the position of the ${constraint.edge} edge`)
   }
 
   const positionCorrection = constraint.position - rawPosition
   const coefficientNorm = Math.hypot(...projectionEdge.coefficients)
   if (coefficientNorm <= PROJECTION_RANK_EPSILON) {
     return Math.abs(positionCorrection) <= epsilon
-      ? createProjectionSolution({ t, projection, values: rawValues })
+      ? createProjectionSolution({ projection, values: rawValues })
       : null
   }
 
@@ -409,34 +388,32 @@ function resolveSingleConstraint({
     return value + ((inverseMetricCoefficients[index] * positionCorrection) / constraintMetricNorm)
   })
 
-  return createProjectionSolution({ t, projection, values })
+  return createProjectionSolution({ projection, values })
 }
 
 /**
  * Attempts to satisfy two constraints with one or two scale parameters.
  */
 function resolveConstraintPair({
-  t = english,
   projection,
   rawValues,
   constraints,
   epsilon
 }: {
-  t?: Translate
   projection: ScaleProjection
   rawValues: readonly number[]
   constraints: readonly ScaleProjectionConstraint[]
   epsilon: number
 }): ScaleProjectionSolution | null {
   const directSolution = projection.variables.length === 2
-    ? resolveTwoVariableConstraintPair({ t, projection, rawValues, constraints })
+    ? resolveTwoVariableConstraintPair({ projection, rawValues, constraints })
     : null
   if (directSolution && areConstraintsSatisfied({ solution: directSolution, constraints, epsilon })) {
     return directSolution
   }
 
   for (const constraint of constraints) {
-    const solution = resolveSingleConstraint({ t, projection, rawValues, constraint, epsilon })
+    const solution = resolveSingleConstraint({ projection, rawValues, constraint, epsilon })
     if (solution && areConstraintsSatisfied({ solution, constraints, epsilon })) return solution
   }
 
@@ -447,12 +424,10 @@ function resolveConstraintPair({
  * Solves a nonsingular system of two constraints for two scale parameters.
  */
 function resolveTwoVariableConstraintPair({
-  t = english,
   projection,
   rawValues,
   constraints
 }: {
-  t?: Translate
   projection: ScaleProjection
   rawValues: readonly number[]
   constraints: readonly ScaleProjectionConstraint[]
@@ -475,7 +450,7 @@ function resolveTwoVariableConstraintPair({
     - (normalizedFirstB * normalizedSecondA)
   if (Math.abs(relativeDeterminant) <= PROJECTION_RANK_EPSILON) return null
 
-  const rawPositions = projectScaleEdgePositions({ t, projection, values: rawValues })
+  const rawPositions = projectScaleEdgePositions({ projection, values: rawValues })
   const firstRawPosition = rawPositions[firstConstraint.edge]
   const secondRawPosition = rawPositions[secondConstraint.edge]
   if (firstRawPosition === null || secondRawPosition === null) return null
@@ -488,7 +463,6 @@ function resolveTwoVariableConstraintPair({
     / relativeDeterminant
 
   return createProjectionSolution({
-    t,
     projection,
     values: [rawValues[0] + firstDelta, rawValues[1] + secondDelta]
   })
@@ -518,11 +492,9 @@ function areConstraintsSatisfied({
  * Creates an immutable projection result.
  */
 function createProjectionSolution({
-  t = english,
   projection,
   values
 }: {
-  t?: Translate
   projection: ScaleProjection
   values: readonly number[]
 }): ScaleProjectionSolution {
@@ -530,7 +502,7 @@ function createProjectionSolution({
 
   return Object.freeze({
     values: immutableValues,
-    positions: projectScaleEdgePositions({ t, projection, values: immutableValues })
+    positions: projectScaleEdgePositions({ projection, values: immutableValues })
   })
 }
 

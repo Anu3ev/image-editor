@@ -27,7 +27,7 @@ interface TranslatorOptions {
 /** Keys shared by the built-in language catalogs. */
 export type TranslationKey = CatalogKey<typeof en>
 
-/** A fixed-language translator owned by one editor or standalone helper. */
+/** A fixed-language UI translator owned by one editor or standalone UI helper. */
 export type Translate = (key: TranslationKey, params?: Record<string, unknown>) => string
 
 /** Creates a synchronous, isolated translator from bundled and custom catalogs. */
@@ -55,5 +55,5 @@ export function createTranslator({ language = 'en', customLanguages = {} }: Tran
   return (key, params) => instance.t(key, params)
 }
 
-/** English fallback for helpers used outside an editor instance. */
+/** English UI defaults for helpers used outside an editor instance. */
 export const english = createTranslator()

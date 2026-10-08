@@ -1,4 +1,3 @@
-import { english, type Translate } from '../../i18n'
 import {
   createScaleProjection,
   resolveScaleProjection,
@@ -41,23 +40,19 @@ function didReachPlannedGuides({
 
 /** Calculates the next width from the Textbox's exact local geometry. */
 function resolveNextWidth({
-  t = english,
   measurement,
   plan,
   constraints
 }: {
-  t?: Translate
   measurement: TextWidthResizeMeasurement
   plan: ScaleSnapPlan
   constraints: readonly ScaleProjectionConstraint[]
 }): number | null {
   const projection = createScaleProjection({
-    t,
     bounds: measurement.projection.bounds,
     input: measurement.projection.projection
   })
   const solution = resolveScaleProjection({
-    t,
     projection,
     rawValues: [measurement.width],
     constraints,
@@ -86,11 +81,9 @@ function isNewWidth({
  * The live Textbox remains unchanged.
  */
 export function resolveTextWidthSnapMeasurement({
-  t = english,
   plan,
   measurer
 }: {
-  t?: Translate
   plan: ScaleSnapPlan
   measurer: TextWidthMeasurementSource
 }): TextWidthResizeMeasurement | null {
@@ -108,7 +101,7 @@ export function resolveTextWidthSnapMeasurement({
     measuredWidths.push(measurement.width)
     if (didReachPlannedGuides({ measurement, plan })) return measurement
 
-    const nextWidth = resolveNextWidth({ t, measurement, plan, constraints })
+    const nextWidth = resolveNextWidth({ measurement, plan, constraints })
     if (nextWidth === null || !isNewWidth({ width: nextWidth, measuredWidths })) return null
 
     width = nextWidth

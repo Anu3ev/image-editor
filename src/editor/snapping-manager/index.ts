@@ -296,7 +296,7 @@ export default class SnappingManager {
     this.canvas = canvas
     this.movementSnappingController = new MovementSnappingController({ editor })
     this.imageScaleSnappingController = new ImageScaleSnappingController({ editor })
-    this.snapTargetResolver = new SnapTargetResolver({ canvas, t: editor.t })
+    this.snapTargetResolver = new SnapTargetResolver({ canvas })
 
     this._onMouseDown = this._handleMouseDown.bind(this)
     this._onMouseMove = this._handleMouseMove.bind(this)
@@ -335,7 +335,7 @@ export default class SnappingManager {
     const sources = this._captureSourcesAndGuideBounds({ activeObject, domainBoundary })
 
     return Object.freeze({
-      candidates: createScaleSnapCandidates({ t: this.editor.t, targetEdges, sources }),
+      candidates: createScaleSnapCandidates({ targetEdges, sources }),
       zoom: this.canvas.getZoom() || 1
     })
   }
@@ -349,7 +349,7 @@ export default class SnappingManager {
   }): MovementSnapEnvironment {
     const sources = this._captureSourcesAndGuideBounds({ activeObject, domainBoundary })
 
-    return createMovementSnapEnvironment({ t: this.editor.t, sources, zoom: this.canvas.getZoom() || 1 })
+    return createMovementSnapEnvironment({ sources, zoom: this.canvas.getZoom() || 1 })
   }
 
   /** Captures targets and drawing bounds from a single snapshot of exact scene geometry. */
@@ -380,20 +380,19 @@ export default class SnappingManager {
     const projection = createRectangularScaleGestureProjection({ pointerStart, transform })
     if (!projection) return null
 
-    const projectionModes = createRectangularScaleProjectionModes({ t: this.editor.t, projection })
+    const projectionModes = createRectangularScaleProjectionModes({ projection })
     const environment = this.captureScaleSnapEnvironment({
       activeObject: transform.target,
-      targetEdges: resolveRectangularScaleMovingEdges({ t: this.editor.t, projectionModes })
+      targetEdges: resolveRectangularScaleMovingEdges({ projectionModes })
     })
     const baseline = createScaleGestureBaseline({
-      t: this.editor.t,
       bounds: projection.baselineBounds,
       fixedAnchor: projection.fixedAnchor,
       projectionModes,
       candidates: environment.candidates,
       zoom: environment.zoom
     })
-    const runtime = new ScaleSnappingRuntime(this.editor.t)
+    const runtime = new ScaleSnappingRuntime()
     runtime.startSession({ baseline })
 
     return Object.freeze({ projection, runtime })
@@ -556,7 +555,7 @@ export default class SnappingManager {
     applyMovementStep({ target, transform, roundX: canSnapX, roundY: canSnapY })
     this._ensureAnchorBounds({ activeObject: target, mode: 'exact' })
 
-    const activeBounds = getObjectExactBounds({ t: this.editor.t, object: target })
+    const activeBounds = getObjectExactBounds({ object: target })
     if (!activeBounds) {
       this._clearSpacingContexts()
       this._clearGuides()
@@ -641,7 +640,7 @@ export default class SnappingManager {
       })
     }
 
-    const finalBounds = getObjectExactBounds({ t: this.editor.t, object: target }) ?? spacedBounds
+    const finalBounds = getObjectExactBounds({ object: target }) ?? spacedBounds
     this._applyMovementVisualGuides({
       activeBounds: finalBounds,
       candidateBounds,
@@ -1039,7 +1038,7 @@ export default class SnappingManager {
     })
     target.setCoords()
 
-    return getObjectExactBounds({ t: this.editor.t, object: target }) ?? activeBounds
+    return getObjectExactBounds({ object: target }) ?? activeBounds
   }
 
   /** Calculates equal-spacing snapping during movement. */
@@ -1064,7 +1063,6 @@ export default class SnappingManager {
       : threshold
 
     const result = calculateSpacingSnap({
-      t: this.editor.t,
       activeBounds,
       candidates: candidateBounds,
       threshold: spacingThreshold,
@@ -1110,7 +1108,6 @@ export default class SnappingManager {
       }
     })
     const visualSpacingResult = calculateSpacingSnap({
-      t: this.editor.t,
       activeBounds,
       candidates: candidateBounds,
       threshold,
@@ -1327,7 +1324,6 @@ export default class SnappingManager {
    */
   private _handleAfterRender(): void {
     renderSnappingGuides({
-      t: this.editor.t,
       canvas: this.canvas,
       guideBounds: this.guideBounds,
       guides: this.activeGuides,
@@ -1428,7 +1424,7 @@ export default class SnappingManager {
 
     const { montageArea } = this.editor
     const montageBounds = mode === 'exact'
-      ? getObjectExactBounds({ t: this.editor.t, object: montageArea })
+      ? getObjectExactBounds({ object: montageArea })
       : getObjectBounds({ object: montageArea })
 
     if (montageBounds) {

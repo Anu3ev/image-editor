@@ -1,5 +1,4 @@
 /* eslint-disable no-use-before-define -- The public runtime appears before internal validation helpers. */
-import { english, type Translate } from '../../i18n'
 import {
   FREE_MOVEMENT_HOLD_STATE,
   resolveMovementSnapPlan,
@@ -72,13 +71,6 @@ const EMPTY_MOVEMENT_RUNTIME_CLEANUP: MovementRuntimeCleanup = Object.freeze({
  * The runtime does not modify Fabric objects.
  */
 export class MovementSnappingRuntime {
-  private readonly t: Translate
-
-  /** Creates an isolated runtime using the editor's translator. */
-  constructor(t: Translate = english) {
-    this.t = t
-  }
-
   private _session: ActiveMovementRuntimeSession | null = null
 
   private readonly _issuedTokens = new WeakSet<MovementPlanToken>()
@@ -92,7 +84,7 @@ export class MovementSnappingRuntime {
     baseline: MovementGestureBaseline
   }): void {
     if (this._session) {
-      throw new Error(this.t('snapping.movement.runtime.sessionAlreadyActive'))
+      throw new Error('Movement snapping runtime already has an active session')
     }
 
     this._session = {
@@ -130,15 +122,14 @@ export class MovementSnappingRuntime {
     const session = this._getActiveSession()
     const duplicate = session.markerRecords.get(marker)
     if (duplicate) {
-      assertSameMovementIntent({ t: this.t, first: duplicate.plan.rawIntent, second: intent })
+      assertSameMovementIntent({ first: duplicate.plan.rawIntent, second: intent })
       return createDuplicateMovementStep({ record: duplicate })
     }
     if (session.pendingStep) {
-      throw new Error(this.t('snapping.movement.runtime.previousPlanVerificationRequired'))
+      throw new Error('Previous movement plan token must be verified before the next pointer marker')
     }
 
     const plan = resolveMovementSnapPlan({
-      t: this.t,
       baseline: session.baseline,
       intent,
       holdState: session.holdState
@@ -172,11 +163,10 @@ export class MovementSnappingRuntime {
 
     const { pendingStep } = session
     if (!pendingStep) {
-      throw new Error(this.t('snapping.movement.runtime.noPointerStepToVerify'))
+      throw new Error('Movement snapping runtime has no pointer step to verify')
     }
 
     const verification = verifyMovementSnapPlan({
-      t: this.t,
       baseline: session.baseline,
       plan: pendingStep.plan,
       finalGeometry
@@ -207,7 +197,7 @@ export class MovementSnappingRuntime {
   /** Returns the active session or explicitly reports a lifecycle violation. */
   private _getActiveSession(): ActiveMovementRuntimeSession {
     if (!this._session) {
-      throw new Error(this.t('snapping.movement.runtime.noActiveSession'))
+      throw new Error('Movement snapping runtime has no active session')
     }
 
     return this._session
@@ -238,13 +228,13 @@ export class MovementSnappingRuntime {
     token: MovementPlanToken
   }): void {
     if (!this._issuedTokens.has(token)) {
-      throw new Error(this.t('snapping.movement.runtime.foreignPlanToken'))
+      throw new Error('Foreign movement plan token')
     }
     if (this._consumedTokens.has(token)) {
-      throw new Error(this.t('snapping.movement.runtime.planTokenAlreadyUsed'))
+      throw new Error('Movement plan token has already been used')
     }
     if (!session.pendingStep || session.pendingStep.token !== token) {
-      throw new Error(this.t('snapping.movement.runtime.planTokenPointerStepMismatch'))
+      throw new Error('Movement plan token does not belong to the current pointer step')
     }
   }
 }
@@ -266,11 +256,9 @@ function createDuplicateMovementStep({
 
 /** Verifies that a marker was not reused with a different raw intent. */
 function assertSameMovementIntent({
-  t = english,
   first,
   second
 }: {
-  t?: Translate
   first: MovementRawIntent
   second: MovementRawIntent
 }): void {
@@ -284,7 +272,7 @@ function assertSameMovementIntent({
   const sameModifiers = first.modifiers.ctrlKey === second.modifiers.ctrlKey
 
   if (!sameBounds || !samePosition || !sameAxes || !sameModifiers) {
-    throw new Error(t('snapping.movement.runtime.pointerMarkerRawIntentMismatch'))
+    throw new Error('Native movement pointer marker was reused with a different raw intent')
   }
 }
 

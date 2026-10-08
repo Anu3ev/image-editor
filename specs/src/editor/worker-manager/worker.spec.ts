@@ -63,12 +63,41 @@ describe('Worker изображений: жизненный цикл ресур�
     expect(bitmap.close).toHaveBeenCalledTimes(1)
   })
 
-  it.each(['error', 'abort'])('сообщает об ошибке FileReader при событии %s', async(eventType) => {
+  it.each([
+    ['error', 'Failed to read the image Blob'],
+    ['abort', 'Reading the image Blob was aborted']
+  ])('сообщает об ошибке FileReader при событии %s', async(eventType, message) => {
     jest.spyOn(FileReader.prototype, 'readAsDataURL').mockImplementation(function(this: FileReader) {
       this.dispatchEvent(new ProgressEvent(eventType))
     })
     await request({ action: 'toDataURL', payload: { bitmap, contentType: 'image/png' } })
-    expect(send).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: expect.any(String) }))
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ success: false, error: message, cause: expect.any(Error) }))
+    expect(bitmap.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('сообщает об ошибке чтения data URL и освобождает bitmap', async() => {
+    jest.spyOn(FileReader.prototype, 'readAsDataURL').mockImplementation(function(this: FileReader) {
+      this.dispatchEvent(new ProgressEvent('load'))
+    })
+    await request({ action: 'toDataURL', payload: { bitmap, contentType: 'image/png' } })
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      success: false,
+      error: 'Failed to read the image as a data URL',
+      cause: expect.any(Error)
+    }))
+    expect(bitmap.close).toHaveBeenCalledTimes(1)
+  })
+
+  it('сообщает об отсутствии контекста OffscreenCanvas и освобождает bitmap', async() => {
+    const offscreen = new OffscreenCanvas(bitmap.width, bitmap.height)
+    jest.spyOn(offscreen, 'getContext').mockReturnValue(null)
+    jest.mocked(OffscreenCanvas).mockReturnValueOnce(offscreen)
+    await request({ action: 'toDataURL', payload: { bitmap, contentType: 'image/png' } })
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({
+      success: false,
+      error: 'Failed to get a 2D context from OffscreenCanvas',
+      cause: expect.any(Error)
+    }))
     expect(bitmap.close).toHaveBeenCalledTimes(1)
   })
 

@@ -5,7 +5,6 @@ import {
   type TPointerEvent,
   type Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import type { ImageEditor } from '../..'
 import {
@@ -233,7 +232,7 @@ export class ImageScaleSnappingController {
 
     const marker = resolveScaleMarker({ event })
     const duplicate = session.runtime.getDuplicateStep({ marker })
-    if (duplicate) return createDuplicateImageScaleStep({ t: this._editor.t, duplicate })
+    if (duplicate) return createDuplicateImageScaleStep({ duplicate })
 
     const pointerEvent = event.e
     if (!pointerEvent) return this._continueWithLegacyScale()
@@ -276,24 +275,21 @@ export class ImageScaleSnappingController {
   }): HandledImageScaleStep {
     const step = session.runtime.resolveScalePlan({ marker, intent })
     if (step.kind === 'duplicate') {
-      throw new Error(this._editor.t('snapping.imageScale.stepBecameDuplicate'))
+      throw new Error('The image scaling step became a duplicate after the initial session check')
     }
 
     try {
       applyRectangularScalePlan({
-        t: this._editor.t,
         plan: step.plan,
         projection: session.projection,
         target: session.target,
         transform: session.transform
       })
       const appliedMultipliers = readAppliedRectangularScaleMultipliers({
-        t: this._editor.t,
         projection: session.projection,
         target: session.target
       })
       const finalGeometry = readFinalRectangularScaleGeometry({
-        t: this._editor.t,
         mode,
         multipliers: appliedMultipliers,
         plan: step.plan,
@@ -542,14 +538,12 @@ function resolveScaleMarker({
 
 /** Builds a response without republishing an already verified step. */
 function createDuplicateImageScaleStep({
-  t = english,
   duplicate
 }: {
-  t?: Translate
   duplicate: NonNullable<ReturnType<ScaleSnappingRuntime['getDuplicateStep']>>
 }): HandledImageScaleStep {
   if (!duplicate.verification) {
-    throw new Error(t('snapping.imageScale.duplicateStepVerificationRequired'))
+    throw new Error('A duplicate image scaling step cannot finish before the result is verified')
   }
 
   return createHandledImageScaleStep({

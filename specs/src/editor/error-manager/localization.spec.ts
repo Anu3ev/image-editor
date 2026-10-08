@@ -2,7 +2,7 @@ import ErrorManager from '../../../../src/editor/error-manager'
 import { createTranslator } from '../../../../src/editor/i18n'
 import { createEditorStub } from '../../../test-utils/editor/editor-stub'
 
-describe('Localized error event contracts', () => {
+describe('Language-independent error event contracts', () => {
   beforeEach(() => {
     jest.spyOn(console, 'error').mockImplementation(() => {})
     jest.spyOn(console, 'warn').mockImplementation(() => {})
@@ -12,10 +12,7 @@ describe('Localized error event contracts', () => {
     jest.restoreAllMocks()
   })
 
-  it.each([
-    ['en', 'Unknown method'],
-    ['ru', 'Неизвестный метод']
-  ])('keeps method metadata stable while translating %s console labels', (language, methodLabel) => {
+  it.each(['en', 'ru', 'pt-BR'])('keeps English diagnostics and metadata for a %s editor', (language) => {
     const editor = createEditorStub()
     editor.t = createTranslator({ language })
     const manager = new ErrorManager({ editor })
@@ -35,7 +32,7 @@ describe('Localized error event contracts', () => {
     expect(editor.canvas.fire).toHaveBeenCalledWith('editor:warning', event)
     expect(manager.buffer.map(({ method }) => method)).toEqual(['Unknown Method', 'Unknown Method'])
     expect(manager.buffer[0].data).toBe(data)
-    const logMessage = `ImageManager. ${methodLabel}. IMPORT_FAILED. IMPORT_FAILED`
+    const logMessage = 'ImageManager. Unknown method. IMPORT_FAILED. IMPORT_FAILED'
     expect(console.error).toHaveBeenCalledWith(logMessage, data)
     expect(console.warn).toHaveBeenCalledWith(logMessage, data)
   })

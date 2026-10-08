@@ -5,16 +5,12 @@ export const LOCALIZATION_EXAMPLES: readonly LocalizationExample[] = [
   {
     language: 'en',
     newText: 'New text',
-    duplicate: 'Duplicate',
-    missingContainer: 'Container with ID "missing-localized-editor" was not found.',
-    unknownWorkerAction: 'Unknown action localization-test-action'
+    duplicate: 'Duplicate'
   },
   {
     language: 'ru',
     newText: 'Новый текст',
-    duplicate: 'Создать копию',
-    missingContainer: 'Контейнер с ID «missing-localized-editor» не найден.',
-    unknownWorkerAction: 'Неизвестное действие localization-test-action'
+    duplicate: 'Создать копию'
   }
 ]
 
@@ -30,14 +26,19 @@ export const CUSTOM_LOCALIZATION_CONTENT = {
 export const LOCALIZATION_MISSING_CONTAINER = 'missing-localized-editor'
 export const LOCALIZATION_WORKER_ACTION = 'localization-test-action'
 
+/** Technical errors stay English for every built-in or custom UI language. */
+export const LOCALIZATION_ERROR_EXPECTATIONS = {
+  missingContainer: 'Container with ID "missing-localized-editor" was not found.',
+  unknownWorkerAction: 'Unknown action localization-test-action'
+}
+
 export const CUSTOM_LANGUAGE_RESOURCES = {
   pt: {
     ui: { toolbar: { delete: 'Excluir' } }
   },
   'PT-br': {
     ui: { toolbar: { duplicate: 'Duplicar "item" & <strong>guardar</strong>' } },
-    text: { defaults: { newText: 'Novo texto' } },
-    editor: { errors: { containerNotFound: 'Contêiner "{{containerId}}" não encontrado.' } }
+    text: { defaults: { newText: 'Novo texto' } }
   }
 } satisfies CustomLanguages
 
@@ -45,8 +46,7 @@ export const CUSTOM_LANGUAGE_EXPECTATIONS = {
   newText: 'Novo texto',
   duplicate: 'Duplicar "item" & <strong>guardar</strong>',
   delete: 'Excluir',
-  lockFallback: 'Lock',
-  missingContainer: 'Contêiner "missing-localized-editor" não encontrado.'
+  lockFallback: 'Lock'
 }
 
 export const RUSSIAN_OVERRIDE_RESOURCES = {

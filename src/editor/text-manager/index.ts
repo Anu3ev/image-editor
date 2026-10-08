@@ -152,7 +152,6 @@ export default class TextManager {
     this.canvas = editor.canvas
     this.fonts = editor.options.fonts ?? []
     this.scalingController = new TextScalingController({
-      t: this.editor.t,
       canvas: editor.canvas,
       canvasManager: editor.canvasManager,
       persistScaledTextbox: ({ target, style, shouldRoundDimensions }) => {
@@ -161,11 +160,10 @@ export default class TextManager {
           style,
           shouldRoundDimensions
         })
-        if (!updated) throw new Error(this.editor.t('text.errors.finalSizeNotSaved'))
+        if (!updated) throw new Error('The final text size must be saved through the shared update mechanism')
       }
     })
     this.activeSelectionScalingController = new TextActiveSelectionScalingController({
-      t: this.editor.t,
       canvas: editor.canvas,
       canvasManager: editor.canvasManager
     })

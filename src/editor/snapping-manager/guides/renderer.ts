@@ -1,6 +1,5 @@
 /* eslint-disable no-use-before-define -- Public rendering functions appear before internal primitives. */
 import type { Canvas } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import { GUIDE_COLOR, GUIDE_WIDTH } from '../constants'
 import type {
@@ -15,13 +14,11 @@ import { resolveDisplayDistance } from '../../utils/distance'
  * Draws verified line and spacing guides in the upper canvas context.
  */
 export function renderSnappingGuides({
-  t = english,
   canvas,
   guideBounds,
   guides,
   spacingGuides
 }: {
-  t?: Translate
   canvas: Canvas
   guideBounds: GuideBounds | null
   guides: readonly GuideLine[]
@@ -45,7 +42,7 @@ export function renderSnappingGuides({
     context.strokeStyle = GUIDE_COLOR
     context.setLineDash([4, 4])
     drawLineGuides({ context, bounds, guides })
-    drawSpacingGuides({ t, context, zoom, guides: spacingGuides })
+    drawSpacingGuides({ context, zoom, guides: spacingGuides })
   } finally {
     context.restore()
   }
@@ -103,12 +100,10 @@ function drawLineGuides({
 
 /** Draws spacing guides with consistently rounded labels. */
 function drawSpacingGuides({
-  t = english,
   context,
   zoom,
   guides
 }: {
-  t?: Translate
   context: CanvasRenderingContext2D
   zoom: number
   guides: readonly SpacingGuide[]
@@ -118,7 +113,7 @@ function drawSpacingGuides({
       context,
       guide,
       zoom,
-      distanceLabel: resolveDisplayDistance({ t, distance: guide.distance }).toString()
+      distanceLabel: resolveDisplayDistance({ distance: guide.distance }).toString()
     })
   }
 }

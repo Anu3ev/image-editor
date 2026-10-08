@@ -1,5 +1,4 @@
 /* eslint-disable no-use-before-define -- Exported functions are declared before internal calculations. */
-import { english, type Translate } from '../../i18n'
 import {
   SNAP_THRESHOLD,
   SPACING_SNAP_HOLD_MARGIN
@@ -92,7 +91,6 @@ export type ScaleSnapThresholds = Readonly<{
 
 /** Initial gesture geometry and available resizing modes. */
 export type ScaleGestureBaselineInput = Readonly<{
-  t?: Translate
   bounds: ObjectBounds
   fixedAnchor: ScaleScenePoint
   projectionModes: readonly ScaleProjectionModeInput[]
@@ -264,28 +262,26 @@ export const FREE_SCALE_HOLD_STATE: ScaleHoldState = Object.freeze({
  * Validates and captures geometry, scale modes, candidates, and thresholds at the start of the gesture.
  */
 export function createScaleGestureBaseline({
-  t = english,
   bounds,
   fixedAnchor,
   projectionModes,
   candidates,
   zoom
 }: ScaleGestureBaselineInput): ScaleGestureBaseline {
-  const exactBounds = createExactBoundsSnapshot({ t, bounds })
+  const exactBounds = createExactBoundsSnapshot({ bounds })
   const anchorSnapshot = createScenePointSnapshot({
-    t,
     point: fixedAnchor,
-    name: t('snapping.scale.pointLabels.fixedAnchor')
+    name: 'fixed anchor'
   })
-  const modeSnapshot = createProjectionModeSnapshot({ t, bounds: exactBounds, projectionModes })
-  const candidateSnapshot = createCandidateSnapshot({ t, candidates, projectionModes: modeSnapshot })
+  const modeSnapshot = createProjectionModeSnapshot({ bounds: exactBounds, projectionModes })
+  const candidateSnapshot = createCandidateSnapshot({ candidates, projectionModes: modeSnapshot })
 
   return Object.freeze({
     bounds: exactBounds,
     fixedAnchor: anchorSnapshot,
     projectionModes: modeSnapshot,
     candidates: candidateSnapshot,
-    thresholds: createScaleSnapThresholds({ t, zoom })
+    thresholds: createScaleSnapThresholds({ zoom })
   })
 }
 
@@ -293,28 +289,25 @@ export function createScaleGestureBaseline({
  * Calculates a new snapping plan or continues holding the selected guides.
  */
 export function resolveScaleSnapPlan({
-  t = english,
   baseline,
   intent,
   holdState,
   stepProjection
 }: {
-  t?: Translate
   baseline: ScaleGestureBaseline
   intent: ScaleRawIntent
   holdState: ScaleHoldState
   stepProjection?: ScaleStepProjectionInput
 }): ScaleSnapPlan {
-  const baselineMode = resolveProjectionMode({ t, baseline, modeId: intent.projectionMode })
-  const projectionMode = resolveStepProjectionMode({ t, baselineMode, stepProjection })
-  assertScaleRawIntent({ t, projection: projectionMode.projection, intent })
-  assertScaleHoldState({ t, baseline, holdState })
+  const baselineMode = resolveProjectionMode({ baseline, modeId: intent.projectionMode })
+  const projectionMode = resolveStepProjectionMode({ baselineMode, stepProjection })
+  assertScaleRawIntent({ projection: projectionMode.projection, intent })
+  assertScaleHoldState({ baseline, holdState })
 
   const rawValues = Object.freeze([...intent.values])
-  const rawPositions = projectScaleEdgePositions({ t, projection: projectionMode.projection, values: rawValues })
+  const rawPositions = projectScaleEdgePositions({ projection: projectionMode.projection, values: rawValues })
   if (intent.modifiers.ctrlKey) {
     return createScaleSnapPlan({
-      t,
       baseline,
       projectionMode,
       rawValues,
@@ -325,10 +318,9 @@ export function resolveScaleSnapPlan({
   }
 
   const axisProposalContext = { baseline, projectionMode, rawPositions, rawValues }
-  const x = resolveAxisProposal({ t, ...axisProposalContext, axis: 'x', hold: holdState.x })
-  const y = resolveAxisProposal({ t, ...axisProposalContext, axis: 'y', hold: holdState.y })
+  const x = resolveAxisProposal({ ...axisProposalContext, axis: 'x', hold: holdState.x })
+  const y = resolveAxisProposal({ ...axisProposalContext, axis: 'y', hold: holdState.y })
   const resolved = resolveCompatibleProposals({
-    t,
     baseline,
     projectionMode,
     rawValues,
@@ -337,7 +329,6 @@ export function resolveScaleSnapPlan({
   })
 
   return createScaleSnapPlan({
-    t,
     baseline,
     projectionMode,
     rawValues,
@@ -352,34 +343,28 @@ export function resolveScaleSnapPlan({
  * The original pointer position and candidates available for refinement remain unchanged.
  */
 export function refineScaleSnapPlan({
-  t = english,
   plan,
   refinement
 }: {
-  t?: Translate
   plan: ScaleSnapPlan
   refinement: ScaleSnapPlanRefinement
 }): ScaleSnapPlan {
   const projectionMode = resolveStepProjectionMode({
-    t,
     baselineMode: Object.freeze({ id: plan.projectionMode, projection: plan.projection }),
     stepProjection: refinement.stepProjection
   })
   const effectiveValues = Object.freeze([...refinement.effectiveValues])
-  assertScaleValues({ t, projection: projectionMode.projection, values: effectiveValues })
+  assertScaleValues({ projection: projectionMode.projection, values: effectiveValues })
   const constraints = createRefinedScaleConstraints({
-    t,
     candidates: plan.refinementCandidates,
     constraints: refinement.constraints
   })
 
   const effectivePositions = projectScaleEdgePositions({
-    t,
     projection: projectionMode.projection,
     values: effectiveValues
   })
   assertRefinedConstraintsReached({
-    t,
     bounds: refinement.stepProjection.bounds,
     constraints,
     effectivePositions,
@@ -401,37 +386,33 @@ export function refineScaleSnapPlan({
  * Uses the original gesture projection or an exact local model of the current step.
  */
 function resolveStepProjectionMode({
-  t = english,
   baselineMode,
   stepProjection
 }: {
-  t?: Translate
   baselineMode: ScaleProjectionMode
   stepProjection?: ScaleStepProjectionInput
 }): ScaleProjectionMode {
   if (!stepProjection) return baselineMode
 
-  const bounds = createExactBoundsSnapshot({ t, bounds: stepProjection.bounds })
-  const projection = createScaleProjection({ t, bounds, input: stepProjection.projection })
-  assertStepProjectionContract({ t, baseline: baselineMode.projection, step: projection })
+  const bounds = createExactBoundsSnapshot({ bounds: stepProjection.bounds })
+  const projection = createScaleProjection({ bounds, input: stepProjection.projection })
+  assertStepProjectionContract({ baseline: baselineMode.projection, step: projection })
 
   return Object.freeze({ id: baselineMode.id, projection })
 }
 
 /** Checks that the local projection preserves the gesture's parameters and moving edges. */
 function assertStepProjectionContract({
-  t = english,
   baseline,
   step
 }: {
-  t?: Translate
   baseline: ScaleProjection
   step: ScaleProjection
 }): void {
   const hasSameVariables = baseline.variables.length === step.variables.length
     && baseline.variables.every((variable, index) => variable === step.variables[index])
   if (!hasSameVariables) {
-    throw new Error(t('snapping.scale.stepProjection.variablesMustBePreserved'))
+    throw new Error('Scale step projection must preserve gesture variables')
   }
 
   const baselineEdges = baseline.edges.map(({ edge }) => edge).sort()
@@ -439,7 +420,7 @@ function assertStepProjectionContract({
   const hasSameEdges = baselineEdges.length === stepEdges.length
     && baselineEdges.every((edge, index) => edge === stepEdges[index])
   if (!hasSameEdges) {
-    throw new Error(t('snapping.scale.stepProjection.edgesMustBePreserved'))
+    throw new Error('Scale step projection must preserve gesture edges')
   }
 }
 
@@ -447,27 +428,24 @@ function assertStepProjectionContract({
  * Verifies the plan against actual geometry and the object's manager application result.
  */
 export function verifyScaleSnapPlan({
-  t = english,
   plan,
   finalGeometry
 }: {
-  t?: Translate
   plan: ScaleSnapPlan
   finalGeometry: FinalScaleGeometry
 }): ScaleSnapVerification {
   const { measuredValues, domainVerdict } = finalGeometry
-  const bounds = createExactBoundsSnapshot({ t, bounds: finalGeometry.bounds })
+  const bounds = createExactBoundsSnapshot({ bounds: finalGeometry.bounds })
   const fixedAnchor = createScenePointSnapshot({
-    t,
     point: finalGeometry.fixedAnchor,
-    name: t('snapping.scale.pointLabels.finalFixedAnchor')
+    name: 'final fixed anchor'
   })
   const fixedAnchorMatches = areScenePointsNear({
     first: plan.fixedAnchor,
     second: fixedAnchor,
     epsilon: plan.verificationEpsilon
   })
-  const measuredPositions = projectMeasuredScalePositions({ t, plan, measuredValues })
+  const measuredPositions = projectMeasuredScalePositions({ plan, measuredValues })
   const commonStateMatches = fixedAnchorMatches
     && domainVerdict.protectedState === 'preserved'
 
@@ -486,9 +464,9 @@ export function verifyScaleSnapPlan({
 /**
  * Converts thresholds from screen pixels to scene coordinates, accounting for zoom.
  */
-function createScaleSnapThresholds({ t = english, zoom }: { t?: Translate; zoom: number }): ScaleSnapThresholds {
+function createScaleSnapThresholds({ zoom }: { zoom: number }): ScaleSnapThresholds {
   if (!Number.isFinite(zoom) || zoom <= 0) {
-    throw new Error(t('snapping.scale.zoomMustBePositiveFinite'))
+    throw new Error('Scale snapping zoom must be a finite positive number')
   }
 
   return Object.freeze({
@@ -502,21 +480,21 @@ function createScaleSnapThresholds({ t = english, zoom }: { t?: Translate; zoom:
 /**
  * Validates and copies exact bounds without rounding.
  */
-function createExactBoundsSnapshot({ t = english, bounds }: { t?: Translate; bounds: ObjectBounds }): ObjectBounds {
+function createExactBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): ObjectBounds {
   const { left, right, top, bottom, centerX, centerY } = bounds
   const edges = [left, right, top, bottom]
   if (!edges.every(Number.isFinite) || right < left || bottom < top) {
-    throw new Error(t('snapping.scale.bounds.edgesMustBeFiniteAndOrdered'))
+    throw new Error('Scale snapping bounds must contain finite, ordered edge coordinates')
   }
   if (!Number.isFinite(centerX) || !Number.isFinite(centerY)) {
-    throw new Error(t('snapping.scale.bounds.centersMustBeFinite'))
+    throw new Error('Scale snapping bounds must contain finite center coordinates')
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (Math.abs(centerX - expectedCenterX) > EXACT_BOUNDS_CENTER_EPSILON
     || Math.abs(centerY - expectedCenterY) > EXACT_BOUNDS_CENTER_EPSILON) {
-    throw new Error(t('snapping.scale.bounds.centersMustMatchEdges'))
+    throw new Error('Scale snapping bounds must derive their center coordinates from their edges')
   }
 
   return Object.freeze({ left, right, top, bottom, centerX, centerY })
@@ -526,16 +504,14 @@ function createExactBoundsSnapshot({ t = english, bounds }: { t?: Translate; bou
  * Validates and copies a point in scene coordinates.
  */
 function createScenePointSnapshot({
-  t = english,
   point,
   name
 }: {
-  t?: Translate
   point: ScaleScenePoint
   name: string
 }): ScaleScenePoint {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-    throw new Error(t('snapping.scale.point.coordinatesMustBeFinite', { name }))
+    throw new Error(`The scale snapping ${name} must have finite coordinates`)
   }
 
   return Object.freeze({ x: point.x, y: point.y })
@@ -545,26 +521,24 @@ function createScenePointSnapshot({
  * Validates and captures all available resizing modes.
  */
 function createProjectionModeSnapshot({
-  t = english,
   bounds,
   projectionModes
 }: {
-  t?: Translate
   bounds: ObjectBounds
   projectionModes: readonly ScaleProjectionModeInput[]
 }): readonly ScaleProjectionMode[] {
   if (projectionModes.length === 0) {
-    throw new Error(t('snapping.scale.gestureBaseline.projectionModeRequired'))
+    throw new Error('Scale gesture baseline must contain at least one projection mode')
   }
 
   const modeIds = new Set<string>()
   const snapshot = projectionModes.map(({ id, projection }) => {
     if (id.trim().length === 0 || modeIds.has(id)) {
-      throw new Error(t('snapping.scale.projectionMode.idMustBeUniqueAndNonEmpty', { id }))
+      throw new Error(`Scale projection mode ID "${id}" must be non-empty and unique`)
     }
     modeIds.add(id)
 
-    return Object.freeze({ id, projection: createScaleProjection({ t, bounds, input: projection }) })
+    return Object.freeze({ id, projection: createScaleProjection({ bounds, input: projection }) })
   })
 
   return Object.freeze(snapshot)
@@ -574,17 +548,15 @@ function createProjectionModeSnapshot({
  * Returns the mode selected by the object's manager for the current pointer event.
  */
 function resolveProjectionMode({
-  t = english,
   baseline,
   modeId
 }: {
-  t?: Translate
   baseline: ScaleGestureBaseline
   modeId: string
 }): ScaleProjectionMode {
   const projectionMode = baseline.projectionModes.find(({ id }) => id === modeId)
   if (!projectionMode) {
-    throw new Error(t('snapping.scale.projectionMode.unknown', { modeId }))
+    throw new Error(`Unknown scale projection mode "${modeId}"`)
   }
 
   return projectionMode
@@ -594,17 +566,15 @@ function resolveProjectionMode({
  * Validates candidates and preserves their original order for the duration of the gesture.
  */
 function createCandidateSnapshot({
-  t = english,
   candidates,
   projectionModes
 }: {
-  t?: Translate
   candidates: readonly ScaleSnapCandidateInput[]
   projectionModes: readonly ScaleProjectionMode[]
 }): readonly ScaleSnapCandidate[] {
   const candidateIds = new Set<string>()
   const snapshot = candidates.map((candidate, snapshotIndex) => {
-    assertScaleCandidate({ t, candidate, projectionModes, candidateIds })
+    assertScaleCandidate({ candidate, projectionModes, candidateIds })
     candidateIds.add(candidate.id)
 
     return Object.freeze({ ...candidate, snapshotIndex })
@@ -617,31 +587,29 @@ function createCandidateSnapshot({
  * Checks the candidate's identifier, axis, and support by at least one mode.
  */
 function assertScaleCandidate({
-  t = english,
   candidate,
   projectionModes,
   candidateIds
 }: {
-  t?: Translate
   candidate: ScaleSnapCandidateInput
   projectionModes: readonly ScaleProjectionMode[]
   candidateIds: ReadonlySet<string>
 }): void {
   if (candidate.id.trim().length === 0 || candidateIds.has(candidate.id)) {
-    throw new Error(t('snapping.scale.candidate.idMustBeUniqueAndNonEmpty', { candidateId: candidate.id }))
+    throw new Error(`Scale snap candidate ID "${candidate.id}" must be non-empty and unique`)
   }
   if (!Number.isFinite(candidate.position)) {
-    throw new Error(t('snapping.scale.candidate.positionMustBeFinite', { candidateId: candidate.id }))
+    throw new Error(`The position of scale snap candidate "${candidate.id}" must be finite`)
   }
   if (resolveScaleSceneEdgeAxis({ edge: candidate.edge }) !== candidate.axis) {
-    throw new Error(t('snapping.scale.candidate.edgeAxisMismatch', { candidateId: candidate.id, axis: candidate.axis }))
+    throw new Error(`The edge of scale snap candidate "${candidate.id}" does not belong to the ${candidate.axis} axis`)
   }
 
   const isSupported = projectionModes.some(({ projection }) => {
     return Boolean(getScaleProjectionEdge({ projection, edge: candidate.edge }))
   })
   if (!isSupported) {
-    throw new Error(t('snapping.scale.candidate.edgeMustMove', { candidateId: candidate.id }))
+    throw new Error(`The edge of scale snap candidate "${candidate.id}" is not moved by any projection mode`)
   }
 }
 
@@ -649,52 +617,46 @@ function assertScaleCandidate({
  * Validates raw canonical values for the selected mode.
  */
 function assertScaleRawIntent({
-  t = english,
   projection,
   intent
 }: {
-  t?: Translate
   projection: ScaleProjection
   intent: ScaleRawIntent
 }): void {
   if (intent.values.length !== projection.variables.length) {
-    throw new Error(t('snapping.scale.rawIntent.invalidValueCount'))
+    throw new Error('The raw scale intent has an invalid number of values')
   }
   if (!intent.values.every(Number.isFinite)) {
-    throw new Error(t('snapping.scale.rawIntent.valuesMustBeFinite'))
+    throw new Error('Scale raw intent values must be finite')
   }
   if (typeof intent.modifiers.ctrlKey !== 'boolean' || typeof intent.modifiers.shiftKey !== 'boolean') {
-    throw new Error(t('snapping.scale.rawIntent.modifiersMustBeBoolean'))
+    throw new Error('Scale raw intent modifiers must be boolean')
   }
 }
 
 /** Validates canonical values of the refined projection. */
 function assertScaleValues({
-  t = english,
   projection,
   values
 }: {
-  t?: Translate
   projection: ScaleProjection
   values: readonly number[]
 }): void {
   if (values.length !== projection.variables.length) {
-    throw new Error(t('snapping.scale.refinement.invalidValueCount'))
+    throw new Error('The scale refinement has an invalid number of values')
   }
   if (!values.every(Number.isFinite)) {
-    throw new Error(t('snapping.scale.refinement.valuesMustBeFinite'))
+    throw new Error('Scale refinement values must be finite')
   }
 }
 
 /** Checks that the refined plan's exact geometry satisfies the original constraints. */
 function assertRefinedConstraintsReached({
-  t = english,
   bounds,
   constraints,
   effectivePositions,
   verificationEpsilon
 }: {
-  t?: Translate
   bounds: ObjectBounds
   constraints: ScaleSnapConstraints
   effectivePositions: ProjectedScaleEdgePositions
@@ -709,42 +671,38 @@ function assertRefinedConstraintsReached({
     if (projectedPosition === null
       || Math.abs(projectedPosition - constraint.expectedPosition) > verificationEpsilon
       || Math.abs(exactPosition - constraint.expectedPosition) > verificationEpsilon) {
-      throw new Error(t('snapping.scale.refinement.constraintNotReached', { edge }))
+      throw new Error(`The refined scale plan does not reach the ${edge} constraint`)
     }
   }
 }
 
 /** Validates selected constraints and creates an immutable snapshot of them. */
 function createRefinedScaleConstraints({
-  t = english,
   candidates,
   constraints
 }: {
-  t?: Translate
   candidates: ScaleSnapConstraints
   constraints: ScaleSnapConstraints
 }): ScaleSnapConstraints {
   return Object.freeze({
-    x: resolveRefinedScaleConstraint({ t, axis: 'x', candidate: candidates.x, constraint: constraints.x }),
-    y: resolveRefinedScaleConstraint({ t, axis: 'y', candidate: candidates.y, constraint: constraints.y })
+    x: resolveRefinedScaleConstraint({ axis: 'x', candidate: candidates.x, constraint: constraints.x }),
+    y: resolveRefinedScaleConstraint({ axis: 'y', candidate: candidates.y, constraint: constraints.y })
   })
 }
 
 /** Validates a selected constraint and returns its snapshot from the original plan. */
 function resolveRefinedScaleConstraint({
-  t = english,
   axis,
   candidate,
   constraint
 }: {
-  t?: Translate
   axis: ScaleSceneAxis
   candidate: PlannedScaleConstraint | null
   constraint: PlannedScaleConstraint | null
 }): PlannedScaleConstraint | null {
   if (!constraint) return null
   if (!candidate || !arePlannedScaleConstraintsEqual({ first: candidate, second: constraint })) {
-    throw new Error(t('snapping.scale.refinement.constraintNotInCandidates', { axis }))
+    throw new Error(`The refined ${axis} constraint does not belong to the scale plan candidates`)
   }
 
   return candidate
@@ -754,11 +712,9 @@ function resolveRefinedScaleConstraint({
  * Checks that the held candidate belongs to the current gesture.
  */
 function assertScaleHoldState({
-  t = english,
   baseline,
   holdState
 }: {
-  t?: Translate
   baseline: ScaleGestureBaseline
   holdState: ScaleHoldState
 }): void {
@@ -766,12 +722,12 @@ function assertScaleHoldState({
     const axisHold = holdState[axis]
     if (axisHold.kind === 'free') continue
     if (axisHold.candidate.axis !== axis) {
-      throw new Error(t('snapping.scale.hold.candidateAxisMismatch', { candidateAxis: axisHold.candidate.axis, axis }))
+      throw new Error(`The held scale candidate belongs to the ${axisHold.candidate.axis} axis, not the ${axis} axis`)
     }
 
     const baselineCandidate = baseline.candidates[axisHold.candidate.snapshotIndex]
     if (!baselineCandidate || !areScaleCandidatesEqual({ first: baselineCandidate, second: axisHold.candidate })) {
-      throw new Error(t('snapping.scale.hold.candidateNotInBaseline', { candidateId: axisHold.candidate.id }))
+      throw new Error(`Held scale candidate "${axisHold.candidate.id}" does not belong to the baseline snapshot`)
     }
   }
 }
@@ -780,7 +736,6 @@ function assertScaleHoldState({
  * Preserves a held guide or selects a new candidate on one axis.
  */
 function resolveAxisProposal({
-  t = english,
   axis,
   baseline,
   projectionMode,
@@ -788,7 +743,6 @@ function resolveAxisProposal({
   rawValues,
   hold
 }: {
-  t?: Translate
   axis: ScaleSceneAxis
   baseline: ScaleGestureBaseline
   projectionMode: ScaleProjectionMode
@@ -803,13 +757,12 @@ function resolveAxisProposal({
       : baseline.thresholds.release
     if (rawPosition !== null
       && Math.abs(rawPosition - hold.candidate.position) <= releaseThreshold
-      && canProjectScaleCandidate({ t, baseline, candidate: hold.candidate, projectionMode, rawValues })) {
+      && canProjectScaleCandidate({ baseline, candidate: hold.candidate, projectionMode, rawValues })) {
       return Object.freeze({ axis, candidate: hold.candidate, transition: 'held' })
     }
   }
 
   const candidate = findBestScaleCandidate({
-    t,
     axis,
     baseline,
     projectionMode,
@@ -825,14 +778,12 @@ function resolveAxisProposal({
  * Selects the nearest candidate, accounting for category and original order.
  */
 function findBestScaleCandidate({
-  t = english,
   axis,
   baseline,
   projectionMode,
   rawPositions,
   rawValues
 }: {
-  t?: Translate
   axis: ScaleSceneAxis
   baseline: ScaleGestureBaseline
   projectionMode: ScaleProjectionMode
@@ -850,7 +801,7 @@ function findBestScaleCandidate({
     if (rawPosition === null) continue
     const distance = Math.abs(candidate.position - rawPosition)
     if (distance > baseline.thresholds.acquire) continue
-    if (!canProjectScaleCandidate({ t, baseline, candidate, projectionMode, rawValues })) continue
+    if (!canProjectScaleCandidate({ baseline, candidate, projectionMode, rawValues })) continue
     if (isScaleCandidatePreferred({ candidate, distance, bestCandidate, bestDistance })) {
       bestCandidate = candidate
       bestDistance = distance
@@ -862,20 +813,17 @@ function findBestScaleCandidate({
 
 /** Checks whether the candidate's constraint can be satisfied in the step's local projection. */
 function canProjectScaleCandidate({
-  t = english,
   baseline,
   candidate,
   projectionMode,
   rawValues
 }: {
-  t?: Translate
   baseline: ScaleGestureBaseline
   candidate: ScaleSnapCandidate
   projectionMode: ScaleProjectionMode
   rawValues: readonly number[]
 }): boolean {
   return resolveScaleProjection({
-    t,
     projection: projectionMode.projection,
     rawValues,
     constraints: [{
@@ -918,24 +866,21 @@ function isScaleCandidatePreferred({
  * Combines constraints on both axes or keeps one priority constraint.
  */
 function resolveCompatibleProposals({
-  t = english,
   baseline,
   projectionMode,
   rawValues,
   x,
   y
 }: {
-  t?: Translate
   baseline: ScaleGestureBaseline
   projectionMode: ScaleProjectionMode
   rawValues: readonly number[]
   x: ScaleAxisProposal | null
   y: ScaleAxisProposal | null
 }): ResolvedScaleProposals {
-  const orderedProposals = orderScaleProposals({ t, projectionMode, rawValues, x, y })
+  const orderedProposals = orderScaleProposals({ projectionMode, rawValues, x, y })
   const constraints = orderedProposals.map(createProjectionConstraint)
   const solution = resolveScaleProjection({
-    t,
     projection: projectionMode.projection,
     rawValues,
     constraints,
@@ -945,18 +890,17 @@ function resolveCompatibleProposals({
   if (solution) return Object.freeze({ x, y, solution })
   const [preferred] = orderedProposals
   if (!preferred) {
-    throw new Error(t('snapping.scale.rawIntent.projectionSolutionRequired'))
+    throw new Error('The raw scale intent must have a projection solution')
   }
 
   const preferredSolution = resolveScaleProjection({
-    t,
     projection: projectionMode.projection,
     rawValues,
     constraints: [createProjectionConstraint(preferred)],
     epsilon: baseline.thresholds.verification
   })
   if (!preferredSolution) {
-    throw new Error(t('snapping.scale.constraint.projectionSolutionRequired', { edge: preferred.candidate.edge }))
+    throw new Error(`The scale constraint for the ${preferred.candidate.edge} edge must have a projection solution`)
   }
 
   return Object.freeze({
@@ -970,13 +914,11 @@ function resolveCompatibleProposals({
  * Prioritizes the held constraint, then the smaller offset, then the X axis.
  */
 function orderScaleProposals({
-  t = english,
   projectionMode,
   rawValues,
   x,
   y
 }: {
-  t?: Translate
   projectionMode: ScaleProjectionMode
   rawValues: readonly number[]
   x: ScaleAxisProposal | null
@@ -987,7 +929,7 @@ function orderScaleProposals({
   if (y) proposals.push(y)
   if (!x || !y) return Object.freeze(proposals)
 
-  const preferred = selectPrimaryScaleProposal({ t, projectionMode, rawValues, x, y })
+  const preferred = selectPrimaryScaleProposal({ projectionMode, rawValues, x, y })
   return preferred.axis === 'x' ? Object.freeze([x, y]) : Object.freeze([y, x])
 }
 
@@ -995,13 +937,11 @@ function orderScaleProposals({
  * Selects a single constraint if two constraints cannot be applied together.
  */
 function selectPrimaryScaleProposal({
-  t = english,
   projectionMode,
   rawValues,
   x,
   y
 }: {
-  t?: Translate
   projectionMode: ScaleProjectionMode
   rawValues: readonly number[]
   x: ScaleAxisProposal
@@ -1009,8 +949,8 @@ function selectPrimaryScaleProposal({
 }): ScaleAxisProposal {
   if (x.transition !== y.transition) return x.transition === 'held' ? x : y
 
-  const xMagnitude = getProposalCorrectionMagnitude({ t, projectionMode, rawValues, proposal: x })
-  const yMagnitude = getProposalCorrectionMagnitude({ t, projectionMode, rawValues, proposal: y })
+  const xMagnitude = getProposalCorrectionMagnitude({ projectionMode, rawValues, proposal: x })
+  const yMagnitude = getProposalCorrectionMagnitude({ projectionMode, rawValues, proposal: y })
   const magnitudeDifference = xMagnitude - yMagnitude
   if (magnitudeDifference < -SCALE_CORRECTION_COMPARISON_EPSILON) return x
   if (magnitudeDifference > SCALE_CORRECTION_COMPARISON_EPSILON) return y
@@ -1022,18 +962,15 @@ function selectPrimaryScaleProposal({
  * Returns the scale change required for one constraint.
  */
 function getProposalCorrectionMagnitude({
-  t = english,
   projectionMode,
   rawValues,
   proposal
 }: {
-  t?: Translate
   projectionMode: ScaleProjectionMode
   rawValues: readonly number[]
   proposal: ScaleAxisProposal
 }): number {
   return getScaleProjectionCorrectionMagnitude({
-    t,
     projection: projectionMode.projection,
     rawValues,
     constraint: createProjectionConstraint(proposal)
@@ -1055,7 +992,6 @@ function createProjectionConstraint(proposal: ScaleAxisProposal): ScaleProjectio
  * Builds a plan with snapping or with the original unsnapped values.
  */
 function createScaleSnapPlan({
-  t = english,
   baseline,
   projectionMode,
   rawValues,
@@ -1063,7 +999,6 @@ function createScaleSnapPlan({
   proposals,
   resolved
 }: {
-  t?: Translate
   baseline: ScaleGestureBaseline
   projectionMode: ScaleProjectionMode
   rawValues: readonly number[]
@@ -1079,7 +1014,6 @@ function createScaleSnapPlan({
   const constraints = createPlannedScaleConstraints({ x: resolved?.x ?? null, y: resolved?.y ?? null })
   const refinementCandidates = createPlannedScaleConstraints(proposals)
   assertEffectiveConstraintsReached({
-    t,
     constraints,
     effectivePositions,
     verificationEpsilon: baseline.thresholds.verification
@@ -1117,12 +1051,10 @@ function createPlannedScaleConstraints({
 
 /** Checks that applicable constraints match the calculated edges. */
 function assertEffectiveConstraintsReached({
-  t = english,
   constraints,
   effectivePositions,
   verificationEpsilon
 }: {
-  t?: Translate
   constraints: ScaleSnapConstraints
   effectivePositions: ProjectedScaleEdgePositions
   verificationEpsilon: number
@@ -1132,7 +1064,7 @@ function assertEffectiveConstraintsReached({
 
     const position = effectivePositions[constraint.candidate.edge]
     if (position === null || Math.abs(position - constraint.expectedPosition) > verificationEpsilon) {
-      throw new Error(t('snapping.scale.plan.constraintNotReached', { edge: constraint.candidate.edge }))
+      throw new Error(`The scale plan does not reach the ${constraint.candidate.edge} constraint`)
     }
   }
 }
@@ -1193,11 +1125,9 @@ function isConstraintReached({
  * Calculates edge positions for the scale values actually applied.
  */
 function projectMeasuredScalePositions({
-  t = english,
   plan,
   measuredValues
 }: {
-  t?: Translate
   plan: ScaleSnapPlan
   measuredValues: readonly number[]
 }): ProjectedScaleEdgePositions | null {
@@ -1205,7 +1135,6 @@ function projectMeasuredScalePositions({
   if (!measuredValues.every(Number.isFinite)) return null
 
   return projectScaleEdgePositions({
-    t,
     projection: plan.projection,
     values: measuredValues
   })

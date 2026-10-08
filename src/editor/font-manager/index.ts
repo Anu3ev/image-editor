@@ -1,4 +1,3 @@
-import { english, type Translate } from '../i18n'
 import type { EditorFontDefinition, EditorFontFaceDescriptors } from '../types/font'
 
 type MaybeDocument = typeof document | undefined
@@ -64,7 +63,7 @@ export default class FontManager {
 
   private fonts: EditorFontDefinition[]
 
-  constructor(fonts?: EditorFontDefinition[], private readonly t: Translate = english) {
+  constructor(fonts?: EditorFontDefinition[]) {
     this.fonts = fonts ?? []
   }
 
@@ -79,15 +78,14 @@ export default class FontManager {
     const doc: MaybeDocument = typeof document !== 'undefined' ? document : undefined
     if (!doc) return
 
-    const loadTasks = fonts.map((font) => FontManager.loadFont({ font, doc, t: this.t }))
+    const loadTasks = fonts.map((font) => FontManager.loadFont({ font, doc }))
 
     await Promise.allSettled(loadTasks)
   }
 
-  private static async loadFont({ font, doc, t }: {
+  private static async loadFont({ font, doc }: {
     font: EditorFontDefinition
     doc: Document
-    t: Translate
   }): Promise<void> {
     const supportsFontFace = typeof FontFace !== 'undefined'
     const family = font.family?.trim()
@@ -100,7 +98,7 @@ export default class FontManager {
 
     if (FontManager.registeredFontKeys.has(registrationKey)) return
 
-    if (FontManager.isFontFaceAlreadyApplied({ doc, family, descriptors: descriptorSnapshot, t })) {
+    if (FontManager.isFontFaceAlreadyApplied({ doc, family, descriptors: descriptorSnapshot })) {
       FontManager.registeredFontKeys.add(registrationKey)
       return
     }
@@ -113,7 +111,7 @@ export default class FontManager {
         FontManager.registeredFontKeys.add(registrationKey)
         return
       } catch (error) {
-        console.warn(t('fonts.warnings.fontFaceLoadFailed', { family }), error)
+        console.warn(`Failed to load font "${family}" using the FontFace API`, error)
       }
     }
 
@@ -232,11 +230,10 @@ export default class FontManager {
     ].join('::')
   }
 
-  private static isFontFaceAlreadyApplied({ doc, family, descriptors, t }: {
+  private static isFontFaceAlreadyApplied({ doc, family, descriptors }: {
     doc: Document
     family: string
     descriptors: DescriptorSnapshot
-    t: Translate
   }): boolean {
     const fontSet = doc.fonts
     if (!fontSet || typeof fontSet.forEach !== 'function') return false
@@ -267,7 +264,7 @@ export default class FontManager {
         }
       })
     } catch (error) {
-      console.warn(t('fonts.warnings.fontFaceSetCheckFailed'), error)
+      console.warn('Failed to check whether the font was already loaded through FontFaceSet', error)
       return false
     }
 

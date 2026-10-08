@@ -11,7 +11,6 @@ import type {
   TPointerEventInfo,
   Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type CanvasManager from '../../canvas-manager'
 import type { ObjectPlacement } from '../../canvas-manager'
 import type { BackgroundTextboxProps } from '../background-textbox'
@@ -367,9 +366,6 @@ function createTextCornerScaleAnchorPlacement({
  * Standalone-text scaling controller.
  */
 export default class TextScalingController {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /**
    * The editor's Fabric canvas.
    */
@@ -392,19 +388,15 @@ export default class TextScalingController {
 
   constructor(
     {
-      t = english,
       canvas,
       canvasManager,
       persistScaledTextbox
     }: {
-  t?: Translate
-      canvas: Canvas
+  canvas: Canvas
       canvasManager: CanvasManager
       persistScaledTextbox: PersistScaledTextbox
     }
   ) {
-    this.t = t
-
     this.canvas = canvas
     this.canvasManager = canvasManager
     this.persistScaledTextbox = persistScaledTextbox
@@ -487,8 +479,8 @@ export default class TextScalingController {
     transform: Transform
   }): AppliedTextCornerScale {
     const state = this.scalingState.get(target)
-    if (!state) throw new Error(this.t('text.errors.cornerScaleRequiresInitialState'))
-    if (!Number.isFinite(scale) || scale <= 0) throw new Error(this.t('text.errors.nonpositiveScaleMultiplier'))
+    if (!state) throw new Error('Text corner scaling must start from the initial state')
+    if (!Number.isFinite(scale) || scale <= 0) throw new Error('The text scaling multiplier must be positive')
 
     const previous = captureCurrentTextScaleState({ state, textbox: target })
     const materialized = this._materializeStandaloneCornerScale({
@@ -571,7 +563,7 @@ export default class TextScalingController {
     target: EditorTextbox
   }): void {
     const state = this.scalingState.get(target)
-    if (!state) throw new Error(this.t('text.errors.legacyCommitRequiresActiveScale'))
+    if (!state) throw new Error('Switching to legacy commit behavior requires active text scaling')
 
     state.shouldRoundDimensionsOnCommit = true
   }

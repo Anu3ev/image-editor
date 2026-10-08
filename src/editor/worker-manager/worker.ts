@@ -1,4 +1,3 @@
-import { WorkerOperationError } from './errors'
 /* eslint-disable no-restricted-globals */
 
 self.onmessage = async(e: MessageEvent): Promise<void> => {
@@ -37,7 +36,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
       const ctx = offscreen.getContext('2d')
 
       if (!ctx) {
-        throw new WorkerOperationError('worker.errors.offscreenContextUnavailable')
+        throw new Error('Failed to get a 2D context from OffscreenCanvas')
       }
 
       ctx.drawImage(imgBitmap, 0, 0, width, height)
@@ -64,7 +63,7 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
       const ctx = off.getContext('2d')
 
       if (!ctx) {
-        throw new WorkerOperationError('worker.errors.offscreenContextUnavailable')
+        throw new Error('Failed to get a 2D context from OffscreenCanvas')
       }
 
       ctx.drawImage(bitmap, 0, 0, width, height)
@@ -83,11 +82,11 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
           if (typeof reader.result === 'string') {
             resolve(reader.result)
           } else {
-            reject(new WorkerOperationError('worker.errors.imageDataUrlReadFailed'))
+            reject(new Error('Failed to read the image as a data URL'))
           }
         }
-        reader.onerror = () => reject(reader.error || new WorkerOperationError('worker.errors.imageBlobReadFailed'))
-        reader.onabort = () => reject(new WorkerOperationError('worker.errors.imageBlobReadAborted'))
+        reader.onerror = () => reject(reader.error || new Error('Failed to read the image Blob'))
+        reader.onabort = () => reject(new Error('Reading the image Blob was aborted'))
         reader.readAsDataURL(blob)
       })
 
@@ -96,27 +95,16 @@ self.onmessage = async(e: MessageEvent): Promise<void> => {
     }
 
     default:
-      throw new WorkerOperationError('worker.errors.unknownAction', { action })
+      throw new Error(`Unknown action ${action}`)
     }
   } catch (err) {
-    if (err instanceof WorkerOperationError) {
-      self.postMessage({
-        requestId,
-        action,
-        success: false,
-        error: err.message,
-        errorKey: err.key,
-        errorParams: err.params
-      })
-    } else {
-      self.postMessage({
-        requestId,
-        action,
-        success: false,
-        error: err instanceof Error ? err.message : String(err),
-        cause: err instanceof Error ? err : undefined
-      })
-    }
+    self.postMessage({
+      requestId,
+      action,
+      success: false,
+      error: err instanceof Error ? err.message : String(err),
+      cause: err instanceof Error ? err : undefined
+    })
   } finally {
     bitmapToClose?.close()
   }

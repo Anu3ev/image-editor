@@ -1,5 +1,4 @@
 import type { Transform } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type { ObjectBounds } from '../../utils/geometry'
 import { getObjectExactBounds } from '../../utils/geometry'
 import type { ScaleSceneEdge } from '../../snapping-manager/scaling/scale-projection'
@@ -197,11 +196,9 @@ function createProjectionModes({
  * Captures exact geometry before the first Textbox width change.
  */
 export function createTextWidthResizeGestureProjection({
-  t = english,
   textbox,
   transform
 }: {
-  t?: Translate
   textbox: EditorTextbox
   transform: Transform
 }): TextWidthResizeGestureProjection | null {
@@ -217,7 +214,7 @@ export function createTextWidthResizeGestureProjection({
   const baselineWidth = textbox.width
   if (!Number.isFinite(baselineWidth) || baselineWidth <= 0) return null
 
-  const baselineBounds = getObjectExactBounds({ t, object: textbox })
+  const baselineBounds = getObjectExactBounds({ object: textbox })
   const widthVector = resolveWidthSceneVector({
     textbox,
     controlKey: transform.corner,
@@ -248,15 +245,13 @@ export function createTextWidthResizeGestureProjection({
  * This keeps wrapping-induced height changes from distorting guide discovery and holding.
  */
 export function createTextWidthResizeStepProjection({
-  t = english,
   textbox,
   gesture
 }: {
-  t?: Translate
   textbox: EditorTextbox
   gesture: TextWidthResizeGestureProjection
 }): ScaleStepProjectionInput | null {
-  const bounds = getObjectExactBounds({ t, object: textbox })
+  const bounds = getObjectExactBounds({ object: textbox })
   const { width } = textbox
   const { projectionModes } = gesture
   const [projectionMode] = projectionModes

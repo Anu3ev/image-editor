@@ -3,7 +3,6 @@ import {
   Canvas,
   Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type {
   RectangularScaleGestureMode,
   RectangularScaleMultipliers
@@ -175,14 +174,12 @@ type ActiveSelectionShapeDomainPlan = Readonly<{
 
 /** Combines the local bounds of all children in the original selection. */
 function resolveSelectionLocalBounds({
-  t = english,
   selection
 }: {
-  t?: Translate
   selection: ActiveSelection
 }): ActiveSelectionLocalBounds {
   const [first, ...rest] = selection.getObjects()
-  if (!first) throw new Error(t('shape.errors.scaleSessionRequiresSelection'))
+  if (!first) throw new Error('A shape scaling session requires a non-empty selection')
 
   let bounds = resolveActiveSelectionObjectLocalBounds({ target: first })
   for (const object of rest) {
@@ -197,14 +194,12 @@ function resolveSelectionLocalBounds({
 
 /** Creates immutable shape anchors relative to the original selection frame. */
 function createSelectionSessionItems({
-  t = english,
   items,
   selection,
   selectionBounds,
   transformOriginX,
   transformOriginY
 }: {
-  t?: Translate
   items: readonly ActiveSelectionShapeScalingItem[]
   selection: ActiveSelection
   selectionBounds: ActiveSelectionLocalBounds
@@ -219,7 +214,7 @@ function createSelectionSessionItems({
 
     sessionItems.set(group, {
       bounds,
-      rotatedGeometry: captureRotatedActiveSelectionShapeGeometry({ t, group, selection }),
+      rotatedGeometry: captureRotatedActiveSelectionShapeGeometry({ group, selection }),
       transformOriginX,
       transformOriginPointX: transformOriginPoint.x,
       verticalAttachment: resolveActiveSelectionVerticalAttachment({
@@ -254,9 +249,6 @@ function resolveSelectionFixedAnchor({
  * Controller for scaling shape groups inside an ActiveSelection.
  */
 export default class ShapeActiveSelectionScalingController {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /**
    * The editor's Fabric canvas.
    */
@@ -289,16 +281,12 @@ export default class ShapeActiveSelectionScalingController {
    * Initializes the controller for scaling shape groups inside the active selection.
    */
   constructor({
-    t = english,
     canvas,
     shapeScalingState
   }: {
-  t?: Translate
-    canvas: Canvas
+  canvas: Canvas
     shapeScalingState: WeakMap<ShapeGroup, ShapeScalingState>
   }) {
-    this.t = t
-
     this.canvas = canvas
     this.shapeScalingState = shapeScalingState
     this.scalingState = new WeakMap()
@@ -392,7 +380,7 @@ export default class ShapeActiveSelectionScalingController {
     transform: Transform
   }): ActiveSelectionScaleDomainMeasurement {
     const items = this._collectPreviewItems({ selection, transform })
-    if (items.length === 0) throw new Error(this.t('shape.errors.domainMeasurementRequiresShape'))
+    if (items.length === 0) throw new Error('Domain measurement requires at least one shape')
 
     const preview = this._resolveScalingPreview({ items, mode, multipliers, selection, transform })
     const children = Object.freeze(items.map((item) => {
@@ -427,13 +415,13 @@ export default class ShapeActiveSelectionScalingController {
   }): void {
     const plan = this._getDomainPlan({ measurement, selection })
     if (children.length !== plan.children.length) {
-      throw new Error(this.t('shape.errors.applicationMissingMeasuredShapes'))
+      throw new Error('Application must include all measured shapes')
     }
 
     const applications = plan.children.map((childPlan, index) => {
       const child = children[index]
       if (!child || child.target !== childPlan.item.group) {
-        throw new Error(this.t('shape.errors.applicationOrderMismatch'))
+        throw new Error('The order of applied shapes must match the measurement order')
       }
 
       return { child, childPlan }
@@ -526,7 +514,7 @@ export default class ShapeActiveSelectionScalingController {
   }): void {
     const { group, shape, state, text } = item
     const sessionItem = preview.session.items.get(group)
-    if (!sessionItem) throw new Error(this.t('shape.errors.missingScaleSessionState'))
+    if (!sessionItem) throw new Error('The shape must have state in the current scaling session')
 
     state.isProportionalScaling = preview.isProportionalCornerScale
     const { layoutScale, minimumHeight } = this._resolveShapePreviewDimensions({
@@ -655,7 +643,7 @@ export default class ShapeActiveSelectionScalingController {
   }): ActiveSelectionScaleDomainChildMeasurement {
     const sessionItem = preview.session.items.get(child.item.group)
     if (!sessionItem || sessionItem.rotatedGeometry) {
-      throw new Error(this.t('shape.errors.mixedMeasurementRequiresUnrotatedShape'))
+      throw new Error('Mixed-composition measurement only supports unrotated canonical shapes')
     }
 
     return createActiveSelectionShapeDomainChildMeasurement({
@@ -684,7 +672,6 @@ export default class ShapeActiveSelectionScalingController {
   }): void {
     const { group, shape, text } = childPlan.item
     applyActiveSelectionShapeDomainChild({
-      t: this.t,
       child,
       frame,
       group,
@@ -705,7 +692,7 @@ export default class ShapeActiveSelectionScalingController {
   }): ActiveSelectionShapeDomainPlan {
     const plan = this.domainPlans.get(measurement)
     if (!plan || plan.preview.session !== this.scalingSessions.get(selection)) {
-      throw new Error(this.t('shape.errors.measurementRequiredBeforeApplication'))
+      throw new Error('Shapes must be measured in the same session before they are applied')
     }
 
     return plan
@@ -895,7 +882,7 @@ export default class ShapeActiveSelectionScalingController {
     const transformOriginY = resolveShapeTransformOriginYValue({
       value: transform.originY
     }) ?? 'center'
-    const selectionBounds = resolveSelectionLocalBounds({ t: this.t, selection })
+    const selectionBounds = resolveSelectionLocalBounds({ selection })
 
     const session = {
       bounds: selectionBounds,
@@ -905,7 +892,6 @@ export default class ShapeActiveSelectionScalingController {
         transformOriginY
       }),
       items: createSelectionSessionItems({
-        t: this.t,
         items,
         selection,
         selectionBounds,
@@ -1065,7 +1051,7 @@ export default class ShapeActiveSelectionScalingController {
       const sessionItem = session.items.get(item.group)
       const layoutResult = proportionalLayoutResults.get(item.group)
       if (!sessionItem || !layoutResult) {
-        throw new Error(this.t('shape.errors.missingSessionConstraints'))
+        throw new Error('Constraints for the shape must be calculated for the current session')
       }
 
       return resolveActiveSelectionShapeScaleConstraint({
@@ -1436,7 +1422,6 @@ export default class ShapeActiveSelectionScalingController {
 
     if (rotatedGeometry) {
       applyRotatedActiveSelectionShapeGeometry({
-        t: this.t,
         geometry: rotatedGeometry,
         group,
         selection

@@ -1,6 +1,5 @@
-import { Point, type FabricObject, type Transform } from 'fabric'
-import { english, type Translate } from '../../i18n'
 /* eslint-disable no-use-before-define -- Session creation precedes internal calculations. */
+import { Point, type FabricObject, type Transform } from 'fabric'
 
 import type SnappingManager from '../../snapping-manager'
 import {
@@ -48,12 +47,10 @@ export interface CropScaleSession {
 
 /** Creates a crop session with exact corners excluding the stroke and constraints in source pixels. */
 export function createCropScaleSession({
-  t = english,
   frame,
   transform,
   snapping
 }: {
-  t?: Translate
   frame: CropFrame
   transform: Transform
   snapping: SnappingManager
@@ -88,7 +85,7 @@ export function createCropScaleSession({
     frame,
     transform,
     projection,
-    runtime: startCropScaleSnapping({ t, frame, source, projection, snapping }),
+    runtime: startCropScaleSnapping({ frame, source, projection, snapping }),
     startRect,
     anchorX,
     anchorY,
@@ -100,28 +97,25 @@ export function createCropScaleSession({
 
 /** Captures candidates from the shared resolver, including the priority crop source bounds. */
 function startCropScaleSnapping({
-  t = english,
   frame,
   source,
   projection,
   snapping
 }: {
-  t?: Translate
   frame: CropFrame
   source: FabricObject
   projection: RectangularScaleGestureProjection
   snapping: SnappingManager
 }): ScaleSnappingRuntime {
-  const projectionModes = createRectangularScaleProjectionModes({ t, projection, includeUniformSideScale: true })
+  const projectionModes = createRectangularScaleProjectionModes({ projection, includeUniformSideScale: true })
   const environment = snapping.captureScaleSnapEnvironment({
     activeObject: frame,
-    targetEdges: resolveRectangularScaleMovingEdges({ t, projectionModes }),
+    targetEdges: resolveRectangularScaleMovingEdges({ projectionModes }),
     domainBoundary: { object: source, bounds: getCropObjectSceneBounds({ object: source }) }
   })
-  const runtime = new ScaleSnappingRuntime(t)
+  const runtime = new ScaleSnappingRuntime()
   runtime.startSession({
     baseline: createScaleGestureBaseline({
-      t,
       bounds: projection.baselineBounds,
       fixedAnchor: projection.fixedAnchor,
       projectionModes,
@@ -161,17 +155,14 @@ function resolveCropScaleMaximum({
 
 /** Applies source size constraints and rounding to the plan without modifying the live crop area. */
 export function resolveCropScaleSize({
-  t = english,
   session,
   plan
 }: {
-  t?: Translate
   session: CropScaleSession
   plan: ScaleSnapPlan
 }): RectangularScaleMultipliers {
   const { minimum, maximum, startRect } = session
   const desired = resolveRectangularScaleMultipliers({
-    t,
     projectionMode: plan.projectionMode,
     effectiveValues: plan.effectiveValues
   })

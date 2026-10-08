@@ -218,7 +218,7 @@ async function exportImageElementAsBase64({
     )
 
     if (typeof dataUrl !== 'string') {
-      throw new Error(editor.t('image.errors.workerDataUrlStringExpected'))
+      throw new Error('The toDataURL worker must return a string')
     }
 
     const data = {
@@ -247,7 +247,7 @@ async function exportRenderedObject({
   editor: ImageManagerEditor
   request: ResolvedObjectExportRequest
 }): Promise<ObjectExportResult> {
-  const objectBlob = await createObjectBlob({ request, t: editor.t })
+  const objectBlob = await createObjectBlob({ request })
 
   if (request.exportAsBlob) {
     return emitObjectExported({
@@ -281,7 +281,7 @@ async function exportRenderedObject({
 /**
  * Renders the object to a canvas and creates a Blob.
  */
-async function createObjectBlob({ request, t }: { request: ResolvedObjectExportRequest; t: Translate }): Promise<Blob> {
+async function createObjectBlob({ request }: { request: ResolvedObjectExportRequest }): Promise<Blob> {
   const objectCanvas = request.object.toCanvasElement({
     enableRetinaScaling: false
   })
@@ -292,7 +292,7 @@ async function createObjectBlob({ request, t }: { request: ResolvedObjectExportR
         if (blob) {
           resolve(blob)
         } else {
-          reject(new Error(t('image.errors.canvasBlobCreationFailed')))
+          reject(new Error('Failed to create a Blob from the canvas'))
         }
       },
       request.contentType,

@@ -57,17 +57,17 @@ export default class ErrorManager {
   }: ErrorItem): void {
     const method = providedMethod === undefined ? 'Unknown Method' : providedMethod
     if (!ErrorManager.isValidErrorCode(code)) {
-      console.warn(this.editor.t('errors.unknownErrorCode'), { code, origin, method })
+      console.warn('Unknown error code: ', { code, origin, method })
       return
     }
 
     if (!code) return
 
     const msg = message || code
-    const methodLabel = providedMethod === undefined ? this.editor.t('errors.unknownMethod') : method
+    const methodLabel = providedMethod === undefined ? 'Unknown method' : method
 
     // write to the console
-    console.error(this.editor.t('errors.logFormat', { origin, method: methodLabel, code, message: msg }), data)
+    console.error(`${origin}. ${methodLabel}. ${code}. ${msg}`, data)
 
     const errorData = {
       code,
@@ -104,14 +104,14 @@ export default class ErrorManager {
   }: ErrorItem): void {
     const method = providedMethod === undefined ? 'Unknown Method' : providedMethod
     if (!ErrorManager.isValidErrorCode(code)) {
-      console.warn(this.editor.t('errors.unknownWarningCode'), { code, origin, method })
+      console.warn('Unknown warning code: ', { code, origin, method })
       return
     }
 
     const msg = message || code
-    const methodLabel = providedMethod === undefined ? this.editor.t('errors.unknownMethod') : method
+    const methodLabel = providedMethod === undefined ? 'Unknown method' : method
 
-    console.warn(this.editor.t('errors.logFormat', { origin, method: methodLabel, code, message: msg }), data)
+    console.warn(`${origin}. ${methodLabel}. ${code}. ${msg}`, data)
 
     const warningData = {
       code,

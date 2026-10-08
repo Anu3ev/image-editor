@@ -99,13 +99,13 @@ describe('Custom editor languages', () => {
     expect(t('ui.toolbar.delete')).toBe('Delete')
   })
 
-  it('interpolates custom diagnostic strings without escaping host content', () => {
+  it('interpolates custom visible indicators without escaping host content', () => {
     const t = createTranslator({
       language: 'pt',
-      customLanguages: { pt: { editor: { errors: { containerNotFound: 'Não encontrado: {{containerId}}' } } } }
+      customLanguages: { pt: { ui: { indicators: { objectSize: 'Largura: {{width}} Altura: {{height}}' } } } }
     })
 
-    expect(t('editor.errors.containerNotFound', { containerId: '<canvas>&' })).toBe('Não encontrado: <canvas>&')
+    expect(t('ui.indicators.objectSize', { width: '<120>&', height: 48 })).toBe('Largura: <120>& Altura: 48')
   })
 
   it('isolates concurrent configurations even after caller resources change', () => {
@@ -161,6 +161,9 @@ describe('Public custom-language types', () => {
     // @ts-expect-error A catalog domain cannot be replaced by a string leaf.
     const invalidDomain: EditorLocale = { ui: 'Toolbar' }
 
-    expect([unknownKey, invalidLeaf, invalidDomain]).toHaveLength(3)
+    // @ts-expect-error Technical diagnostics are not part of the visible UI catalog.
+    const technicalOverride: EditorLocale = { editor: { errors: { containerNotFound: 'Custom error' } } }
+
+    expect([unknownKey, invalidLeaf, invalidDomain, technicalOverride]).toHaveLength(4)
   })
 })

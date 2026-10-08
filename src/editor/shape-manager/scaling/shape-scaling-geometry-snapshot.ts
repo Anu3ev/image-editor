@@ -3,7 +3,6 @@ import {
   util,
   type FabricObject
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import { getShapeNodes } from '../domain/shape-nodes'
 import type {
@@ -139,16 +138,14 @@ function captureShapeRounding({
 
 /** Restores rounding on a rectangular shape node. */
 function restoreShapeRounding({
-  t = english,
   shape,
   snapshot
 }: {
-  t?: Translate
   shape: ShapeNode
   snapshot: ShapeNodeRoundingSnapshot
 }): void {
   if (!snapshot) return
-  if (!(shape instanceof Rect)) throw new Error(t('shape.errors.roundingRestoreRequiresRectangle'))
+  if (!(shape instanceof Rect)) throw new Error('Corner rounding can only be restored for a rectangular shape')
 
   shape.set(snapshot)
 }
@@ -188,14 +185,12 @@ function restoreTextGeometry({
 
 /** Saves mutable group, shape, and text geometry before an atomic scaling step. */
 export function captureShapeScalingGeometry({
-  t = english,
   group
 }: {
-  t?: Translate
   group: ShapeGroup
 }): ShapeScalingGeometrySnapshot {
   const { shape, text } = getShapeNodes({ group })
-  if (!shape || !text) throw new Error(t('shape.errors.snapshotRequiresCompleteComposition'))
+  if (!shape || !text) throw new Error('A scaling snapshot requires a complete shape composition')
 
   return Object.freeze({
     group,
@@ -212,10 +207,8 @@ export function captureShapeScalingGeometry({
 
 /** Fully restores the shape composition after an incomplete atomic operation. */
 export function restoreShapeScalingGeometry({
-  t = english,
   snapshot
 }: {
-  t?: Translate
   snapshot: ShapeScalingGeometrySnapshot
 }): void {
   const failures: unknown[] = []
@@ -227,7 +220,7 @@ export function restoreShapeScalingGeometry({
   }
   try {
     restoreFabricGeometry({ object: snapshot.shape, snapshot: snapshot.shapeGeometry })
-    restoreShapeRounding({ t, shape: snapshot.shape, snapshot: snapshot.shapeRounding })
+    restoreShapeRounding({ shape: snapshot.shape, snapshot: snapshot.shapeRounding })
   } catch (error) {
     failures.push(error)
   }
@@ -252,10 +245,8 @@ export function restoreShapeScalingGeometry({
 
 /** Attempts to restore every shape and throws the first error only after a complete pass. */
 export function restoreShapeScalingSnapshots({
-  t = english,
   snapshots
 }: {
-  t?: Translate
   snapshots: readonly ShapeScalingGeometrySnapshot[]
 }): void {
   const failures: unknown[] = []
@@ -263,12 +254,12 @@ export function restoreShapeScalingSnapshots({
   for (let index = snapshots.length - 1; index >= 0; index -= 1) {
     const snapshot = snapshots[index]
     if (!snapshot) {
-      failures.push(new Error(t('shape.errors.missingGeometrySnapshot')))
+      failures.push(new Error('Each shape must have a geometry snapshot'))
       continue
     }
 
     try {
-      restoreShapeScalingGeometry({ t, snapshot })
+      restoreShapeScalingGeometry({ snapshot })
     } catch (error) {
       failures.push(error)
     }

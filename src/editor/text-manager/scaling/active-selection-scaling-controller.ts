@@ -5,7 +5,6 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type CanvasManager from '../../canvas-manager'
 import type {
   RectangularScaleGestureMode,
@@ -141,9 +140,6 @@ function resolveSupportedSelectionContent({
 
 /** Manages a selection whose nonlinear geometry is defined by text objects. */
 export default class TextActiveSelectionScalingController {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /** The editor's Fabric canvas. */
   private readonly canvas: Canvas
 
@@ -155,16 +151,12 @@ export default class TextActiveSelectionScalingController {
 
   /** Creates the owner of the text portion of selection scaling. */
   constructor({
-    t = english,
     canvas,
     canvasManager
   }: {
-  t?: Translate
-    canvas: Canvas
+  canvas: Canvas
     canvasManager: CanvasManager
   }) {
-    this.t = t
-
     this.canvas = canvas
     this.canvasManager = canvasManager
   }
@@ -198,10 +190,9 @@ export default class TextActiveSelectionScalingController {
     })
     if (!content || transform.target !== selection) return false
     if (!ACTIVE_SELECTION_TEXT_SCALE_CONTROLS.has(transform.corner)) return false
-    if (this.session) throw new Error(this.t('text.errors.selectionScaleSessionAlreadyStarted'))
+    if (this.session) throw new Error('A scaling session for the selection containing text has already started')
 
     const measurer = new ActiveSelectionTextScaleMeasurer({
-      t: this.t,
       affineChildren: content.affineChildren,
       canvasManager: this.canvasManager,
       children: content.texts,
@@ -249,7 +240,6 @@ export default class TextActiveSelectionScalingController {
     const { measurer } = this._getSession({ selection })
 
     return resolveActiveSelectionTextScaleStep({
-      t: this.t,
       measurer,
       mode,
       plan,
@@ -288,13 +278,13 @@ export default class TextActiveSelectionScalingController {
     const { session } = this
     if (!session || session.selection !== selection) return false
     if (!session.measurer.hasConfirmedMeasurement()) {
-      throw new Error(this.t('text.errors.selectionCommitRequiresConfirmedState'))
+      throw new Error('Committing a selection containing text requires a previously confirmed state')
     }
 
     const failures: unknown[] = []
     try {
       if (this.canvas.getActiveObject() === selection) {
-        throw new Error(this.t('text.errors.temporaryFrameNotRemovedBeforeCommit'))
+        throw new Error('SelectionManager must remove the temporary frame before committing text objects')
       }
       this._assertCommittedTexts({ texts: session.texts })
     } catch (error) {
@@ -351,7 +341,7 @@ export default class TextActiveSelectionScalingController {
   private _getSession({ selection }: { selection: ActiveSelection }): ActiveSelectionTextScalingSession {
     const { session } = this
     if (!session || session.selection !== selection) {
-      throw new Error(this.t('text.errors.selectionScaleRequiresOriginalSession'))
+      throw new Error('Scaling a selection containing text must start from the original session')
     }
 
     return session
@@ -368,7 +358,7 @@ export default class TextActiveSelectionScalingController {
         child.skewY ?? 0
       ]
       if (!affineValues.every((value) => isNear({ actual: value, expected: 0 }))) {
-        throw new Error(this.t('text.errors.noncanonicalTransformAfterCommit'))
+        throw new Error('Each text object must have a canonical transform after commit')
       }
     }
   }

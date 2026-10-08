@@ -204,7 +204,6 @@ export default class ShapeManager {
     this.editor = editor
     registerShapeGroup()
     this.scalingController = new ShapeScalingController({
-      t: this.editor.t,
       canvas: editor.canvas
     })
     this.editingController = new ShapeEditingController({
@@ -218,7 +217,6 @@ export default class ShapeManager {
       editor: this.editor
     })
     this.textNodeController = new ShapeTextNodeController({
-      t: this.editor.t,
       resolveTextManager: () => this.editor.textManager
     })
     this.groupFactory = new ShapeGroupFactory({
@@ -639,7 +637,7 @@ export default class ShapeManager {
 
     const appliedScale = this.scalingController.resolveActiveSelectionCommittedScale({ selection })
     if (!isPositiveFiniteScale(appliedScale)) {
-      throw new Error(this.editor.t('shape.errors.invalidSelectionScale'))
+      throw new Error('ShapeManager must apply a positive finite scale to the selection')
     }
 
     transform.scaleX = selection.scaleX
@@ -657,14 +655,14 @@ export default class ShapeManager {
     children: readonly FabricObject[]
   }): void {
     if (children.length < 1) {
-      throw new Error(this.editor.t('shape.errors.cleanupRequiresChild'))
+      throw new Error('Clearing selection scaling state requires at least one child shape')
     }
 
     const groups: ShapeGroup[] = []
 
     for (const child of children) {
       if (!isShapeGroup(child)) {
-        throw new Error(this.editor.t('shape.errors.cleanupRequiresShapeGroups'))
+        throw new Error('The shape domain session can only be cleared for shape-group objects')
       }
 
       groups.push(child)
@@ -691,13 +689,13 @@ export default class ShapeManager {
     transform?: Transform | null
   }): ActiveSelectionShapeScaleCommit {
     const groups = children.map((child) => {
-      if (!isShapeGroup(child)) throw new Error(this.editor.t('shape.errors.mixedCommitRequiresShapes'))
+      if (!isShapeGroup(child)) throw new Error('Committing a mixed composition accepts only shapes')
 
       return child
     })
-    if (groups.length === 0) throw new Error(this.editor.t('shape.errors.mixedCommitRequiresShape'))
+    if (groups.length === 0) throw new Error('Committing a mixed composition requires at least one shape')
 
-    const beforeSnapshots = groups.map((group) => captureShapeScalingGeometry({ t: this.editor.t, group }))
+    const beforeSnapshots = groups.map((group) => captureShapeScalingGeometry({ group }))
     const { scaleX, scaleY } = this.scalingController.resolveActiveSelectionCommittedScale({ selection })
 
     try {
@@ -709,7 +707,7 @@ export default class ShapeManager {
       })
     } catch (error) {
       try {
-        restoreShapeScalingSnapshots({ t: this.editor.t, snapshots: beforeSnapshots })
+        restoreShapeScalingSnapshots({ snapshots: beforeSnapshots })
       } catch {
         // The commit error remains primary after attempting to restore each shape.
       }
@@ -769,7 +767,7 @@ export default class ShapeManager {
         scaleY,
         transform
       })
-      if (!committed) throw new Error(this.editor.t('shape.errors.measuredDimensionsNotCommitted'))
+      if (!committed) throw new Error('Each measured shape must commit its calculated dimensions')
 
       this.editor.canvasManager.applyObjectPlacement({ object: group, placement })
       group.setCoords()

@@ -1,5 +1,4 @@
 import { Point, Textbox, type FabricObject } from 'fabric'
-import { english, type Translate } from '../i18n'
 
 /** Object dimensions in the coordinates defined by its current geometry contract. */
 export type Dimensions = {
@@ -232,13 +231,11 @@ function createObjectBounds({
  * Validates the object's exact bounds before use.
  */
 function assertExactObjectBounds({
-  t = english,
   bounds,
   source
 }: {
-  t?: Translate
   bounds: ObjectBounds
-  source: string
+  source: 'custom snapping bounds' | 'visual bounds'
 }): void {
   const { left, right, top, bottom } = bounds
   const hasFiniteEdges = Number.isFinite(left)
@@ -247,11 +244,11 @@ function assertExactObjectBounds({
     && Number.isFinite(bottom)
 
   if (!hasFiniteEdges) {
-    throw new Error(t('geometry.errors.nonFiniteEdges', { source }))
+    throw new Error(`Invalid ${source}: edge coordinates must be finite`)
   }
 
   if (right < left || bottom < top) {
-    throw new Error(t('geometry.errors.unorderedEdges', { source }))
+    throw new Error(`Invalid ${source}: edge coordinates must be ordered`)
   }
 }
 
@@ -289,10 +286,8 @@ function getObjectVisualBounds({
  * Invalid custom bounds cause an error instead of being replaced with different geometry.
  */
 export const getObjectExactBounds = ({
-  t = english,
   object
 }: {
-  t?: Translate
   object?: FabricObject | null
 }): ObjectBounds | null => {
   if (!object) return null
@@ -300,9 +295,8 @@ export const getObjectExactBounds = ({
   const customBounds = object.getObjectSnappingBounds?.()
   if (customBounds) {
     assertExactObjectBounds({
-      t,
       bounds: customBounds,
-      source: t('geometry.labels.customSnappingBounds')
+      source: 'custom snapping bounds'
     })
 
     return createObjectBounds(customBounds)
@@ -312,9 +306,8 @@ export const getObjectExactBounds = ({
   if (!visualBounds) return null
 
   assertExactObjectBounds({
-    t,
     bounds: visualBounds,
-    source: t('geometry.labels.visualBounds')
+    source: 'visual bounds'
   })
 
   return visualBounds

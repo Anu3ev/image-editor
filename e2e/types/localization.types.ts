@@ -14,6 +14,4 @@ export interface LocalizationExample {
   language: string
   newText: string
   duplicate: string
-  missingContainer: string
-  unknownWorkerAction: string
 }

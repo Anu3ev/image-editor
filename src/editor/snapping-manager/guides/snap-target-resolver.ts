@@ -1,5 +1,4 @@
 import type { Canvas, FabricObject } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import {
   getObjectBounds,
@@ -30,15 +29,12 @@ export interface SnapDomainBoundary {
 
 /** Selects snap targets and calculates their bounds in the given mode. */
 export class SnapTargetResolver {
-  private readonly t: Translate
-
   /** Canvas containing the objects available for the current snapshot. */
   private readonly canvas: Canvas
 
   /** Creates a snap target resolver for the editor canvas. */
-  constructor({ canvas, t = english }: { canvas: Canvas; t?: Translate }) {
+  constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
-    this.t = t
   }
 
   /** Returns eligible objects and their calculated bounds in canvas order. */
@@ -92,7 +88,7 @@ export class SnapTargetResolver {
     }))
     const montageBounds = domainBoundary?.object === montageArea
       ? domainBoundary.bounds
-      : getObjectExactBounds({ t: this.t, object: montageArea })
+      : getObjectExactBounds({ object: montageArea })
     if (montageBounds) {
       sources.push({ id: 'montage-area', bounds: montageBounds, edgeCategory: 'domain-boundary' })
     }
@@ -108,7 +104,7 @@ export class SnapTargetResolver {
     mode: SnapTargetBoundsMode
     object: FabricObject
   }): Bounds | null {
-    if (mode === 'exact') return getObjectExactBounds({ t: this.t, object })
+    if (mode === 'exact') return getObjectExactBounds({ object })
 
     return getObjectBounds({ object })
   }

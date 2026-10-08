@@ -1,6 +1,6 @@
 /* eslint-disable no-restricted-globals -- The worker entrypoint installs its handler on self. */
-describe('Image worker localization protocol', () => {
-  it('returns a key and interpolation data without selecting a language', async() => {
+describe('Image worker error protocol', () => {
+  it('returns an English message with the action and original error', async() => {
     const previousHandler = self.onmessage
     const send = jest.spyOn(self, 'postMessage').mockImplementation(() => {})
     try {
@@ -14,9 +14,8 @@ describe('Image worker localization protocol', () => {
         requestId: 'test-request',
         action: '<custom-action>',
         success: false,
-        error: 'worker.errors.unknownAction',
-        errorKey: 'worker.errors.unknownAction',
-        errorParams: { action: '<custom-action>' }
+        error: 'Unknown action <custom-action>',
+        cause: expect.objectContaining({ message: 'Unknown action <custom-action>' })
       })
     } finally {
       self.onmessage = previousHandler

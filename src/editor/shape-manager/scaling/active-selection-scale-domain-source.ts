@@ -2,7 +2,6 @@ import type {
   ActiveSelection,
   Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import type {
   RectangularScaleGestureMode,
@@ -27,9 +26,6 @@ const ACTIVE_SELECTION_SHAPE_DOMAIN_CACHE_SIZE = 48
 
 /** Session-scoped source of actual shape geometry for shared measurement of a mixed selection. */
 export default class ShapeActiveSelectionScaleDomainSource implements ActiveSelectionScaleDomainSource {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /** Controller that calculates and applies internal shape layout. */
   private readonly controller: ShapeActiveSelectionScalingController
 
@@ -53,21 +49,17 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
 
   /** Captures the immutable start of the domain session before the first Fabric mutation. */
   constructor({
-    t = english,
     controller,
     selection,
     targets,
     transform
   }: {
-  t?: Translate
-    controller: ShapeActiveSelectionScalingController
+  controller: ShapeActiveSelectionScalingController
     selection: ActiveSelection
     targets: readonly ShapeGroup[]
     transform: Transform
   }) {
-    this.t = t
-
-    if (targets.length === 0) throw new Error(this.t('shape.errors.mixedCompositionRequiresShape'))
+    if (targets.length === 0) throw new Error('A mixed composition must contain at least one shape')
 
     this.controller = controller
     this.selection = selection
@@ -76,7 +68,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     this.confirmedGeometry = this._captureGeometry()
 
     if (!controller.beginDomainScaling({ selection, transform })) {
-      throw new Error(this.t('shape.errors.domainScaleSessionNotStarted'))
+      throw new Error('Supported shapes must start a domain scaling session')
     }
   }
 
@@ -101,7 +93,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     this.measurements.set(key, measurement)
     if (this.measurements.size > ACTIVE_SELECTION_SHAPE_DOMAIN_CACHE_SIZE) {
       const oldestKey = this.measurements.keys().next().value
-      if (typeof oldestKey !== 'string') throw new Error(this.t('shape.errors.emptyMeasurementCache'))
+      if (typeof oldestKey !== 'string') throw new Error('The shape measurement cache must not be empty')
       this.measurements.delete(oldestKey)
     }
 
@@ -157,7 +149,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
 
   /** Saves the exact mutable geometry of all shapes in the current session. */
   private _captureGeometry(): readonly ShapeScalingGeometrySnapshot[] {
-    return Object.freeze(this.targets.map((group) => captureShapeScalingGeometry({ t: this.t, group })))
+    return Object.freeze(this.targets.map((group) => captureShapeScalingGeometry({ group })))
   }
 
   /** Attempts to restore the geometry and internal state of all domain owners. */
@@ -170,7 +162,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     let firstFailure: unknown
 
     try {
-      restoreShapeScalingSnapshots({ t: this.t, snapshots })
+      restoreShapeScalingSnapshots({ snapshots })
     } catch (error) {
       didFail = true
       firstFailure = error

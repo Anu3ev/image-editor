@@ -9,7 +9,6 @@ import {
   type TPointerEventInfo,
   type Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import type SnappingManager from '../../snapping-manager'
 import {
@@ -49,9 +48,6 @@ interface CropInteractionStep {
 
 /** Owns crop frame movement and resizing before the first Fabric mutation. */
 export class CropFrameInteraction {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /** Canvas on which the gesture starts and ends. */
   private readonly canvas: Canvas
 
@@ -69,19 +65,15 @@ export class CropFrameInteraction {
 
   /** Connects the owner to all handles and the full crop gesture lifecycle. */
   constructor({
-    t = english,
     canvas,
     frame,
     snapping
   }: {
-    t?: Translate
     canvas: Canvas
     frame: Rect
     snapping: SnappingManager
   }) {
-    this.t = t
-
-    if (!(frame instanceof CropFrame)) throw new Error(this.t('crop.errors.interactionFrameRequired'))
+    if (!(frame instanceof CropFrame)) throw new Error('Crop interaction requires a CropFrame')
 
     this.canvas = canvas
     this.frame = frame
@@ -148,7 +140,7 @@ export class CropFrameInteraction {
     const { transform } = event
     if (!transform || transform.target !== this.frame) return
     if (transform.action === 'drag') {
-      this.session = createCropMovementSession({ t: this.t, frame: this.frame, transform, snapping: this.snapping })
+      this.session = createCropMovementSession({ frame: this.frame, transform, snapping: this.snapping })
       if (!this.session) return
       transform.actionHandler = controlsUtils.wrapWithFireEvent('moving', (nativeEvent, current, x, y) => {
         return this.applyMovementStep({ event: nativeEvent, transform: current, x, y })
@@ -157,7 +149,7 @@ export class CropFrameInteraction {
     }
     if (!SCALE_CONTROLS.some((key) => key === transform.corner)) return
 
-    this.session = createCropScaleSession({ t: this.t, frame: this.frame, transform, snapping: this.snapping })
+    this.session = createCropScaleSession({ frame: this.frame, transform, snapping: this.snapping })
   }
 
   /** Applies one original event; repeated delivery does not change the crop area. */
@@ -187,7 +179,7 @@ export class CropFrameInteraction {
       })
       if (step.kind !== 'planned') return false
 
-      const applied = resolveCropScaleSize({ t: this.t, session, plan: step.plan })
+      const applied = resolveCropScaleSize({ session, plan: step.plan })
       this.applySize({ session, multipliers: applied })
       const verification = session.runtime.verifyScalePlan({
         token: step.token,
@@ -241,7 +233,7 @@ export class CropFrameInteraction {
   }): void {
     const { frame, projection, transform } = session
     const source = frame.cropSource
-    if (!source) throw new Error(this.t('crop.errors.resizeSourceLost'))
+    if (!source) throw new Error('The crop resize operation lost its source')
 
     const rect = resolveCropScaledRect({ session, multipliers })
     const center = new Point(rect.left + (rect.width / 2), rect.top + (rect.height / 2))

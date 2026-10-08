@@ -1,4 +1,3 @@
-import { english, type Translate } from '../../i18n'
 import { resolveDisplayDistance } from '../../utils/distance'
 import type { Bounds, SpacingGuide, SpacingPattern } from '../types'
 import {
@@ -63,11 +62,9 @@ function createMovementSpacingInterval({
 
 /** Creates a shared chain if the sequence contains at least two intervals. */
 function createMovementSpacingChain({
-  t = english,
   entries,
   type
 }: {
-  t?: Translate
   entries: SpacingPatternEntry[]
   type: SpacingPattern['type']
 }): MovementSpacingChain | null {
@@ -92,17 +89,15 @@ function createMovementSpacingChain({
     axis: (commonCrossStart + commonCrossEnd) / 2,
     intervals: Object.freeze(intervals),
     exactRepresentative,
-    displayDistance: resolveDisplayDistance({ t, distance: exactRepresentative })
+    displayDistance: resolveDisplayDistance({ distance: exactRepresentative })
   })
 }
 
 /** Splits a connected sequence by the maximum spread of exact distances. */
 function createConnectedSpacingChains({
-  t = english,
   entries,
   type
 }: {
-  t?: Translate
   entries: SpacingPatternEntry[]
   type: SpacingPattern['type']
 }): MovementSpacingChain[] {
@@ -113,7 +108,7 @@ function createConnectedSpacingChains({
     let chainEnd = chainStart + 1
     let minimumDistance = entries[chainStart].pattern.distance
     let maximumDistance = minimumDistance
-    const displayDistance = resolveDisplayDistance({ t, distance: minimumDistance })
+    const displayDistance = resolveDisplayDistance({ distance: minimumDistance })
     let commonCrossStart = entries[chainStart].crossStart
     let commonCrossEnd = entries[chainStart].crossEnd
 
@@ -125,7 +120,7 @@ function createConnectedSpacingChains({
       const nextCrossStart = Math.max(commonCrossStart, nextEntry.crossStart)
       const nextCrossEnd = Math.min(commonCrossEnd, nextEntry.crossEnd)
       if (nextMaximum - nextMinimum > SPACING_CHAIN_DISTANCE_TOLERANCE) break
-      if (resolveDisplayDistance({ t, distance }) !== displayDistance) break
+      if (resolveDisplayDistance({ distance }) !== displayDistance) break
       if (nextCrossEnd < nextCrossStart) break
 
       minimumDistance = nextMinimum
@@ -136,7 +131,6 @@ function createConnectedSpacingChains({
     }
 
     const chain = createMovementSpacingChain({
-      t,
       entries: entries.slice(chainStart, chainEnd),
       type
     })
@@ -149,11 +143,9 @@ function createConnectedSpacingChains({
 
 /** Collects connected interval sequences on one axis without recursion. */
 function createAxisSpacingChains({
-  t = english,
   entries,
   type
 }: {
-  t?: Translate
   entries: SpacingPatternEntry[]
   type: SpacingPattern['type']
 }): MovementSpacingChain[] {
@@ -176,7 +168,7 @@ function createAxisSpacingChains({
       current = entryByBeforeId.get(current.afterId)
     }
 
-    chains.push(...createConnectedSpacingChains({ t, entries: connected, type }))
+    chains.push(...createConnectedSpacingChains({ entries: connected, type }))
   }
 
   return chains
@@ -184,10 +176,8 @@ function createAxisSpacingChains({
 
 /** Builds immutable chains from the complete snapshot, including the active object. */
 export function createMovementSpacingChains({
-  t = english,
   sources
 }: {
-  t?: Translate
   sources: SpacingPatternSource[]
 }): MovementSpacingChains {
   const verticalEntries = buildAxisSpacingPatternEntries({
@@ -204,8 +194,8 @@ export function createMovementSpacingChains({
   })
 
   return Object.freeze({
-    vertical: Object.freeze(createAxisSpacingChains({ t, entries: verticalEntries, type: 'vertical' })),
-    horizontal: Object.freeze(createAxisSpacingChains({ t, entries: horizontalEntries, type: 'horizontal' }))
+    vertical: Object.freeze(createAxisSpacingChains({ entries: verticalEntries, type: 'vertical' })),
+    horizontal: Object.freeze(createAxisSpacingChains({ entries: horizontalEntries, type: 'horizontal' }))
   })
 }
 

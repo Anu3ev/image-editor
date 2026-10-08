@@ -4,7 +4,6 @@ import {
   Point,
   Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import {
   applyFixedWidthShapeTextLayout,
   applyShapeTextLayout
@@ -247,9 +246,6 @@ function applyShapeStateRestoreLayout({
  * Controller for scaling a shape group without changing font size.
  */
 export default class ShapeScalingController {
-  /** Translator bound to the owning editor instance. */
-  private readonly t: Translate
-
   /**
    * The editor's Fabric canvas.
    */
@@ -266,13 +262,10 @@ export default class ShapeScalingController {
   private activeSelectionScalingController: ShapeActiveSelectionScalingController
 
   /** Initializes the shape-group scaling controller on the canvas. */
-  constructor({ t = english, canvas }: { t?: Translate; canvas: Canvas }) {
-    this.t = t
-
+  constructor({ canvas }: { canvas: Canvas }) {
     this.canvas = canvas
     this.scalingState = new WeakMap()
     this.activeSelectionScalingController = new ShapeActiveSelectionScalingController({
-      t: this.t,
       canvas,
       shapeScalingState: this.scalingState
     })
@@ -982,7 +975,6 @@ export default class ShapeScalingController {
     transform: Transform
   }): ShapeActiveSelectionScaleDomainSource {
     return new ShapeActiveSelectionScaleDomainSource({
-      t: this.t,
       controller: this.activeSelectionScalingController,
       selection,
       targets,

@@ -24,12 +24,12 @@ export default async function initEditor(
   // Find the container by ID.
   const container = document.getElementById(containerId)
   if (!container) {
-    return Promise.reject(new Error(t('editor.errors.containerNotFound', { containerId })))
+    return Promise.reject(new Error(`Container with ID "${containerId}" was not found.`))
   }
 
   const canvasId = `${containerId}-canvas`
   if (document.getElementById(canvasId)) {
-    throw new Error(t('editor.errors.canvasAlreadyExists', { canvasId }))
+    throw new Error(`Canvas "${canvasId}" already exists. Destroy the previous editor before initializing again.`)
   }
 
   // Create the canvas

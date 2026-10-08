@@ -1,6 +1,5 @@
-import type { Transform } from 'fabric'
-import { english, type Translate } from '../../i18n'
 /* eslint-disable no-use-before-define -- Crop rounding calculation precedes internal constraints. */
+import type { Transform } from 'fabric'
 
 import { getObjectBounds, getObjectExactBounds, type ObjectBounds } from '../../utils/geometry'
 import {
@@ -27,7 +26,6 @@ export const SOURCE_SCALED_GUIDE_HOLD_EPSILON = 1
 
 /** Crop rounding in source pixels, accounting for the initial gesture scale. */
 interface CropGuardedScalingStepParams extends GuardedScalingStepParams {
-  t?: Translate
   target: CropFrame
   transform?: Transform | null
 }
@@ -46,7 +44,6 @@ const SOURCE_DISPLAY_SCALE_EPSILON = 0.000001
 
 /** Parameters for selecting a candidate that preserves the active guides. */
 interface GuardedScalingCandidateSelectorParams extends GuardedScalingCandidateMatchParams {
-  t?: Translate
   target: CropFrame
   rawScaleX: number
   rawScaleY: number
@@ -57,7 +54,6 @@ interface GuardedScalingCandidateSelectorParams extends GuardedScalingCandidateM
 
 /** Parameters for checking a scale that already holds an edge on a guide. */
 interface RetainedGuideScalingCandidateParams {
-  t?: Translate
   target: CropFrame
   transform?: Transform | null
   rawScaleX: number
@@ -84,7 +80,6 @@ interface ScalingStepCandidateMatchResult {
  * Returns the nearest scale that does not move the held edge past the guide.
  */
 export function resolveCropGuardedScalingStep({
-  t = english,
   target,
   transform,
   rawScaleX,
@@ -97,7 +92,6 @@ export function resolveCropGuardedScalingStep({
   snapGuards
 }: CropGuardedScalingStepParams): ScalingStepCandidate {
   const retainedGuideCandidate = resolveRetainedGuideScalingCandidate({
-    t,
     target,
     transform,
     rawScaleX,
@@ -122,7 +116,6 @@ export function resolveCropGuardedScalingStep({
   })
 
   const guardedCandidate = selectGuardedScalingCandidate({
-    t,
     target,
     rawScaleX,
     rawScaleY,
@@ -141,7 +134,6 @@ export function resolveCropGuardedScalingStep({
  * Returns the scale if the current resize already holds the required edge on the guide.
  */
 function resolveRetainedGuideScalingCandidate({
-  t = english,
   target,
   transform,
   rawScaleX,
@@ -162,7 +154,6 @@ function resolveRetainedGuideScalingCandidate({
   }
 
   const heldSourceCandidate = resolveSourceScaledGuideHoldCandidate({
-    t,
     target,
     effectiveWidth,
     effectiveHeight,
@@ -173,7 +164,6 @@ function resolveRetainedGuideScalingCandidate({
   if (heldSourceCandidate) return heldSourceCandidate
 
   return resolveSourceScaledRawGuideCandidate({
-    t,
     target,
     rawScaleX,
     rawScaleY,
@@ -189,7 +179,6 @@ function resolveRetainedGuideScalingCandidate({
  * At the outer source boundary, the current scale is unsuitable: a candidate exactly on the guide takes priority.
  */
 function resolveSourceScaledRawGuideCandidate({
-  t = english,
   target,
   rawScaleX,
   rawScaleY,
@@ -198,7 +187,6 @@ function resolveSourceScaledRawGuideCandidate({
   preservePlacement,
   snapGuards
 }: {
-  t?: Translate
   target: CropFrame
   rawScaleX: number
   rawScaleY: number
@@ -223,7 +211,6 @@ function resolveSourceScaledRawGuideCandidate({
   })
   if (!isNearGuide) return null
   if (!isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
-    t,
     target,
     candidate,
     effectiveWidth,
@@ -238,7 +225,6 @@ function resolveSourceScaledRawGuideCandidate({
  * Returns the scale from the start of the Fabric transform if the crop frame was already held near an internal source guide.
  */
 function resolveSourceScaledGuideHoldCandidate({
-  t = english,
   target,
   transform,
   effectiveWidth,
@@ -246,7 +232,6 @@ function resolveSourceScaledGuideHoldCandidate({
   preservePlacement,
   snapGuards
 }: {
-  t?: Translate
   target: CropFrame
   transform?: Transform | null
   effectiveWidth: number
@@ -274,7 +259,6 @@ function resolveSourceScaledGuideHoldCandidate({
     snapGuards
   })
   const isInsideSourceGuideLimit = isScalingCandidateInsideSourceGuideDisplayLimits({
-    t,
     target,
     candidate,
     effectiveWidth,
@@ -326,14 +310,12 @@ function isScalingCandidateNearSnapGuards({
  * Checks that the held size does not exceed the part of the source on the inner side of the guide.
  */
 function isScalingCandidateInsideSourceGuideDisplayLimits({
-  t = english,
   target,
   candidate,
   effectiveWidth,
   effectiveHeight,
   snapGuards
 }: {
-  t?: Translate
   target: CropFrame
   candidate: ScalingStepCandidate
   effectiveWidth: number
@@ -341,7 +323,6 @@ function isScalingCandidateInsideSourceGuideDisplayLimits({
   snapGuards: ScalingStepSnapGuard[]
 }): boolean {
   return isScalingCandidateInsideSourceGuideLimits({
-    t,
     target,
     candidate,
     effectiveWidth,
@@ -355,14 +336,12 @@ function isScalingCandidateInsideSourceGuideDisplayLimits({
  * Checks that the rounded size near the guide does not exceed the rounded portion of the source.
  */
 function isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
-  t = english,
   target,
   candidate,
   effectiveWidth,
   effectiveHeight,
   snapGuards
 }: {
-  t?: Translate
   target: CropFrame
   candidate: ScalingStepCandidate
   effectiveWidth: number
@@ -370,7 +349,6 @@ function isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
   snapGuards: ScalingStepSnapGuard[]
 }): boolean {
   return isScalingCandidateInsideSourceGuideLimits({
-    t,
     target,
     candidate,
     effectiveWidth,
@@ -384,7 +362,6 @@ function isScalingCandidateInsideRoundedSourceGuideDisplayLimits({
  * Checks the candidate size along each axis held by a guide.
  */
 function isScalingCandidateInsideSourceGuideLimits({
-  t = english,
   target,
   candidate,
   effectiveWidth,
@@ -392,7 +369,6 @@ function isScalingCandidateInsideSourceGuideLimits({
   snapGuards,
   shouldRoundSourceLimit
 }: {
-  t?: Translate
   target: CropFrame
   candidate: ScalingStepCandidate
   effectiveWidth: number
@@ -409,13 +385,11 @@ function isScalingCandidateInsideSourceGuideLimits({
     })
     const isInsideLimit = shouldRoundSourceLimit
       ? isInsideRoundedSourceGuideDisplayLimit({
-        t,
         target,
         displaySize,
         snapGuard
       })
       : isInsideSourceGuideDisplayLimit({
-        t,
         target,
         displaySize,
         snapGuard
@@ -471,18 +445,15 @@ function getRawDisplaySizeForSnapGuard({
  * Checks the rounded size against the part of the source on the inner side of the guide.
  */
 function isInsideRoundedSourceGuideDisplayLimit({
-  t = english,
   target,
   displaySize,
   snapGuard
 }: {
-  t?: Translate
   target: CropFrame
   displaySize: number
   snapGuard: ScalingStepSnapGuard
 }): boolean {
   const sourceDisplayLength = resolveSourceGuideDisplayLength({
-    t,
     target,
     snapGuard
   })
@@ -497,7 +468,6 @@ function isInsideRoundedSourceGuideDisplayLimit({
  * Selects a candidate that stays inside the active guides.
  */
 function selectGuardedScalingCandidate({
-  t = english,
   target,
   rawScaleX,
   rawScaleY,
@@ -528,7 +498,6 @@ function selectGuardedScalingCandidate({
   })
 
   if (onGuideCandidate && shouldKeepOnGuideScalingCandidate({
-    t,
     target,
     candidate: onGuideCandidate,
     rawScaleX,
@@ -612,7 +581,6 @@ function findClosestInsideScalingCandidate({
  * Keeps the candidate on the guide if the active axes already align to whole source pixels.
  */
 function shouldKeepOnGuideScalingCandidate({
-  t = english,
   target,
   candidate,
   rawScaleX,
@@ -621,7 +589,6 @@ function shouldKeepOnGuideScalingCandidate({
   effectiveHeight,
   snapGuards
 }: {
-  t?: Translate
   target: CropFrame
   candidate: ScalingStepCandidate
   rawScaleX: number
@@ -632,7 +599,6 @@ function shouldKeepOnGuideScalingCandidate({
 }): boolean {
   for (const snapGuard of snapGuards) {
     if (!shouldKeepOnGuideSnapGuardCandidate({
-      t,
       target,
       candidate,
       rawScaleX,
@@ -650,7 +616,6 @@ function shouldKeepOnGuideScalingCandidate({
  * Checks one guide for a candidate that lies exactly on the guide.
  */
 function shouldKeepOnGuideSnapGuardCandidate({
-  t = english,
   target,
   candidate,
   rawScaleX,
@@ -659,7 +624,6 @@ function shouldKeepOnGuideSnapGuardCandidate({
   effectiveHeight,
   snapGuard
 }: {
-  t?: Translate
   target: CropFrame
   candidate: ScalingStepCandidate
   rawScaleX: number
@@ -689,7 +653,6 @@ function shouldKeepOnGuideSnapGuardCandidate({
   })) return false
 
   return isInsideSourceGuideDisplayLimit({
-    t,
     target,
     displaySize,
     snapGuard
@@ -722,18 +685,15 @@ function isSameSnappedDisplaySize({
  * Checks that the candidate on the guide does not exceed the part of the source containing the crop frame.
  */
 function isInsideSourceGuideDisplayLimit({
-  t = english,
   target,
   displaySize,
   snapGuard
 }: {
-  t?: Translate
   target: CropFrame
   displaySize: number
   snapGuard: ScalingStepSnapGuard
 }): boolean {
   const sourceDisplayLimit = resolveSourceGuideDisplayLimit({
-    t,
     target,
     snapGuard
   })
@@ -746,16 +706,13 @@ function isInsideSourceGuideDisplayLimit({
  * Returns the size of the part of the source on the inner side of the guide.
  */
 function resolveSourceGuideDisplayLimit({
-  t = english,
   target,
   snapGuard
 }: {
-  t?: Translate
   target: CropFrame
   snapGuard: ScalingStepSnapGuard
 }): number | null {
   const sourceDisplayLength = resolveSourceGuideDisplayLength({
-    t,
     target,
     snapGuard
   })
@@ -768,18 +725,16 @@ function resolveSourceGuideDisplayLimit({
  * Returns the length of the part of the source on the inner side of the guide.
  */
 function resolveSourceGuideDisplayLength({
-  t = english,
   target,
   snapGuard
 }: {
-  t?: Translate
   target: CropFrame
   snapGuard: ScalingStepSnapGuard
 }): number | null {
   const { cropSource } = target
   if (!cropSource) return null
 
-  const sourceBounds = getObjectExactBounds({ t, object: cropSource })
+  const sourceBounds = getObjectExactBounds({ object: cropSource })
   if (!sourceBounds) return null
 
   const sourceScale = snapGuard.type === 'vertical'

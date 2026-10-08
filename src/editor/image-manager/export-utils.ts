@@ -58,7 +58,7 @@ export async function convertBlobToDataUrl({
     )
 
     if (typeof dataUrl !== 'string') {
-      throw new Error(editor.t('image.errors.workerDataUrlStringExpected'))
+      throw new Error('The toDataURL worker must return a string')
     }
 
     return dataUrl as Base64URLString

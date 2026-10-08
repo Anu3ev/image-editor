@@ -6,7 +6,6 @@ import {
   util
 } from 'fabric'
 import { nanoid } from 'nanoid'
-import { english, type Translate } from '../i18n'
 
 import {
   CANVAS_MAX_HEIGHT,
@@ -76,12 +75,10 @@ export function isSupportedImageSource(source: unknown): source is File | string
 export async function createImportImageRequest({
   options,
   defaultScale,
-  acceptContentTypes,
-  t = english
+  acceptContentTypes
 }: {
   options: ImportImageOptions
   defaultScale: ResolvedImportScale
-  t?: Translate
   acceptContentTypes: string[]
 }): Promise<ImportImageRequest | null> {
   const {
@@ -98,7 +95,7 @@ export async function createImportImageRequest({
 
   const scale: ResolvedImportScale = options.scale ?? defaultScale
   const contentType = isSupportedImageSource(source)
-    ? await getContentType({ source, acceptContentTypes, t })
+    ? await getContentType({ source, acceptContentTypes })
     : getInvalidSourceContentType({ source })
   const format = getFormatFromContentType(contentType)
 
@@ -145,13 +142,13 @@ export async function loadImportImage({
 }
 
 /** Returns the raster image source for resizing. */
-function getImageElementSource({ image, t }: { image: FabricImage; t: Translate }): string {
+function getImageElementSource({ image }: { image: FabricImage }): string {
   const imageElement = image.getElement()
 
   if (imageElement instanceof HTMLImageElement) return imageElement.src
   if (imageElement instanceof HTMLCanvasElement) return imageElement.toDataURL()
 
-  throw new Error(t('image.errors.resizeSourceUnavailable'))
+  throw new Error('Failed to get the image source for resizing')
 }
 
 /** Scales raster images that are too large or too small. */
@@ -269,10 +266,7 @@ export function emitInvalidContentTypeError({
     withoutAdding,
     customData
   } = request
-  const message = editor.t('image.errors.invalidContentType', {
-    contentType,
-    acceptedContentTypes: acceptContentTypes.join(', ')
-  })
+  const message = `Invalid image content type: ${contentType}. Expected one of: ${acceptContentTypes.join(', ')}.`
 
   editor.errorManager.emitError({
     origin: 'ImageManager',
@@ -319,7 +313,7 @@ export function emitInvalidSourceTypeError({
     origin: 'ImageManager',
     method: 'importImage',
     code: 'INVALID_SOURCE_TYPE',
-    message: editor.t('image.errors.invalidSourceType'),
+    message: 'Invalid image source type. Expected a URL or a File object.',
     data: {
       source,
       format,
@@ -338,11 +332,9 @@ export function emitInvalidSourceTypeError({
  */
 export async function resolveImportImageUrl({
   request,
-  blobUrls,
-  t = english
+  blobUrls
 }: {
   request: SupportedImportImageRequest
-  t?: Translate
   blobUrls: BlobUrlRegistry
 }): Promise<string> {
   const { source } = request
@@ -353,7 +345,7 @@ export async function resolveImportImageUrl({
 
   const dataUrl = await blobUrls.fetchAsBlobUrl({ src: source })
   if (!dataUrl) {
-    throw new Error(t('image.errors.urlLoadFailed'))
+    throw new Error('Failed to load the image from the URL')
   }
 
   return dataUrl
@@ -432,7 +424,7 @@ async function resizeImportImageToBoundaries({
   contentType: string
   sizeType: 'max' | 'min'
 }): Promise<FabricImage> {
-  const imageSrc = getImageElementSource({ image, t: editor.t })
+  const imageSrc = getImageElementSource({ image })
   const resizedBlob = await resizeImageToBoundaries({
     editor,
     options: {
@@ -518,7 +510,7 @@ export function emitImportFailed({
     origin: 'ImageManager',
     method: 'importImage',
     code: 'IMPORT_FAILED',
-    message: editor.t('image.errors.importFailed', { error: error instanceof Error ? error.message : String(error) }),
+    message: `Failed to import the image: ${error instanceof Error ? error.message : String(error)}`,
     data: request
   })
 }

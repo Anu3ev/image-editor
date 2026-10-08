@@ -128,7 +128,6 @@ export async function createCanvasExportSnapshot({
     return {
       type: 'raster',
       blob: await createCanvasBlob({
-        t: editor.t,
         canvasElement: tmpCanvas.getElement(),
         contentType: request.exportContentType
       }),
@@ -226,11 +225,9 @@ function hideInteractionBlockerOverlay({
  */
 async function createCanvasBlob({
   canvasElement,
-  contentType,
-  t
+  contentType
 }: {
   canvasElement: HTMLCanvasElement
-  t: Translate
   contentType: string
 }): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -239,7 +236,7 @@ async function createCanvasBlob({
         if (canvasBlob) {
           resolve(canvasBlob)
         } else {
-          reject(new Error(t('image.errors.canvasBlobCreationFailed')))
+          reject(new Error('Failed to create a Blob from the canvas'))
         }
       },
       contentType,
@@ -360,7 +357,7 @@ async function exportCanvasPdf({
     const pdfBase64 = pdf.output('datauristring')
 
     if (typeof pdfBase64 !== 'string') {
-      throw new Error(editor.t('image.errors.pdfDataUriExpected'))
+      throw new Error('jsPDF must return a data URI string')
     }
 
     return emitCanvasExported({

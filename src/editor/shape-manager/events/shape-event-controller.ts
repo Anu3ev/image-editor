@@ -646,7 +646,7 @@ export default class ShapeEventController {
       return
     }
 
-    const committedFrame = captureActiveSelectionCommittedFrame({ t: this.dependencies.editor.t, selection })
+    const committedFrame = captureActiveSelectionCommittedFrame({ selection })
     this._commitActiveSelectionShapesBeforeRestore({
       groups: shapeGroups,
       scaleX,
@@ -757,7 +757,7 @@ export default class ShapeEventController {
       const matrix = [...object.calcTransformMatrix()] as TMat2D
 
       if (!matrix.every(Number.isFinite)) {
-        throw new Error(this.dependencies.editor.t('shape.errors.invalidChildMatrix'))
+        throw new Error('The child object matrix must contain finite values')
       }
 
       return matrix
@@ -781,7 +781,7 @@ export default class ShapeEventController {
     const { canvas } = this.dependencies.editor
 
     if (childSceneMatrices && childSceneMatrices.length !== objects.length) {
-      throw new Error(this.dependencies.editor.t('shape.errors.savedMatrixCountMismatch'))
+      throw new Error('The number of saved matrices must match the number of child objects')
     }
 
     const restoredSelection = new ActiveSelection(objects, { canvas })
@@ -795,7 +795,7 @@ export default class ShapeEventController {
 
       objects.forEach((object, index) => {
         const sceneMatrix = childSceneMatrices[index]
-        if (!sceneMatrix) throw new Error(this.dependencies.editor.t('shape.errors.missingSavedChildMatrix'))
+        if (!sceneMatrix) throw new Error('Each child object must have a saved matrix')
 
         util.applyTransformToObject(
           object,

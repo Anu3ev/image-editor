@@ -52,12 +52,12 @@ describe('Per-instance editor translations', () => {
     expect(russian('ui.toolbar.delete')).toBe('Удалить')
   })
 
-  it('interpolates multiple values without HTML-escaping diagnostic content', () => {
+  it('interpolates visible indicator values without HTML-escaping content', () => {
     const t = createTranslator({ language: 'en' })
 
     expect(t('ui.indicators.objectSize', { width: 120, height: 48 })).toBe('Width: 120 Height: 48')
-    expect(t('editor.errors.containerNotFound', { containerId: '<canvas>&"' }))
-      .toBe('Container with ID "<canvas>&"" was not found.')
+    expect(t('ui.indicators.objectSize', { width: '<120>&', height: 48 }))
+      .toBe('Width: <120>& Height: 48')
   })
 })
 
@@ -68,12 +68,15 @@ describe('Built-in catalog consistency', () => {
   ] as const)('preserves nested domains and resolves every %s leaf', (language, catalog) => {
     expect(catalog.ui).toHaveProperty('toolbar.duplicate')
     expect(catalog.text).toHaveProperty('defaults.newText')
-    expect(catalog.snapping.movement).toHaveProperty('bounds.centersMustMatchEdges')
+    expect(Object.keys(catalog).sort()).toEqual(['image', 'text', 'ui'])
+    expect(Object.keys(catalog.image)).toEqual(['filenames'])
+    expect(Object.keys(catalog.text)).toEqual(['defaults'])
+    expect(Object.keys(catalog.ui).sort()).toEqual(['indicators', 'toolbar'])
 
     const entries = catalogEntries(catalog)
     const t = createTranslator({ language })
 
-    expect(entries).toHaveLength(334)
+    expect(entries.length).toBeGreaterThan(0)
 
     for (const [key, value] of entries) {
       const parameters: Record<string, string> = {}

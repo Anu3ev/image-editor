@@ -8,7 +8,6 @@ import {
   type FabricObject,
   type TPointerEvent
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import type { ImageEditor } from '../..'
 import {
@@ -78,7 +77,7 @@ export class MovementSnappingController {
     editor: ImageEditor
   }) {
     this._editor = editor
-    this._runtime = new MovementSnappingRuntime(editor.t)
+    this._runtime = new MovementSnappingRuntime()
   }
 
   /** Starts a shared session only for a top-level object that has already been migrated. */
@@ -90,15 +89,14 @@ export class MovementSnappingController {
     this.finishGesture()
     if (!this._isSupportedTarget(target)) return
 
-    const bounds = getObjectExactBounds({ t: this._editor.t, object: target })
+    const bounds = getObjectExactBounds({ object: target })
     if (!bounds) {
-      throw new Error(this._editor.t('snapping.movement.exactTargetBoundsRequired'))
+      throw new Error('Object movement snapping requires exact target bounds')
     }
 
     const position = this._readTargetPosition({ target })
     const environment = this._editor.snappingManager.captureMovementSnapEnvironment({ activeObject: target })
     const baseline = createMovementGestureBaseline({
-      t: this._editor.t,
       bounds,
       position,
       environment
@@ -120,11 +118,11 @@ export class MovementSnappingController {
 
     const marker = resolveMovementMarker({ event })
     const duplicate = this._runtime.getDuplicateStep({ marker })
-    if (duplicate) return createDuplicateStepResult({ t: this._editor.t, duplicate })
+    if (duplicate) return createDuplicateStepResult({ duplicate })
 
     const intent = this._createRawIntent({ target: activeTarget, event })
     const step = this._runtime.resolveMovementPlan({ marker, intent })
-    if (step.kind === 'duplicate') return createDuplicateStepResult({ t: this._editor.t, duplicate: step })
+    if (step.kind === 'duplicate') return createDuplicateStepResult({ duplicate: step })
 
     this._applyMovementPlan({ target: activeTarget, plan: step.plan })
     const verification = this._runtime.verifyMovementPlan({
@@ -198,9 +196,9 @@ export class MovementSnappingController {
     target: SupportedMovementTarget
     event: ObjectMovementTransformEvent
   }): MovementRawIntent {
-    const bounds = getObjectExactBounds({ t: this._editor.t, object: target })
+    const bounds = getObjectExactBounds({ object: target })
     if (!bounds) {
-      throw new Error(this._editor.t('snapping.movement.exactRawBoundsRequired'))
+      throw new Error('Object movement snapping requires exact raw bounds')
     }
 
     return {
@@ -237,9 +235,9 @@ export class MovementSnappingController {
   }: {
     target: SupportedMovementTarget
   }): FinalMovementGeometry {
-    const bounds = getObjectExactBounds({ t: this._editor.t, object: target })
+    const bounds = getObjectExactBounds({ object: target })
     if (!bounds) {
-      throw new Error(this._editor.t('snapping.movement.exactFinalBoundsRequired'))
+      throw new Error('Object movement snapping requires exact final bounds')
     }
 
     return {
@@ -255,7 +253,7 @@ export class MovementSnappingController {
     target: SupportedMovementTarget
   }): MovementTargetPosition {
     if (!Number.isFinite(target.left) || !Number.isFinite(target.top)) {
-      throw new Error(this._editor.t('snapping.movement.targetPositionMustBeFinite'))
+      throw new Error('Object movement snapping requires a finite target position')
     }
 
     return {
@@ -279,14 +277,12 @@ function resolveMovementMarker({
 
 /** Returns the already verified result without rereading the modified object. */
 function createDuplicateStepResult({
-  t = english,
   duplicate
 }: {
-  t?: Translate
   duplicate: DuplicateMovementRuntimeStep
 }): HandledObjectMovementStep {
   if (!duplicate.verification) {
-    throw new Error(t('snapping.movement.duplicateStepVerificationRequired'))
+    throw new Error('Duplicate movement step cannot be handled before verification')
   }
 
   return createHandledStepResult({

@@ -151,7 +151,7 @@ export default class CropManager {
     const session = this._session
     if (!session || target !== session.frame) return undefined
 
-    const bounds = getObjectExactBounds({ t: this.editor.t, object: session.source })
+    const bounds = getObjectExactBounds({ object: session.source })
     if (!bounds) return undefined
 
     return { object: session.source, bounds }
@@ -170,7 +170,7 @@ export default class CropManager {
     const session = this._session
     if (!session || session.frame !== target || !transform) return []
 
-    const guides = applyCropFrameScaleSnapping({ t: this.editor.t, session, transform, event, anchors, threshold })
+    const guides = applyCropFrameScaleSnapping({ session, transform, event, anchors, threshold })
     return this.isFrameOverflowingSource({ target }) ? [] : guides
   }
 
@@ -358,7 +358,6 @@ export default class CropManager {
       preserveAspectRatio
     })
     setCropFrameActiveResizePreserveAspectRatio({
-      t: this.editor.t,
       frame: session.frame,
       preserveAspectRatio: null
     })
@@ -367,7 +366,6 @@ export default class CropManager {
     if (keepCurrentResizeMode && currentResizeMode !== null) {
       session.effectivePreserveAspectRatio = currentResizeMode
       setCropFrameActiveResizePreserveAspectRatio({
-        t: this.editor.t,
         frame: session.frame,
         preserveAspectRatio: currentResizeMode
       })
@@ -396,7 +394,7 @@ export default class CropManager {
 
     if (session.options.preserveAspectRatio) {
       if (!(session.frame instanceof CropFrame)) {
-        throw new Error(this.editor.t('crop.errors.sessionFrameType'))
+        throw new Error('The crop session frame must be a CropFrame')
       }
 
       size = resolveCropSize({
@@ -618,7 +616,7 @@ export default class CropManager {
     preserveAspectRatio: boolean
   }): void {
     if (!(frame instanceof CropFrame)) {
-      throw new Error(this.editor.t('crop.errors.sessionFrameType'))
+      throw new Error('The crop session frame must be a CropFrame')
     }
 
     frame.preserveAspectRatio = preserveAspectRatio
@@ -640,7 +638,6 @@ export default class CropManager {
     }
     this._bindCropFrameEvents({ frame: session.frame })
     this._frameInteraction = new CropFrameInteraction({
-      t: this.editor.t,
       canvas,
       frame: session.frame,
       snapping: this.editor.snappingManager
@@ -731,7 +728,6 @@ export default class CropManager {
     if (!session) return
 
     setCropFrameActiveResizePreserveAspectRatio({
-      t: this.editor.t,
       frame: session.frame,
       preserveAspectRatio: null
     })
@@ -1006,7 +1002,7 @@ export default class CropManager {
       origin: 'CropManager',
       method: 'startImageCrop',
       code: errorCodes.CROP_MANAGER.INVALID_IMAGE_TARGET,
-      message: this.editor.t('crop.errors.invalidImageTarget'),
+      message: 'Select a raster image object to crop an image.',
       data: {
         targetType: target?.type,
         targetId: target?.id
@@ -1022,7 +1018,7 @@ export default class CropManager {
       origin: 'CropManager',
       method: 'startImageCrop',
       code: errorCodes.CROP_MANAGER.LOCKED_IMAGE_TARGET,
-      message: this.editor.t('crop.errors.lockedImageTarget'),
+      message: 'A locked image cannot be cropped.',
       data: {
         targetType: target.type,
         targetId: target.id

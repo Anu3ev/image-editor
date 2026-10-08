@@ -2,7 +2,6 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
-import { english, type Translate } from '../../i18n'
 import type { ObjectBounds } from '../../utils/geometry'
 import type {
   ScaleProjectionVariable,
@@ -176,17 +175,15 @@ export function createRectangularScaleValues({
 
 /** Returns rectangle factors from shared snapping resolver values. */
 export function resolveRectangularScaleMultipliers({
-  t = english,
   projectionMode,
   effectiveValues
 }: {
-  t?: Translate
   projectionMode: string
   effectiveValues: readonly number[]
 }): RectangularScaleMultipliers {
   const [first, second] = effectiveValues
   if (!Number.isFinite(first)) {
-    throw new Error(t('snapping.rectangularScale.firstMultiplierMustBeFinite'))
+    throw new Error('Rectangular scale values must contain a finite first multiplier')
   }
 
   if (projectionMode === 'horizontal') return Object.freeze({ x: first, y: 1 })
@@ -197,10 +194,10 @@ export function resolveRectangularScaleMultipliers({
       return Object.freeze({ x: first, y: second })
     }
 
-    throw new Error(t('snapping.rectangularScale.freeScalingRequiresTwoFiniteMultipliers'))
+    throw new Error('Free rectangular scale requires two finite multipliers')
   }
 
-  throw new Error(t('snapping.rectangularScale.unsupportedProjectionMode', { projectionMode }))
+  throw new Error(`Unsupported rectangular scale projection mode "${projectionMode}"`)
 }
 
 /** Copies and freezes a point. */
@@ -829,11 +826,9 @@ function createScaleProjectionModeInput({
 
 /** Returns the control's modes; the domain may explicitly enable proportional scaling with a side control. */
 export function createRectangularScaleProjectionModes({
-  t = english,
   projection,
   includeUniformSideScale = false
 }: {
-  t?: Translate
   projection: RectangularScaleGestureProjection
   includeUniformSideScale?: boolean
 }): readonly ScaleProjectionModeInput[] {
@@ -849,7 +844,7 @@ export function createRectangularScaleProjectionModes({
   return Object.freeze(modes.map((mode) => {
     const modeProjection = resolveRectangularScaleModeProjection({ projection, mode })
     if (!modeProjection) {
-      throw new Error(t('snapping.rectangularScale.missingSupportedProjectionMode', { mode }))
+      throw new Error(`Rectangular scale projection is missing supported mode "${mode}"`)
     }
 
     return createScaleProjectionModeInput({ projection, modeProjection })
@@ -858,10 +853,8 @@ export function createRectangularScaleProjectionModes({
 
 /** Returns all scene edges that the selected control can move. */
 export function resolveRectangularScaleMovingEdges({
-  t = english,
   projectionModes
 }: {
-  t?: Translate
   projectionModes: readonly ScaleProjectionModeInput[]
 }): readonly ScaleSceneEdge[] {
   const edges = new Set<ScaleSceneEdge>()
@@ -870,7 +863,7 @@ export function resolveRectangularScaleMovingEdges({
     for (const edge of projection.edges) edges.add(edge.edge)
   }
   if (edges.size === 0) {
-    throw new Error(t('snapping.rectangularScale.movingEdgeRequired'))
+    throw new Error('Rectangular scale gesture must contain at least one moving edge')
   }
 
   return Object.freeze([...edges])

@@ -1,4 +1,3 @@
-import { english, type Translate } from '../../i18n'
 import {
   createScaleProjection,
   resolveScaleProjection,
@@ -132,23 +131,19 @@ function areValuesNew({
 
 /** Calculates the next set of multipliers from the local measured projection. */
 function resolveNextValues({
-  t = english,
   constraints,
   measurement,
   plan
 }: {
-  t?: Translate
   constraints: readonly ScaleProjectionConstraint[]
   measurement: ActiveSelectionTextScaleMeasurement
   plan: ScaleSnapPlan
 }): readonly number[] | null {
   const projection = createScaleProjection({
-    t,
     bounds: measurement.projection.bounds,
     input: measurement.projection.projection
   })
   const solution = resolveScaleProjection({
-    t,
     projection,
     rawValues: measurement.values,
     constraints,
@@ -160,7 +155,6 @@ function resolveNextValues({
 
 /** Finds a measurement that reaches the supplied set of guides. */
 function resolveMeasurementForConstraints({
-  t = english,
   constraints,
   initialValues,
   measurer,
@@ -168,7 +162,6 @@ function resolveMeasurementForConstraints({
   plan,
   pointerMeasurement
 }: {
-  t?: Translate
   constraints: ScaleSnapConstraints
   initialValues: readonly number[]
   measurer: ActiveSelectionTextScaleMeasurementSource
@@ -188,7 +181,6 @@ function resolveMeasurementForConstraints({
     if (reachesProjectionConstraints({ constraints: projectionConstraints, measurement, plan })) return measurement
 
     const nextValues = resolveNextValues({
-      t,
       constraints: projectionConstraints,
       measurement,
       plan
@@ -290,13 +282,11 @@ function resolveHeldUniformMeasurement({
  * Refines the shared plan using the actual geometry of all children and retains only reachable guides.
  */
 export function resolveActiveSelectionTextScaleStep({
-  t = english,
   measurer,
   mode,
   plan,
   pointerMeasurement
 }: {
-  t?: Translate
   measurer: ActiveSelectionTextScaleMeasurementSource
   mode: RectangularScaleGestureMode
   plan: ScaleSnapPlan
@@ -311,7 +301,6 @@ export function resolveActiveSelectionTextScaleStep({
   }
 
   const plannedMeasurement = resolveMeasurementForConstraints({
-    t,
     constraints: candidates,
     initialValues: plan.effectiveValues,
     measurer,
@@ -325,7 +314,6 @@ export function resolveActiveSelectionTextScaleStep({
 
   for (const constraints of createSingleConstraintAttempts({ plan })) {
     const measurement = resolveMeasurementForConstraints({
-      t,
       constraints,
       initialValues: plan.effectiveValues,
       measurer,

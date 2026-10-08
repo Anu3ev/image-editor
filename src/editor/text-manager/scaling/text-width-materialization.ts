@@ -1,4 +1,3 @@
-import { english, type Translate } from '../../i18n'
 import type { EditorTextbox } from '../types'
 
 /** Minimum canonical width of a standalone Textbox. */
@@ -10,16 +9,14 @@ export const MINIMUM_TEXT_WIDTH = 1
  * After recalculation, preserves the minimum line width and leaves larger widths fractional.
  */
 export function applyCanonicalTextboxWidth({
-  t = english,
   textbox,
   width
 }: {
-  t?: Translate
   textbox: EditorTextbox
   width: number
 }): number {
   if (!Number.isFinite(width)) {
-    throw new Error(t('text.errors.invalidTextboxWidth'))
+    throw new Error('Textbox width must be a finite number')
   }
 
   const nextWidth = Math.max(MINIMUM_TEXT_WIDTH, width)

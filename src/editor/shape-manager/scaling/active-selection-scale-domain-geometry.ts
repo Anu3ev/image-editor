@@ -1,5 +1,4 @@
 import { Point } from 'fabric'
-import { english, type Translate } from '../../i18n'
 
 import type {
   ActiveSelectionScaleDomainChildMeasurement,
@@ -105,7 +104,6 @@ export function createActiveSelectionShapeDomainChildMeasurement({
 
 /** Applies internal layout and compensates for the shared frame's derived scale. */
 export function applyActiveSelectionShapeDomainChild({
-  t = english,
   child,
   frame,
   group,
@@ -114,7 +112,6 @@ export function applyActiveSelectionShapeDomainChild({
   shape,
   text
 }: {
-  t?: Translate
   child: ActiveSelectionScaleDomainChildMeasurement
   frame: ActiveSelectionScaleFrame
   group: ShapeGroup
@@ -124,7 +121,7 @@ export function applyActiveSelectionShapeDomainChild({
   text: ShapeTextNode
 }): void {
   if (Math.min(frame.scaleX, frame.scaleY) <= 0) {
-    throw new Error(t('shape.errors.invalidCompensatedFrameScale'))
+    throw new Error('The compensated shape frame must have a positive scale')
   }
 
   applyShapeScalingPreviewLayout({

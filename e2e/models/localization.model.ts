@@ -87,7 +87,7 @@ export class LocalizationModel {
     }, containerId)
   }
 
-  /** Returns the localized initialization error before an editor can be created. */
+  /** Returns the English initialization error before an editor can be created. */
   async missingContainerError({ containerId, language, customLanguages }: LocalizedEditorOptions): Promise<string> {
     return this.page.evaluate(async({ moduleUrl, containerId: id, language: locale, customLanguages: resources }) => {
       const { default: initEditor } = await import(/* @vite-ignore */ moduleUrl)
