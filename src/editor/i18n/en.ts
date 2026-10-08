@@ -9,41 +9,41 @@ const en = {
   },
   notifications: {
     background: {
-      colorFailed: 'The background color could not be set.',
-      gradientFailed: 'The background gradient could not be set.',
-      imageFailed: 'The background image could not be set.',
-      removeFailed: 'The background could not be removed.'
+      colorFailed: 'Couldn\'t finish changing the background color.',
+      gradientFailed: 'Couldn\'t finish changing the background gradient.',
+      imageFailed: 'Couldn\'t finish setting the image as the background.',
+      removeFailed: 'Couldn\'t finish removing the background.'
     },
     clipboard: {
-      copyFailed: 'The object could not be copied.',
-      cutFailed: 'The object could not be cut.',
-      duplicateFailed: 'The object could not be duplicated.',
-      pasteFailed: 'The object could not be pasted.',
-      pasteImageCanceled: 'Pasting the image was canceled or failed.',
-      pasteImageFailed: 'The image could not be pasted.',
-      systemCopyFailed: 'The object could not be copied to the system clipboard.',
-      unavailable: 'The system clipboard is unavailable in this browser.'
+      copyFailed: 'Couldn\'t finish copying the object to the editor\'s clipboard.',
+      cutFailed: 'Couldn\'t finish cutting the object. Check whether it\'s still on the canvas.',
+      duplicateFailed: 'Couldn\'t finish duplicating the object. Check the canvas for a new copy.',
+      pasteFailed: 'Couldn\'t finish pasting the object. Check whether it appeared on the canvas.',
+      pasteImageCanceled: 'Pasting the image was interrupted.',
+      pasteImageFailed: 'Couldn\'t finish pasting the image from the clipboard.',
+      systemCopyFailed: 'Couldn\'t copy to the system clipboard. The object was copied to the editor\'s clipboard.',
+      unavailable: 'The system clipboard isn\'t available here. The object was copied to the editor\'s clipboard.'
     },
     crop: {
       invalidTarget: 'Select a raster image to crop.',
       lockedTarget: 'Unlock the image before cropping.'
     },
     history: {
-      redoFailed: 'The action could not be redone.',
-      undoFailed: 'The action could not be undone.'
+      redoFailed: 'Couldn\'t finish redoing the change. Check the canvas before continuing.',
+      undoFailed: 'Couldn\'t finish undoing the last change. Check the canvas before continuing.'
     },
     image: {
-      exportFailed: 'The image could not be exported.',
-      importFailed: 'The image could not be imported.',
-      noSelection: 'Select an object to export.',
-      resizeMax: 'The image will be reduced to fit {{width}}×{{height}} while preserving its aspect ratio.',
-      resizeMin: 'The image will be enlarged to at least {{width}}×{{height}} while preserving its aspect ratio.',
-      unsupportedFormat: 'This image format is not supported.'
+      exportFailed: 'Couldn\'t finish exporting the image.',
+      importFailed: 'Couldn\'t finish importing the image.',
+      noSelection: 'Select the object you want to export as an image.',
+      resizeMax: 'Resizing the image to fit within {{width}} × {{height}} pixels, keeping its proportions.',
+      resizeMin: 'Resizing the image proportionally. Minimum target size: {{width}} × {{height}} pixels.',
+      unsupportedFormat: 'This image\'s format isn\'t supported or couldn\'t be identified. Choose another image.'
     },
     template: {
-      applyFailed: 'The template could not be applied.',
-      empty: 'The template contains no objects.',
-      noSelection: 'Select objects to save as a template.'
+      applyFailed: 'Couldn\'t finish applying the template. Check the canvas before continuing.',
+      empty: 'This template has no objects to add. Choose another template.',
+      noSelection: 'Select the objects you want to include in the template.'
     }
   },
   text: {

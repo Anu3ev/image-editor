@@ -95,13 +95,13 @@ export const LOCALIZATION_NOTIFICATION_DIAGNOSTICS = {
 /** User-facing translations expected alongside the unchanged diagnostics. */
 export const LOCALIZATION_NOTIFICATION_MESSAGES = {
   en: {
-    noSelection: 'Select an object to export.',
+    noSelection: 'Select the object you want to export as an image.',
     invalidCrop: 'Select a raster image to crop.'
   },
   ru: {
-    noSelection: 'Выберите объект для экспорта.',
+    noSelection: 'Выберите объект, который хотите экспортировать как изображение.',
     invalidCrop: 'Выберите растровое изображение для обрезки.',
-    resizeMax: 'Изображение будет уменьшено до 80×60 с сохранением пропорций.'
+    resizeMax: 'Размер изображения будет изменён с сохранением пропорций в пределах 80 × 60 пикселей.'
   },
   customNoSelection: 'Selecione um objeto para exportar.'
 }
