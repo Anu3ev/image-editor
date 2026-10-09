@@ -89,8 +89,8 @@ describe('ClipboardManager', () => {
 
   describe('copy', () => {
     it.each([
-      ['en', 'Couldn\'t finish copying the object to the editor\'s clipboard.'],
-      ['ru', 'Не удалось завершить копирование объекта в буфер редактора.']
+      ['en', 'Couldn\'t copy the object.'],
+      ['ru', 'Не удалось скопировать объект.']
     ])('сообщает о незавершённом копировании после ошибки обработчика для %s', async(language, userMessage) => {
       const error = new Error('Host copy handler failed')
       const object = createMockFabricObject({ type: 'rect', id: 'copy-before-event' })
@@ -115,8 +115,8 @@ describe('ClipboardManager', () => {
     })
 
     it.each([
-      ['en', 'Couldn\'t copy to the system clipboard. The object was copied to the editor\'s clipboard.'],
-      ['ru', 'Не удалось скопировать объект в системный буфер обмена. Копия объекта есть в буфере редактора.']
+      ['en', 'The object is in the editor\'s clipboard, but copying it to the system clipboard didn\'t work.'],
+      ['ru', 'Копия объекта есть в буфере редактора, но скопировать его в системный буфер обмена не получилось.']
     ])('подтверждает внутреннюю копию при отказе системного буфера для %s', async(language, userMessage) => {
       const error = new Error('Clipboard write failed')
       const object = createMockFabricObject({ type: 'rect', id: 'copied-object' })
@@ -140,8 +140,8 @@ describe('ClipboardManager', () => {
     })
 
     it.each([
-      ['en', 'The system clipboard isn\'t available here. The object was copied to the editor\'s clipboard.'],
-      ['ru', 'Системный буфер обмена здесь недоступен. Копия объекта есть в буфере редактора.']
+      ['en', 'The system clipboard isn\'t available here. The object is in the editor\'s clipboard.'],
+      ['ru', 'Копия объекта есть в буфере редактора. Системный буфер обмена здесь недоступен.']
     ])('подтверждает внутреннюю копию при недоступном системном буфере для %s', async(language, userMessage) => {
       const object = createMockFabricObject({ type: 'rect', id: 'internal-copy' })
       mockEditor.t = createTranslator({ language })
@@ -347,7 +347,7 @@ describe('ClipboardManager', () => {
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
         message: 'Failed to clone the object for the internal clipboard',
-        userMessage: 'Couldn\'t finish copying the object to the editor\'s clipboard.',
+        userMessage: 'Couldn\'t copy the object.',
         data: expect.any(Error)
       })
     })
@@ -1217,7 +1217,7 @@ describe('ClipboardManager', () => {
         method: '_handleImageImport',
         code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
         message: 'Pasting the image from the clipboard was canceled or failed',
-        userMessage: 'Pasting the image was interrupted.',
+        userMessage: 'Image pasting was interrupted.',
         data: { error: expect.any(Error) }
       })
     })
@@ -1303,7 +1303,7 @@ describe('ClipboardManager', () => {
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
         message: 'Failed to clone the object for the internal clipboard',
-        userMessage: 'Couldn\'t finish copying the object to the editor\'s clipboard.',
+        userMessage: 'Couldn\'t copy the object.',
         data: expect.any(Error)
       })
     })
@@ -1320,7 +1320,7 @@ describe('ClipboardManager', () => {
         method: 'paste',
         code: 'PASTE_FAILED',
         message: 'Failed to paste the object',
-        userMessage: 'Couldn\'t finish pasting the object. Check whether it appeared on the canvas.',
+        userMessage: 'Couldn\'t paste the object. Check whether it appeared on the canvas before trying again.',
         data: expect.any(Error)
       })
     })
@@ -1337,7 +1337,7 @@ describe('ClipboardManager', () => {
         method: 'copyPaste',
         code: 'COPY_PASTE_FAILED',
         message: 'Failed to create a copy of the object',
-        userMessage: 'Couldn\'t finish duplicating the object. Check the canvas for a new copy.',
+        userMessage: 'Couldn\'t duplicate the object. Check for a new copy on the canvas before trying again.',
         data: expect.any(Error)
       })
     })
@@ -1359,7 +1359,7 @@ describe('ClipboardManager', () => {
         method: 'handlePasteEvent',
         code: 'PASTE_IMAGE_FAILED',
         message: 'Failed to paste the image from the clipboard',
-        userMessage: 'Couldn\'t finish pasting the image from the clipboard.',
+        userMessage: 'Couldn\'t paste the image from the clipboard.',
         data: expect.any(Error)
       })
     })
@@ -1388,7 +1388,7 @@ describe('ClipboardManager', () => {
         method: 'handlePasteEvent',
         code: 'PASTE_HTML_IMAGE_FAILED',
         message: 'Failed to paste the image from HTML',
-        userMessage: 'Couldn\'t finish pasting the image from the clipboard.',
+        userMessage: 'Couldn\'t paste the image from the clipboard.',
         data: expect.any(Error)
       })
     })

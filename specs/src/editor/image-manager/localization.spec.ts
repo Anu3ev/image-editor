@@ -31,8 +31,8 @@ describe('ImageManager localized filenames and English diagnostics', () => {
   })
 
   it.each([
-    ['en', 'Couldn\'t finish exporting the image.'],
-    ['ru', 'Не удалось завершить экспорт изображения.']
+    ['en', 'Couldn\'t export the image.'],
+    ['ru', 'Не удалось экспортировать изображение.']
   ])('emits localized export notifications with unchanged diagnostics for %s', async(language, userMessage) => {
     const setup = createImageManagerTestSetup()
     const errorManager = new ErrorManager({ editor: setup.mockEditor })
@@ -70,12 +70,12 @@ describe('ImageManager localized filenames and English diagnostics', () => {
     {
       sizeType: 'max' as const,
       message: 'The image exceeds the maximum canvas size and will be reduced to fit 800×600 while preserving its aspect ratio.',
-      userMessage: 'Размер изображения будет изменён с сохранением пропорций в пределах 800 × 600 пикселей.'
+      userMessage: 'Меняем размер изображения, чтобы оно поместилось в 800 × 600 пикселей, сохраняя пропорции.'
     },
     {
       sizeType: 'min' as const,
       message: 'The image is smaller than the minimum canvas size and will be enlarged to meet 40×30 while preserving its aspect ratio.',
-      userMessage: 'Размер изображения будет изменён с сохранением пропорций. Минимальный целевой размер: 40 × 30 пикселей.'
+      userMessage: 'Меняем размер изображения с сохранением пропорций. Минимальный размер: 40 × 30 пикселей.'
     }
   ])('localizes $sizeType resize warnings while retaining the worker payload', async({ sizeType, message, userMessage }) => {
     const setup = createImageManagerTestSetup()

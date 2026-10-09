@@ -87,11 +87,11 @@ describe('Custom editor languages', () => {
     const portuguese = createTranslator({ language: 'pt', customLanguages })
 
     expect(russian('notifications.image.exportFailed')).toBe('Повторите экспорт.')
-    expect(russian('notifications.image.importFailed')).toBe('Не удалось завершить импорт изображения.')
-    expect(russian('notifications.clipboard.copyFailed')).toBe('Не удалось завершить копирование объекта в буфер редактора.')
+    expect(russian('notifications.image.importFailed')).toBe('Не удалось импортировать изображение.')
+    expect(russian('notifications.clipboard.copyFailed')).toBe('Не удалось скопировать объект.')
     expect(portuguese('notifications.image.exportFailed')).toBe('Tente exportar novamente.')
     expect(portuguese('notifications.image.importFailed')).toBe('Try importing the image again.')
-    expect(portuguese('notifications.image.noSelection')).toBe('Select the object you want to export as an image.')
+    expect(portuguese('notifications.image.noSelection')).toBe('Select an object to export as an image.')
   })
 
   it('isolates custom notification text between editors and from later caller mutations', () => {
@@ -105,8 +105,8 @@ describe('Custom editor languages', () => {
 
     expect(first('notifications.image.exportFailed')).toBe('First export notification')
     expect(second('notifications.image.exportFailed')).toBe('Second export notification')
-    expect(createTranslator({ language: 'ru' })('notifications.image.exportFailed')).toBe('Не удалось завершить экспорт изображения.')
-    expect(english('notifications.image.exportFailed')).toBe('Couldn\'t finish exporting the image.')
+    expect(createTranslator({ language: 'ru' })('notifications.image.exportFailed')).toBe('Не удалось экспортировать изображение.')
+    expect(english('notifications.image.exportFailed')).toBe('Couldn\'t export the image.')
     expect(first('notifications.image.exportFailed')).toBe('First export notification')
   })
 

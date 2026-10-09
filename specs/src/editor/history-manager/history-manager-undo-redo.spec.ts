@@ -572,7 +572,7 @@ describe('undo/redo', () => {
       method: 'undo',
       code: 'UNDO_ERROR',
       message: 'Failed to undo the action',
-      userMessage: 'Couldn\'t finish undoing the last change. Check the canvas before continuing.',
+      userMessage: 'Couldn\'t undo the last change. Check the result on the canvas before using Undo again.',
       data: error
     })
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
@@ -604,7 +604,7 @@ describe('undo/redo', () => {
       method: 'redo',
       code: 'REDO_ERROR',
       message: 'Failed to redo the action',
-      userMessage: 'Couldn\'t finish redoing the change. Check the canvas before continuing.',
+      userMessage: 'Couldn\'t redo the change. Check the result on the canvas before using Redo again.',
       data: error
     })
     expect(mockCanvas.fire).not.toHaveBeenCalledWith('editor:history-changed', expect.anything())
