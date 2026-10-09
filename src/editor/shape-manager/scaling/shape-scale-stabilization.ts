@@ -69,7 +69,7 @@ function resolveScaleProjection({
       || coefficients.some((coefficient) => !Number.isFinite(coefficient))
   })
   if (hasInvalidEdge) {
-    throw new Error('Shape scale mode projection contains invalid edge coefficients')
+    throw new Error('The shape scale mode projection contains invalid edge coefficients')
   }
 
   return modeProjection
@@ -205,7 +205,7 @@ function stabilizeUniformMultipliers({
   snappedVariables: ReadonlySet<RectangularScaleProjectionVariable>
 }): RectangularScaleMultipliers {
   if (multipliers.x !== multipliers.y) {
-    throw new Error('Uniform Shape scale requires equal x and y multipliers')
+    throw new Error('Uniform shape scaling requires equal x and y multipliers')
   }
 
   const multiplier = snappedVariables.has('uniform-multiplier')
@@ -225,8 +225,8 @@ export function stabilizeShapeScaleMultipliers({
   multipliers,
   protectedEdges
 }: ShapeScaleStabilizationOptions): RectangularScaleMultipliers {
-  const width = getInitialAxisLength({ vector: projection.u, name: 'Shape scale initial width' })
-  const height = getInitialAxisLength({ vector: projection.v, name: 'Shape scale initial height' })
+  const width = getInitialAxisLength({ vector: projection.u, name: 'Initial shape width' })
+  const height = getInitialAxisLength({ vector: projection.v, name: 'Initial shape height' })
   assertPositiveFiniteNumber({ value: multipliers.x, name: 'Shape scale multiplier x' })
   assertPositiveFiniteNumber({ value: multipliers.y, name: 'Shape scale multiplier y' })
 

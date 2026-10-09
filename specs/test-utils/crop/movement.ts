@@ -1,3 +1,5 @@
+import { ImageEditor } from '../../../src/editor'
+import { english } from '../../../src/editor/i18n'
 import SnappingManager from '../../../src/editor/snapping-manager'
 import { createMovementSnapEnvironment } from '../../../src/editor/snapping-manager/movement/movement-snap-candidates'
 import { CropFrameInteraction } from '../../../src/editor/crop-manager/interaction/crop-frame-interaction'
@@ -7,6 +9,7 @@ import { createCropGestureHarness } from './interaction'
 /** Observable editor boundary and real movement-target calculation. */
 function createSnapping() {
   const snapping: SnappingManager = Object.create(SnappingManager.prototype)
+  snapping.editor = Object.assign(Object.create(ImageEditor.prototype), { t: english })
   const capture = jest.fn(() => createMovementSnapEnvironment({
     zoom: 1,
     sources: [{

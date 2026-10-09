@@ -24,7 +24,7 @@ export default defineConfig({
 
     rollupOptions: {
       // External dependencies; do not bundle them
-      external: ['fabric', 'jspdf', 'jsondiffpatch', 'jsondiffpatch/with-text-diffs']
+      external: ['fabric', 'jspdf', 'jsondiffpatch', 'jsondiffpatch/with-text-diffs', 'i18next']
     },
 
     outDir: 'dist',

@@ -4,6 +4,7 @@ import type {
   FabricObject,
   Rect
 } from 'fabric'
+import type { Translate } from '../i18n'
 import type { EditorOptions } from '../types/options'
 
 /** Successful image import result. */
@@ -78,7 +79,10 @@ export interface ImageManagerErrorPayload {
   code: string
   origin?: string
   method?: string
+  /** Technical diagnostic; not intended for end-user notifications. */
   message?: string
+  /** Optional display text, localized by its owner and forwarded unchanged. */
+  userMessage?: string
   data?: object
 }
 
@@ -148,6 +152,7 @@ export interface ImageManagerInteractionBlocker {
 
 /** Local editor port needed only by ImageManager. */
 export interface ImageManagerEditor {
+  readonly t: Translate
   options: EditorOptions
   canvas: Canvas
   montageArea: Rect

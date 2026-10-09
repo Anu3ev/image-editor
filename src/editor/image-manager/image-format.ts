@@ -74,7 +74,7 @@ export function getContentTypeFromExtension({
 
     return extension ? mimeTypes[extension] || FALLBACK_CONTENT_TYPE : FALLBACK_CONTENT_TYPE
   } catch (error) {
-    console.warn('Не удалось определить расширение из URL:', url, error)
+    console.warn('Failed to determine the file extension from the URL:', url, error)
 
     return FALLBACK_CONTENT_TYPE
   }
@@ -90,7 +90,7 @@ async function getContentTypeFromBlobUrl({ src }: { src: string }): Promise<stri
       return blob.type.split(';')[0]
     }
   } catch (error) {
-    console.warn('Не удалось определить MIME-тип blob URL:', error)
+    console.warn('Failed to determine the MIME type of the blob URL:', error)
   }
 
   return FALLBACK_CONTENT_TYPE
@@ -122,7 +122,7 @@ export async function getContentTypeFromUrl({
       return contentType.split(';')[0]
     }
   } catch (error) {
-    console.warn('HEAD запрос неудачен, определяем тип по расширению:', error)
+    console.warn('The HEAD request failed; determining the type from the file extension:', error)
   }
 
   return getContentTypeFromExtension({ url: src, acceptContentTypes })

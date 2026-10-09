@@ -218,7 +218,8 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setColorBackground',
-        message: 'Не удалось установить цветовой фон',
+        message: 'Failed to set the background color',
+        userMessage: this.editor.t('notifications.background.colorFailed'),
         data: { error, color, customData, fromTemplate, withoutSave }
       })
     }
@@ -282,7 +283,8 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setGradientBackground',
-        message: 'Не удалось установить градиентный фон',
+        message: 'Failed to set the background gradient',
+        userMessage: this.editor.t('notifications.background.gradientFailed'),
         data: { error, gradient, customData, fromTemplate, withoutSave }
       })
     }
@@ -406,7 +408,8 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setImageBackground',
-        message: 'Не удалось установить изображение в качестве фона',
+        message: 'Failed to set the background image',
+        userMessage: this.editor.t('notifications.background.imageFailed'),
         data: { error, imageSource, customData, fromTemplate, withoutSave }
       })
     }
@@ -454,7 +457,8 @@ export default class BackgroundManager {
         code: 'BACKGROUND_CREATION_FAILED',
         origin: 'BackgroundManager',
         method: 'setPreparedImageBackground',
-        message: 'Не удалось установить подготовленное изображение в качестве фона',
+        message: 'Failed to set the prepared image as the background',
+        userMessage: this.editor.t('notifications.background.imageFailed'),
         data: { error, image, customData, fromTemplate, withoutSave }
       })
     }
@@ -484,7 +488,8 @@ export default class BackgroundManager {
         code: 'BACKGROUND_REMOVAL_FAILED',
         origin: 'BackgroundManager',
         method: 'removeBackground',
-        message: 'Не удалось удалить фон',
+        message: 'Failed to remove the background',
+        userMessage: this.editor.t('notifications.background.removeFailed'),
         data: { error, withoutSave }
       })
     }
@@ -589,7 +594,7 @@ export default class BackgroundManager {
     }) ?? {}
 
     if (!image) {
-      throw new Error('Не удалось загрузить изображение')
+      throw new Error('Failed to load the image')
     }
 
     this._setImageBackgroundObject({ image, customData })

@@ -130,7 +130,7 @@ describe('ErrorManager', () => {
         expect(errorManager.buffer).toHaveLength(0)
         expect(mockEditor.canvas.fire).not.toHaveBeenCalled()
         expect(console.warn).toHaveBeenCalledWith(
-          'Неизвестный код ошибки: ',
+          'Unknown error code: ',
           { code: 'INVALID_ERROR_CODE', origin: 'ImageEditor', method: 'Unknown Method' }
         )
       })
@@ -215,7 +215,7 @@ describe('ErrorManager', () => {
         expect(errorManager.buffer).toHaveLength(0)
         expect(mockEditor.canvas.fire).not.toHaveBeenCalled()
         expect(console.warn).toHaveBeenCalledWith(
-          'Неизвестный код предупреждения: ',
+          'Unknown warning code: ',
           { code: 'INVALID_WARNING_CODE', origin: 'ImageEditor', method: 'Unknown Method' }
         )
       })

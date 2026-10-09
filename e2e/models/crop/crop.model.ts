@@ -1130,7 +1130,7 @@ export class CropModel {
       const style = window.getComputedStyle(indicator)
       const bounds = indicator.getBoundingClientRect()
       const text = indicator.textContent ?? ''
-      const match = text.match(/ширина:\s*([\d\s]+)\s+высота:\s*([\d\s]+)/)
+      const match = text.match(/Width:\s*([\d\s]+)\s+Height:\s*([\d\s]+)/)
       const width = match ? Number(match[1].replace(/\s/g, '')) : null
       const height = match ? Number(match[2].replace(/\s/g, '')) : null
 

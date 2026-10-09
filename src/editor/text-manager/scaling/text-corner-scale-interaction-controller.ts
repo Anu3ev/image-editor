@@ -572,7 +572,7 @@ export default class TextCornerScaleInteractionController {
     session: TextCornerScaleSession
   }): FinalScaleGeometry {
     const bounds = getObjectExactBounds({ object: session.target })
-    if (!bounds) throw new Error('Текст должен иметь точные границы после скейлинга')
+    if (!bounds) throw new Error('The text must have exact bounds after scaling')
 
     const anchor = session.target.getPointByOrigin(
       session.transform.originX,

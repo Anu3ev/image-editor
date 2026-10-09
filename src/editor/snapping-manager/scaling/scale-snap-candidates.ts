@@ -72,7 +72,7 @@ function assertCandidateInputs({
   sources: readonly ScaleSnapCandidateSource[]
 }): void {
   if (!targetEdges.length) {
-    throw new Error('Scale snap target edges must contain at least one edge')
+    throw new Error('Scale snapping must have at least one target edge')
   }
   if (new Set(targetEdges).size !== targetEdges.length) {
     throw new Error('Scale snap target edges must be unique')
@@ -81,7 +81,7 @@ function assertCandidateInputs({
   const sourceIds = new Set<string>()
   for (const source of sources) {
     if (!source.id.trim() || sourceIds.has(source.id)) {
-      throw new Error(`Scale snap source id "${source.id}" must be non-empty and unique`)
+      throw new Error(`Scale snap source ID "${source.id}" must be non-empty and unique`)
     }
     sourceIds.add(source.id)
     assertSourceBounds({ source })
@@ -93,16 +93,16 @@ function assertSourceBounds({ source }: { source: ScaleSnapCandidateSource }): v
   const { left, right, top, bottom, centerX, centerY } = source.bounds
   const values = [left, right, top, bottom, centerX, centerY]
   if (!values.every(Number.isFinite)) {
-    throw new Error(`Scale snap source "${source.id}" bounds must be finite`)
+    throw new Error(`The bounds of scale snap source "${source.id}" must be finite`)
   }
   if (right < left || bottom < top) {
-    throw new Error(`Scale snap source "${source.id}" bounds must be ordered`)
+    throw new Error(`The bounds of scale snap source "${source.id}" must be ordered`)
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (centerX !== expectedCenterX || centerY !== expectedCenterY) {
-    throw new Error(`Scale snap source "${source.id}" centers must be derived from its edges`)
+    throw new Error(`Scale snap source "${source.id}" must derive its center coordinates from its edges`)
   }
 }
 

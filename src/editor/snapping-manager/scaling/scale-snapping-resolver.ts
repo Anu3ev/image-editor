@@ -269,7 +269,10 @@ export function createScaleGestureBaseline({
   zoom
 }: ScaleGestureBaselineInput): ScaleGestureBaseline {
   const exactBounds = createExactBoundsSnapshot({ bounds })
-  const anchorSnapshot = createScenePointSnapshot({ point: fixedAnchor, name: 'fixed anchor' })
+  const anchorSnapshot = createScenePointSnapshot({
+    point: fixedAnchor,
+    name: 'fixed anchor'
+  })
   const modeSnapshot = createProjectionModeSnapshot({ bounds: exactBounds, projectionModes })
   const candidateSnapshot = createCandidateSnapshot({ candidates, projectionModes: modeSnapshot })
 
@@ -433,7 +436,10 @@ export function verifyScaleSnapPlan({
 }): ScaleSnapVerification {
   const { measuredValues, domainVerdict } = finalGeometry
   const bounds = createExactBoundsSnapshot({ bounds: finalGeometry.bounds })
-  const fixedAnchor = createScenePointSnapshot({ point: finalGeometry.fixedAnchor, name: 'final fixed anchor' })
+  const fixedAnchor = createScenePointSnapshot({
+    point: finalGeometry.fixedAnchor,
+    name: 'final fixed anchor'
+  })
   const fixedAnchorMatches = areScenePointsNear({
     first: plan.fixedAnchor,
     second: fixedAnchor,
@@ -478,17 +484,17 @@ function createExactBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): Object
   const { left, right, top, bottom, centerX, centerY } = bounds
   const edges = [left, right, top, bottom]
   if (!edges.every(Number.isFinite) || right < left || bottom < top) {
-    throw new Error('Scale snapping bounds must contain finite ordered edges')
+    throw new Error('Scale snapping bounds must contain finite, ordered edge coordinates')
   }
   if (!Number.isFinite(centerX) || !Number.isFinite(centerY)) {
-    throw new Error('Scale snapping bounds must contain finite centers')
+    throw new Error('Scale snapping bounds must contain finite center coordinates')
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (Math.abs(centerX - expectedCenterX) > EXACT_BOUNDS_CENTER_EPSILON
     || Math.abs(centerY - expectedCenterY) > EXACT_BOUNDS_CENTER_EPSILON) {
-    throw new Error('Scale snapping bounds centers must be derived from their edges')
+    throw new Error('Scale snapping bounds must derive their center coordinates from their edges')
   }
 
   return Object.freeze({ left, right, top, bottom, centerX, centerY })
@@ -505,7 +511,7 @@ function createScenePointSnapshot({
   name: string
 }): ScaleScenePoint {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-    throw new Error(`Scale snapping ${name} must contain finite coordinates`)
+    throw new Error(`The scale snapping ${name} must have finite coordinates`)
   }
 
   return Object.freeze({ x: point.x, y: point.y })
@@ -528,7 +534,7 @@ function createProjectionModeSnapshot({
   const modeIds = new Set<string>()
   const snapshot = projectionModes.map(({ id, projection }) => {
     if (id.trim().length === 0 || modeIds.has(id)) {
-      throw new Error(`Scale projection mode id "${id}" must be non-empty and unique`)
+      throw new Error(`Scale projection mode ID "${id}" must be non-empty and unique`)
     }
     modeIds.add(id)
 
@@ -590,20 +596,20 @@ function assertScaleCandidate({
   candidateIds: ReadonlySet<string>
 }): void {
   if (candidate.id.trim().length === 0 || candidateIds.has(candidate.id)) {
-    throw new Error(`Scale snap candidate id "${candidate.id}" must be non-empty and unique`)
+    throw new Error(`Scale snap candidate ID "${candidate.id}" must be non-empty and unique`)
   }
   if (!Number.isFinite(candidate.position)) {
-    throw new Error(`Scale snap candidate "${candidate.id}" position must be finite`)
+    throw new Error(`The position of scale snap candidate "${candidate.id}" must be finite`)
   }
   if (resolveScaleSceneEdgeAxis({ edge: candidate.edge }) !== candidate.axis) {
-    throw new Error(`Scale snap candidate "${candidate.id}" edge does not belong to ${candidate.axis} axis`)
+    throw new Error(`The edge of scale snap candidate "${candidate.id}" does not belong to the ${candidate.axis} axis`)
   }
 
   const isSupported = projectionModes.some(({ projection }) => {
     return Boolean(getScaleProjectionEdge({ projection, edge: candidate.edge }))
   })
   if (!isSupported) {
-    throw new Error(`Scale snap candidate "${candidate.id}" edge is not moved by any projection mode`)
+    throw new Error(`The edge of scale snap candidate "${candidate.id}" is not moved by any projection mode`)
   }
 }
 
@@ -618,7 +624,7 @@ function assertScaleRawIntent({
   intent: ScaleRawIntent
 }): void {
   if (intent.values.length !== projection.variables.length) {
-    throw new Error('Scale raw intent has invalid values length')
+    throw new Error('The raw scale intent has an invalid number of values')
   }
   if (!intent.values.every(Number.isFinite)) {
     throw new Error('Scale raw intent values must be finite')
@@ -637,7 +643,7 @@ function assertScaleValues({
   values: readonly number[]
 }): void {
   if (values.length !== projection.variables.length) {
-    throw new Error('Scale refinement has invalid values length')
+    throw new Error('The scale refinement has an invalid number of values')
   }
   if (!values.every(Number.isFinite)) {
     throw new Error('Scale refinement values must be finite')
@@ -665,7 +671,7 @@ function assertRefinedConstraintsReached({
     if (projectedPosition === null
       || Math.abs(projectedPosition - constraint.expectedPosition) > verificationEpsilon
       || Math.abs(exactPosition - constraint.expectedPosition) > verificationEpsilon) {
-      throw new Error(`Refined scale plan does not reach ${edge} constraint`)
+      throw new Error(`The refined scale plan does not reach the ${edge} constraint`)
     }
   }
 }
@@ -696,7 +702,7 @@ function resolveRefinedScaleConstraint({
 }): PlannedScaleConstraint | null {
   if (!constraint) return null
   if (!candidate || !arePlannedScaleConstraintsEqual({ first: candidate, second: constraint })) {
-    throw new Error(`Refined ${axis} constraint does not belong to scale plan candidates`)
+    throw new Error(`The refined ${axis} constraint does not belong to the scale plan candidates`)
   }
 
   return candidate
@@ -716,12 +722,12 @@ function assertScaleHoldState({
     const axisHold = holdState[axis]
     if (axisHold.kind === 'free') continue
     if (axisHold.candidate.axis !== axis) {
-      throw new Error(`Held scale candidate belongs to ${axisHold.candidate.axis}, not ${axis} axis`)
+      throw new Error(`The held scale candidate belongs to the ${axisHold.candidate.axis} axis, not the ${axis} axis`)
     }
 
     const baselineCandidate = baseline.candidates[axisHold.candidate.snapshotIndex]
     if (!baselineCandidate || !areScaleCandidatesEqual({ first: baselineCandidate, second: axisHold.candidate })) {
-      throw new Error(`Held scale candidate "${axisHold.candidate.id}" does not belong to baseline snapshot`)
+      throw new Error(`Held scale candidate "${axisHold.candidate.id}" does not belong to the baseline snapshot`)
     }
   }
 }
@@ -884,7 +890,7 @@ function resolveCompatibleProposals({
   if (solution) return Object.freeze({ x, y, solution })
   const [preferred] = orderedProposals
   if (!preferred) {
-    throw new Error('Raw scale intent must have a projection solution')
+    throw new Error('The raw scale intent must have a projection solution')
   }
 
   const preferredSolution = resolveScaleProjection({
@@ -894,7 +900,7 @@ function resolveCompatibleProposals({
     epsilon: baseline.thresholds.verification
   })
   if (!preferredSolution) {
-    throw new Error(`Scale constraint for ${preferred.candidate.edge} edge must have a projection solution`)
+    throw new Error(`The scale constraint for the ${preferred.candidate.edge} edge must have a projection solution`)
   }
 
   return Object.freeze({
@@ -1058,7 +1064,7 @@ function assertEffectiveConstraintsReached({
 
     const position = effectivePositions[constraint.candidate.edge]
     if (position === null || Math.abs(position - constraint.expectedPosition) > verificationEpsilon) {
-      throw new Error(`Scale plan does not reach ${constraint.candidate.edge} constraint`)
+      throw new Error(`The scale plan does not reach the ${constraint.candidate.edge} constraint`)
     }
   }
 }

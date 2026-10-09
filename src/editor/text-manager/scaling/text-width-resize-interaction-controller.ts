@@ -435,7 +435,7 @@ export default class TextWidthResizeInteractionController {
       })
     })
     if (step.kind === 'duplicate') {
-      throw new Error('Шаг изменения ширины не должен повторно становиться дубликатом после первой проверки')
+      throw new Error('The width resize step must not become a duplicate after the initial check')
     }
 
     const resolvedStep = this._resolveTextWidthStep({
@@ -451,7 +451,7 @@ export default class TextWidthResizeInteractionController {
       width: resolvedStep.width
     })
     if (!guides) {
-      throw new Error('Не удалось применить и проверить план изменения ширины текста')
+      throw new Error('Could not apply and verify the text width resize plan')
     }
 
     this.editor.snappingManager.publishVerifiedScaleGuides({ guides })

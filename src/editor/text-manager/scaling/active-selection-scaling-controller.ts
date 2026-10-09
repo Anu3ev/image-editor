@@ -154,7 +154,7 @@ export default class TextActiveSelectionScalingController {
     canvas,
     canvasManager
   }: {
-    canvas: Canvas
+  canvas: Canvas
     canvasManager: CanvasManager
   }) {
     this.canvas = canvas
@@ -190,7 +190,7 @@ export default class TextActiveSelectionScalingController {
     })
     if (!content || transform.target !== selection) return false
     if (!ACTIVE_SELECTION_TEXT_SCALE_CONTROLS.has(transform.corner)) return false
-    if (this.session) throw new Error('Сессия скейлинга выделения с текстом уже начата')
+    if (this.session) throw new Error('A scaling session for the selection containing text has already started')
 
     const measurer = new ActiveSelectionTextScaleMeasurer({
       affineChildren: content.affineChildren,
@@ -278,13 +278,13 @@ export default class TextActiveSelectionScalingController {
     const { session } = this
     if (!session || session.selection !== selection) return false
     if (!session.measurer.hasConfirmedMeasurement()) {
-      throw new Error('Фиксации выделения с текстами должно предшествовать подтверждённое состояние')
+      throw new Error('Committing a selection containing text requires a previously confirmed state')
     }
 
     const failures: unknown[] = []
     try {
       if (this.canvas.getActiveObject() === selection) {
-        throw new Error('SelectionManager должен снять временную рамку до фиксации текстов')
+        throw new Error('SelectionManager must remove the temporary frame before committing text objects')
       }
       this._assertCommittedTexts({ texts: session.texts })
     } catch (error) {
@@ -341,7 +341,7 @@ export default class TextActiveSelectionScalingController {
   private _getSession({ selection }: { selection: ActiveSelection }): ActiveSelectionTextScalingSession {
     const { session } = this
     if (!session || session.selection !== selection) {
-      throw new Error('Скейлинг выделения с текстом должен начинаться с исходной сессии')
+      throw new Error('Scaling a selection containing text must start from the original session')
     }
 
     return session
@@ -358,7 +358,7 @@ export default class TextActiveSelectionScalingController {
         child.skewY ?? 0
       ]
       if (!affineValues.every((value) => isNear({ actual: value, expected: 0 }))) {
-        throw new Error('После фиксации каждый текст должен иметь каноническое преобразование')
+        throw new Error('Each text object must have a canonical transform after commit')
       }
     }
   }

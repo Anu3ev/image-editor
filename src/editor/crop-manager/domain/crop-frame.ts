@@ -200,7 +200,7 @@ export function setCropFrameActiveResizePreserveAspectRatio({
   preserveAspectRatio: boolean | null
 }): void {
   if (!(frame instanceof CropFrame)) {
-    throw new Error('Crop session frame должен быть CropFrame')
+    throw new Error('The crop session frame must be a CropFrame')
   }
 
   frame.cropActiveResizePreserveAspectRatio = preserveAspectRatio

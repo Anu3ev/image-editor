@@ -1,5 +1,6 @@
-/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 import type { jsPDF } from 'jspdf'
+import { english, type Translate } from '../i18n'
+/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 
 import type {
   exportCanvasAsImageFileOptions,
@@ -54,12 +55,14 @@ interface JsPDFModule {
  * Normalizes canvas export input options.
  */
 export function createCanvasExportRequest({
-  options
+  options,
+  t = english
 }: {
+  t?: Translate
   options: exportCanvasAsImageFileOptions
 }): CanvasExportRequest {
   const {
-    fileName = 'image.png',
+    fileName = t('image.filenames.defaultPng'),
     contentType = 'image/png',
     exportAsBase64 = false,
     exportAsBlob = false
@@ -233,7 +236,7 @@ async function createCanvasBlob({
         if (canvasBlob) {
           resolve(canvasBlob)
         } else {
-          reject(new Error('Failed to create Blob from canvas'))
+          reject(new Error('Failed to create a Blob from the canvas'))
         }
       },
       contentType,
@@ -354,7 +357,7 @@ async function exportCanvasPdf({
     const pdfBase64 = pdf.output('datauristring')
 
     if (typeof pdfBase64 !== 'string') {
-      throw new Error('jsPDF должен вернуть data URI строку')
+      throw new Error('jsPDF must return a data URI string')
     }
 
     return emitCanvasExported({

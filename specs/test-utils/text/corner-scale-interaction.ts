@@ -5,6 +5,7 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
+import { english } from '../../../src/editor/i18n'
 import { ImageEditor } from '../../../src/editor'
 import CanvasManager from '../../../src/editor/canvas-manager'
 import SnappingManager from '../../../src/editor/snapping-manager'
@@ -242,10 +243,11 @@ function createTextCornerScaleController({
   snappingManager.markStepHandled = markStepMock
   snappingManager.publishVerifiedScaleGuides = publishGuidesMock
 
-  const editor: ImageEditor = Object.create(ImageEditor.prototype)
+  const editor: ImageEditor = Object.assign(Object.create(ImageEditor.prototype), { t: english })
   editor.canvas = canvas
   editor.canvasManager = canvasManager
   editor.snappingManager = snappingManager
+  snappingManager.editor = editor
 
   const scalingController: TextScalingController = Object.create(TextScalingController.prototype)
   scalingController.beginStandaloneCornerScale = beginScaleMock

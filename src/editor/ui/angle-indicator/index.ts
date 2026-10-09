@@ -86,7 +86,7 @@ export default class AngleIndicatorManager {
 
     // Negative values already have a minus sign; do not add a plus for positive values (as in Canva)
     this.indicator.showAtPointer({
-      text: `${this.currentAngle}°`,
+      text: this.editor.t('ui.indicators.rotationAngle', { angle: this.currentAngle }),
       event: opt.e
     })
   }

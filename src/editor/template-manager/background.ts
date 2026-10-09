@@ -159,7 +159,7 @@ export function applyTemplateBackgroundObject({
       origin: 'TemplateManager',
       method: 'applyTemplate',
       code: errorCodes.TEMPLATE_MANAGER.APPLY_FAILED,
-      message: 'Не удалось применить фон из шаблона',
+      message: 'Failed to apply the background from the template',
       data: error as object
     })
   }

@@ -38,7 +38,7 @@ describe('ObjectSizeIndicatorManager', () => {
     getCanvasHandler(mockCanvas, 'object:scaling')(createObjectSizeTransformEvent({ target }))
 
     expect(manager.el.style.display).toBe('block')
-    expect(manager.el.textContent).toBe('ширина: 1 235 высота: 68')
+    expect(manager.el.textContent).toBe('Width: 1 235 Height: 68')
   })
 
   it('показывает текущие размеры объекта во время object:resizing', () => {
@@ -54,7 +54,7 @@ describe('ObjectSizeIndicatorManager', () => {
     getCanvasHandler(mockCanvas, 'object:resizing')(createObjectSizeTransformEvent({ target }))
 
     expect(manager.el.style.display).toBe('block')
-    expect(manager.el.textContent).toBe('ширина: 240 высота: 120')
+    expect(manager.el.textContent).toBe('Width: 240 Height: 120')
   })
 
   it('обновляет индикатор на mouse:move активной scale-трансформации', () => {
@@ -75,7 +75,7 @@ describe('ObjectSizeIndicatorManager', () => {
     getCanvasHandler(mockCanvas, 'mouse:move')(createObjectSizeMouseMoveEvent())
 
     expect(manager.el.style.display).toBe('block')
-    expect(manager.el.textContent).toBe('ширина: 181 высота: 76')
+    expect(manager.el.textContent).toBe('Width: 181 Height: 76')
   })
 
   it('использует доменный размер объекта, если он отличается от visual bbox', () => {
@@ -95,7 +95,7 @@ describe('ObjectSizeIndicatorManager', () => {
     getCanvasHandler(mockCanvas, 'object:scaling')(createObjectSizeTransformEvent({ target }))
 
     expect(manager.el.style.display).toBe('block')
-    expect(manager.el.textContent).toBe('ширина: 512 высота: 512')
+    expect(manager.el.textContent).toBe('Width: 512 Height: 512')
     expect(target.getObjectDisplaySize).toHaveBeenCalledTimes(1)
     expect(target.getScaledWidth).not.toHaveBeenCalled()
     expect(target.getScaledHeight).not.toHaveBeenCalled()
@@ -116,7 +116,7 @@ describe('ObjectSizeIndicatorManager', () => {
     getCanvasHandler(mockCanvas, 'object:scaling')(createObjectSizeTransformEvent({ target }))
 
     expect(manager.el.style.display).toBe('block')
-    expect(manager.el.textContent).toBe('ширина: 500 высота: 334')
+    expect(manager.el.textContent).toBe('Width: 500 Height: 334')
   })
 
   it('не показывает индикатор на mouse:move, если активная трансформация не меняет размер', () => {

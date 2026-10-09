@@ -5,6 +5,7 @@ import {
   controlsUtils,
   type Transform
 } from 'fabric'
+import { english } from '../../../src/editor/i18n'
 
 import { ImageEditor } from '../../../src/editor'
 import {
@@ -211,7 +212,7 @@ function createImageScaleControllerDependencies({
   >(() => Object.freeze({ candidates: Object.freeze([]), zoom: 1 }))
   const snappingManager: SnappingManager = Object.create(SnappingManager.prototype)
   snappingManager.captureScaleSnapEnvironment = captureEnvironmentMock
-  const editor: ImageEditor = Object.create(ImageEditor.prototype)
+  const editor: ImageEditor = Object.assign(Object.create(ImageEditor.prototype), { t: english })
   const endCurrentTransformMock: ImageScaleSnappingHarness['endCurrentTransformMock'] = jest.fn()
   const canvas = Object.assign(Object.create(Canvas.prototype), {
     altActionKey: 'shiftKey',
@@ -222,6 +223,7 @@ function createImageScaleControllerDependencies({
   }) as Canvas
   editor.canvas = canvas
   editor.snappingManager = snappingManager
+  snappingManager.editor = editor
   target.canvas = canvas
 
   return Object.freeze({

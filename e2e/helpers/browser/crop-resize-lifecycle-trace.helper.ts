@@ -200,7 +200,7 @@ export class CropResizeLifecycleTrace {
         const frame = traceSession.frame as any
         const element = document.querySelector('.fabric-editor-object-size-indicator')
         const text = element?.textContent ?? ''
-        const match = text.match(/ширина:\s*([\d\s]+)\s+высота:\s*([\d\s]+)/)
+        const match = text.match(/Width:\s*([\d\s]+)\s+Height:\s*([\d\s]+)/)
         const rect = element instanceof HTMLElement ? element.getBoundingClientRect() : null
         const style = element instanceof HTMLElement ? window.getComputedStyle(element) : null
 

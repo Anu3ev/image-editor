@@ -78,7 +78,7 @@ describe('shape-manager mixed selection scale domain', () => {
       children: [first, second],
       selection,
       transform: transform as never
-    })).toThrow('Каждый измеренный шейп должен зафиксировать рассчитанные размеры')
+    })).toThrow('Each measured shape must commit its calculated dimensions')
     const after = captureShapeScalingGeometry({ group: first })
 
     expect(materialization.firstMaterializedWidth).toBeGreaterThan(before.groupGeometry.width)

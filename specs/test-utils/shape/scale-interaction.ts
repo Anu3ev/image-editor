@@ -5,6 +5,7 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
+import { english } from '../../../src/editor/i18n'
 import { ImageEditor } from '../../../src/editor'
 import SnappingManager from '../../../src/editor/snapping-manager'
 import type { ScaleSnapEnvironment } from '../../../src/editor/snapping-manager/scaling/scale-snap-candidates'
@@ -274,9 +275,10 @@ export function createShapeScaleInteractionHarness({
   canvas.altActionKey = 'shiftKey'
   canvas.endCurrentTransform = endCurrentTransformMock
   target.canvas = canvas
-  const editor: ImageEditor = Object.create(ImageEditor.prototype)
+  const editor: ImageEditor = Object.assign(Object.create(ImageEditor.prototype), { t: english })
   editor.canvas = canvas
   editor.snappingManager = snappingManager
+  snappingManager.editor = editor
   const scalingController: ShapeScalingController = Object.create(ShapeScalingController.prototype)
   scalingController.handleObjectScaling = materializeMock
   scalingController.clearState = clearScalingStateMock

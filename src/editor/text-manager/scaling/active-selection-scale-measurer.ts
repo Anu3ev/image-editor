@@ -153,7 +153,7 @@ function createBounds({
   top: number
 }): ObjectBounds {
   if (![bottom, left, right, top].every(Number.isFinite) || right <= left || bottom <= top) {
-    throw new Error('Измеренные границы выделения с текстами должны иметь конечный положительный размер')
+    throw new Error('The measured bounds of a selection containing text must have positive finite dimensions')
   }
 
   return Object.freeze({
@@ -188,7 +188,7 @@ function createSelectionScaleFrame({
 
 /** Combines the exact bounds of all measured children in the selection. */
 function mergeBounds({ bounds }: { bounds: readonly ObjectBounds[] }): ObjectBounds {
-  if (bounds.length < 2) throw new Error('Измерение общего выделения требует минимум два объекта')
+  if (bounds.length < 2) throw new Error('Measuring a selection requires at least two objects')
 
   return createBounds({
     bottom: Math.max(...bounds.map(({ bottom }) => bottom)),
@@ -199,13 +199,17 @@ function mergeBounds({ bounds }: { bounds: readonly ObjectBounds[] }): ObjectBou
 }
 
 /** Converts a Fabric anchor point into an offset from the frame center. */
-function resolveOriginOffset({ origin }: { origin: Transform['originX'] | Transform['originY'] }): number {
+function resolveOriginOffset({
+  origin
+}: {
+  origin: Transform['originX'] | Transform['originY']
+}): number {
   if (origin === 'left' || origin === 'top') return -0.5
   if (origin === 'right' || origin === 'bottom') return 0.5
   if (origin === 'center') return 0
   if (typeof origin === 'number' && Number.isFinite(origin)) return origin - 0.5
 
-  throw new Error('Скейлинг выделения с текстами требует поддерживаемую неподвижную точку')
+  throw new Error('Scaling a selection containing text requires a supported fixed point')
 }
 
 /** Returns the offset that aligns the measured frame's fixed point with its position at gesture start. */
@@ -380,7 +384,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     selection,
     transform
   }: {
-    affineChildren?: readonly FabricObject[]
+  affineChildren?: readonly FabricObject[]
     canvasManager: CanvasManager
     children: readonly EditorTextbox[]
     domainSource?: ActiveSelectionScaleDomainSource | null
@@ -388,9 +392,9 @@ export default class ActiveSelectionTextScaleMeasurer {
     selection: ActiveSelection
     transform: Transform
   }) {
-    if (children.length < 1) throw new Error('Скейлинг состава с текстом требует хотя бы один текст')
+    if (children.length < 1) throw new Error('Scaling a composition containing text requires at least one text object')
     if (children.length + affineChildren.length + (domainSource?.targets.length ?? 0) < 2) {
-      throw new Error('Скейлинг общего выделения требует минимум два объекта')
+      throw new Error('Scaling a selection requires at least two objects')
     }
 
     this.canvasManager = canvasManager
@@ -485,7 +489,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     const confirmedLiveState = this._captureCurrentLiveState()
 
     if (measurement.domainMeasurement) {
-      if (!this.domainSource) throw new Error('Подтверждение доменной геометрии требует её источник')
+      if (!this.domainSource) throw new Error('Confirming domain geometry requires its source')
 
       this.domainSource.confirmAppliedState({ measurement: measurement.domainMeasurement })
     }
@@ -593,7 +597,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     measurement.children.forEach((childMeasurement, index) => {
       const item = this.items[index]
       if (!item || item.target !== childMeasurement.target) {
-        throw new Error('Измеренное состояние должно соответствовать исходному порядку текстов')
+        throw new Error('The measured state must match the original text order')
       }
 
       this._applyChildMeasurement({
@@ -615,7 +619,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     measurement.affineChildren.forEach((childMeasurement, index) => {
       const item = this.affineItems[index]
       if (!item || item.target !== childMeasurement.target) {
-        throw new Error('Линейная геометрия должна соответствовать исходному порядку объектов')
+        throw new Error('Affine geometry must match the original object order')
       }
 
       this._applyAffineChildMeasurement({ childMeasurement, frame, item })
@@ -630,7 +634,7 @@ export default class ActiveSelectionTextScaleMeasurer {
   }): void {
     if (!measurement.domainMeasurement) return
     if (!this.domainSource) {
-      throw new Error('Измеренная доменная геометрия должна иметь источник применения')
+      throw new Error('Measured domain geometry must have a source through which it can be applied')
     }
 
     this.domainSource.apply({
@@ -649,7 +653,9 @@ export default class ActiveSelectionTextScaleMeasurer {
     selection: ActiveSelection
   }): ActiveSelectionTextScaleBaseline {
     const matrix = [...selection.calcTransformMatrix()] as TMat2D
-    if (!matrix.every(Number.isFinite)) throw new Error('Матрица выделения с текстами должна быть конечной')
+    if (!matrix.every(Number.isFinite)) {
+      throw new Error('The matrix of a selection containing text must contain finite values')
+    }
 
     const fixedAnchorLocal = new Point(projection.fixedAnchor.x, projection.fixedAnchor.y)
       .transform(util.invertTransform(matrix))
@@ -690,13 +696,13 @@ export default class ActiveSelectionTextScaleMeasurer {
     const canonicalValues = [target.angle ?? 0, target.skewX ?? 0, target.skewY ?? 0, target.strokeWidth ?? 0]
     if (target.group !== this.selection || hasUnsupportedState
       || canonicalValues.some((value) => !areNumbersNear({ first: value, second: 0 }))) {
-      throw new Error('Линейный ребёнок должен иметь каноническое преобразование')
+      throw new Error('An affine child must have a canonical transform')
     }
 
     const width = target.width * target.scaleX
     const height = target.height * target.scaleY
     if (![width, height].every(Number.isFinite) || width <= 0 || height <= 0) {
-      throw new Error('Линейный ребёнок должен иметь конечный положительный размер')
+      throw new Error('An affine child must have positive finite dimensions')
     }
 
     return Object.freeze({
@@ -733,7 +739,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     mode: RectangularScaleGestureMode
     multipliers: RectangularScaleMultipliers
   }): RectangularScaleMultipliers {
-    if (mode === 'vertical') throw new Error('Вертикальные боковые ручки скрыты для выделения с текстами')
+    if (mode === 'vertical') throw new Error('Top and bottom side handles are hidden for selections containing text')
 
     let resolved: RectangularScaleMultipliers
     if (mode === 'uniform') {
@@ -767,17 +773,17 @@ export default class ActiveSelectionTextScaleMeasurer {
     resolved: RectangularScaleMultipliers
   }): void {
     if (![resolved.x, resolved.y].every(Number.isFinite) || Math.min(resolved.x, resolved.y) <= 0) {
-      throw new Error('Доменный источник должен вернуть положительные конечные множители')
+      throw new Error('The domain source must return positive finite multipliers')
     }
     if (resolved.x < requested.x - ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_EPSILON
       || resolved.y < requested.y - ACTIVE_SELECTION_TEXT_SCALE_MEASUREMENT_EPSILON) {
-      throw new Error('Доменный источник не должен ослаблять уже применённые ограничения текста')
+      throw new Error('The domain source must not relax text constraints that have already been applied')
     }
     if (mode === 'uniform' && !areNumbersNear({ first: resolved.x, second: resolved.y })) {
-      throw new Error('Пропорциональный скейлинг должен сохранить одинаковые множители')
+      throw new Error('Uniform scaling must preserve equal multipliers')
     }
     if (mode === 'horizontal' && !areNumbersNear({ first: resolved.y, second: 1 })) {
-      throw new Error('Горизонтальный скейлинг не должен менять вертикальный множитель')
+      throw new Error('Horizontal scaling must not change the vertical multiplier')
     }
   }
 
@@ -789,21 +795,21 @@ export default class ActiveSelectionTextScaleMeasurer {
   }): void {
     const sourceTargets = this.domainSource?.targets
     if (!sourceTargets || sourceTargets.length !== measurement.children.length) {
-      throw new Error('Доменное измерение должно содержать все заявленные объекты')
+      throw new Error('The domain measurement must contain all declared objects')
     }
 
     const matchesSource = measurement.children.every(({ target }, index) => {
       return target === sourceTargets[index]
     })
     if (!matchesSource) {
-      throw new Error('Порядок доменных объектов должен совпадать с началом сессии')
+      throw new Error('The order of domain objects must match their order at session start')
     }
   }
 
   /** Returns the current handle's projection mode. */
   private _resolveProjectionMode({ mode }: { mode: RectangularScaleGestureMode }): ScaleProjectionModeInput {
     const projectionMode = this.projectionModes.find(({ id }) => id === mode)
-    if (!projectionMode) throw new Error('Для текстового скейлинга должна существовать выбранная проекция')
+    if (!projectionMode) throw new Error('The selected projection must exist for text scaling')
 
     return projectionMode
   }
@@ -851,7 +857,9 @@ export default class ActiveSelectionTextScaleMeasurer {
     if (cache.size <= ACTIVE_SELECTION_TEXT_SCALE_CACHE_SIZE) return
 
     const oldestKey = cache.keys().next().value
-    if (typeof oldestKey !== 'string') throw new Error('Кеш измерений выделения с текстами не должен быть пустым')
+    if (typeof oldestKey !== 'string') {
+      throw new Error('The measurement cache for a selection containing text must not be empty')
+    }
     cache.delete(oldestKey)
   }
 
@@ -999,7 +1007,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     this.canonicalGeometries.set(key, geometry)
     if (this.canonicalGeometries.size > ACTIVE_SELECTION_TEXT_SCALE_GEOMETRY_CACHE_SIZE) {
       const oldestKey = this.canonicalGeometries.keys().next().value
-      if (typeof oldestKey !== 'string') throw new Error('Кеш геометрии текстов не должен быть пустым')
+      if (typeof oldestKey !== 'string') throw new Error('The text geometry cache must not be empty')
       this.canonicalGeometries.delete(oldestKey)
     }
 
@@ -1088,7 +1096,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     const matchesRequested = areNumbersNear({ first: measurement.multipliers.x, second: multipliers.x })
       && areNumbersNear({ first: measurement.multipliers.y, second: multipliers.y })
     if (!matchesRequested) {
-      throw new Error('Доменная геометрия должна соответствовать уже выбранным множителям')
+      throw new Error('Domain geometry must match the already selected multipliers')
     }
 
     return measurement
@@ -1230,7 +1238,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       if (changesGeometry) return sample
     }
 
-    throw new Error('Не удалось найти различимую геометрию скейлинга выделения с текстами')
+    throw new Error('Could not find distinguishable scaling geometry for a selection containing text')
   }
 
   /** Applies canonical properties and compensates for the shared frame's temporary scale. */
@@ -1328,7 +1336,7 @@ export default class ActiveSelectionTextScaleMeasurer {
     const boundsMatch = (['left', 'right', 'top', 'bottom'] as const).every((edge) => {
       return areNumbersNear({ first: actualBounds[edge], second: measurement.bounds[edge] })
     })
-    if (!boundsMatch) throw new Error('Рамка выделения должна совпасть с измеренной геометрией')
+    if (!boundsMatch) throw new Error('The selection frame must match the measured geometry')
 
     const visibleChildrenBounds = this._readVisibleChildrenLocalBounds({ measurement })
     const expectedChildrenBounds = createBounds({
@@ -1341,7 +1349,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       return areNumbersNear({ first: visibleChildrenBounds[edge], second: expectedChildrenBounds[edge] })
     })
     if (!visibleChildrenMatch) {
-      throw new Error('Видимые границы детей должны совпасть с измеренной рамкой')
+      throw new Error('The visible child bounds must match the measured frame')
     }
 
     measurement.children.forEach(({ canonicalState, target }) => {
@@ -1352,7 +1360,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       }
       const actualState = captureTextCornerScaleCanonicalState({ textbox: target })
       if (!areTextCornerScaleCanonicalStatesEqual({ actual: actualState, expected: expectedState })) {
-        throw new Error('Живой текст должен совпасть с измеренным каноническим состоянием')
+        throw new Error('The live text must match the measured canonical state')
       }
     })
 
@@ -1381,7 +1389,7 @@ export default class ActiveSelectionTextScaleMeasurer {
       const centerMatches = areNumbersNear({ first: actualCenter.x, second: expectedCenter.x })
         && areNumbersNear({ first: actualCenter.y, second: expectedCenter.y })
       if (!scaleMatches || !centerMatches) {
-        throw new Error('Линейный ребёнок должен совпасть с измеренной геометрией')
+        throw new Error('An affine child must match the measured geometry')
       }
     })
   }

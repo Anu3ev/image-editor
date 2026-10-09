@@ -36,12 +36,12 @@ function emitImageResizeWarning({
     minWidth,
     minHeight
   } = data
-  // eslint-disable-next-line max-len
-  let message = `Размер изображения больше максимального размера канваса, поэтому оно будет уменьшено до максимальных размеров c сохранением пропорций: ${maxWidth}x${maxHeight}`
+  let message = 'The image exceeds the maximum canvas size and will be reduced to fit '
+    + `${maxWidth}×${maxHeight} while preserving its aspect ratio.`
 
   if (sizeType === 'min') {
-    // eslint-disable-next-line max-len
-    message = `Размер изображения меньше минимального размера канваса, поэтому оно будет увеличено до минимальных размеров c сохранением пропорций: ${minWidth}x${minHeight}`
+    message = 'The image is smaller than the minimum canvas size and will be enlarged to meet '
+      + `${minWidth}×${minHeight} while preserving its aspect ratio.`
   }
 
   editor.errorManager.emitWarning({
@@ -49,6 +49,9 @@ function emitImageResizeWarning({
     method: 'resizeImageToBoundaries',
     code: 'IMAGE_RESIZE_WARNING',
     message,
+    userMessage: sizeType === 'min'
+      ? editor.t('notifications.image.resizeMin', { width: minWidth, height: minHeight })
+      : editor.t('notifications.image.resizeMax', { width: maxWidth, height: maxHeight }),
     data
   })
 }
@@ -117,7 +120,7 @@ export async function resizeImageToBoundaries({
 
   const resizedBlob = await editor.workerManager.post('resizeImage', data)
   if (!(resizedBlob instanceof Blob)) {
-    throw new Error('resizeImage worker должен вернуть Blob')
+    throw new Error('The resizeImage worker must return a Blob')
   }
 
   if (!asBase64) return resizedBlob
@@ -130,7 +133,7 @@ export async function resizeImageToBoundaries({
   )
 
   if (typeof dataUrl !== 'string') {
-    throw new Error('toDataURL worker должен вернуть строку')
+    throw new Error('The toDataURL worker must return a string')
   }
 
   return dataUrl as Base64URLString

@@ -148,7 +148,7 @@ function getImageElementSource({ image }: { image: FabricImage }): string {
   if (imageElement instanceof HTMLImageElement) return imageElement.src
   if (imageElement instanceof HTMLCanvasElement) return imageElement.toDataURL()
 
-  throw new Error('Не удалось получить источник изображения для resize')
+  throw new Error('Failed to get the image source for resizing')
 }
 
 /** Scales raster images that are too large or too small. */
@@ -266,14 +266,14 @@ export function emitInvalidContentTypeError({
     withoutAdding,
     customData
   } = request
-  // eslint-disable-next-line max-len
-  const message = `Неверный contentType для изображения: ${contentType}. Ожидается один из: ${acceptContentTypes.join(', ')}.`
+  const message = `Invalid image content type: ${contentType}. Expected one of: ${acceptContentTypes.join(', ')}.`
 
   editor.errorManager.emitError({
     origin: 'ImageManager',
     method: 'importImage',
     code: 'INVALID_CONTENT_TYPE',
     message,
+    userMessage: editor.t('notifications.image.unsupportedFormat'),
     data: {
       source,
       format,
@@ -314,7 +314,7 @@ export function emitInvalidSourceTypeError({
     origin: 'ImageManager',
     method: 'importImage',
     code: 'INVALID_SOURCE_TYPE',
-    message: 'Неверный тип источника изображения. Ожидается URL или объект File.',
+    message: 'Invalid image source type. Expected a URL or a File object.',
     data: {
       source,
       format,
@@ -346,7 +346,7 @@ export async function resolveImportImageUrl({
 
   const dataUrl = await blobUrls.fetchAsBlobUrl({ src: source })
   if (!dataUrl) {
-    throw new Error('Не удалось загрузить изображение по URL')
+    throw new Error('Failed to load the image from the URL')
   }
 
   return dataUrl
@@ -511,7 +511,8 @@ export function emitImportFailed({
     origin: 'ImageManager',
     method: 'importImage',
     code: 'IMPORT_FAILED',
-    message: `Ошибка импорта изображения: ${(error as Error).message}`,
+    message: `Failed to import the image: ${error instanceof Error ? error.message : String(error)}`,
+    userMessage: editor.t('notifications.image.importFailed'),
     data: request
   })
 }

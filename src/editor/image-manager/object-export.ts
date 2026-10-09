@@ -1,5 +1,6 @@
-/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 import { FabricImage, type FabricObject } from 'fabric'
+import { english, type Translate } from '../i18n'
+/* eslint-disable no-use-before-define -- Keep the public entry point above the internal export details. */
 
 import type {
   ExportObjectAsImageFileParameters,
@@ -48,10 +49,12 @@ interface ImageElementSize {
  */
 export function createObjectExportRequest({
   object,
-  options
+  options,
+  t = english
 }: {
   object?: FabricObject
   options: ExportObjectAsImageFileParameters
+  t?: Translate
 }): ObjectExportRequest {
   const {
     fileName,
@@ -71,7 +74,7 @@ export function createObjectExportRequest({
     object,
     contentType: resolvedContentType,
     format,
-    fileName: fileName ?? `image.${format}`,
+    fileName: fileName ?? t('image.filenames.defaultWithFormat', { format }),
     exportAsBase64,
     exportAsBlob
   }
@@ -215,7 +218,7 @@ async function exportImageElementAsBase64({
     )
 
     if (typeof dataUrl !== 'string') {
-      throw new Error('toDataURL worker должен вернуть строку')
+      throw new Error('The toDataURL worker must return a string')
     }
 
     const data = {
@@ -289,7 +292,7 @@ async function createObjectBlob({ request }: { request: ResolvedObjectExportRequ
         if (blob) {
           resolve(blob)
         } else {
-          reject(new Error('Failed to create Blob from canvas'))
+          reject(new Error('Failed to create a Blob from the canvas'))
         }
       },
       request.contentType,

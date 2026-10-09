@@ -54,12 +54,12 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     targets,
     transform
   }: {
-    controller: ShapeActiveSelectionScalingController
+  controller: ShapeActiveSelectionScalingController
     selection: ActiveSelection
     targets: readonly ShapeGroup[]
     transform: Transform
   }) {
-    if (targets.length === 0) throw new Error('Смешанный состав должен содержать хотя бы один шейп')
+    if (targets.length === 0) throw new Error('A mixed composition must contain at least one shape')
 
     this.controller = controller
     this.selection = selection
@@ -68,7 +68,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     this.confirmedGeometry = this._captureGeometry()
 
     if (!controller.beginDomainScaling({ selection, transform })) {
-      throw new Error('Поддерживаемые шейпы должны начать доменную сессию скейлинга')
+      throw new Error('Supported shapes must start a domain scaling session')
     }
   }
 
@@ -93,7 +93,7 @@ export default class ShapeActiveSelectionScaleDomainSource implements ActiveSele
     this.measurements.set(key, measurement)
     if (this.measurements.size > ACTIVE_SELECTION_SHAPE_DOMAIN_CACHE_SIZE) {
       const oldestKey = this.measurements.keys().next().value
-      if (typeof oldestKey !== 'string') throw new Error('Кеш измерений шейпов не должен быть пустым')
+      if (typeof oldestKey !== 'string') throw new Error('The shape measurement cache must not be empty')
       this.measurements.delete(oldestKey)
     }
 

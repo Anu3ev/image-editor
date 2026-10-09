@@ -75,7 +75,7 @@ export default class ClipboardManager {
 
     for (let index = 0; index < objects.length; index += 1) {
       const currentObject = objects[index]
-      if (!currentObject) throw new Error('Исходный объект должен существовать до клонирования')
+      if (!currentObject) throw new Error('The source object must exist before cloning')
 
       const children = currentObject instanceof Group ? currentObject.getObjects() : []
       geometry.push({
@@ -110,7 +110,7 @@ export default class ClipboardManager {
     for (let index = 0; index < geometry.length; index += 1) {
       const snapshot = geometry[index]
       const clone = clonedObjects[index]
-      if (!snapshot || !clone) throw new Error('Структура клона должна совпадать с исходным объектом')
+      if (!snapshot || !clone) throw new Error('The clone’s structure must match the source object’s structure')
 
       clone.set({
         angle: snapshot.angle,
@@ -129,14 +129,16 @@ export default class ClipboardManager {
 
       const clonedChildren = clone instanceof Group ? clone.getObjects() : []
       if (snapshot.childCount !== clonedChildren.length) {
-        throw new Error('Количество объектов внутри клона должно совпадать с исходным объектом')
+        throw new Error(
+          'The number of objects inside the clone must match the number of objects inside the source object'
+        )
       }
 
       clonedObjects.push(...clonedChildren)
     }
 
     if (clonedObjects.length !== geometry.length) {
-      throw new Error('Структура клона должна совпадать с исходным объектом')
+      throw new Error('The clone’s structure must match the source object’s structure')
     }
 
     for (const clone of clonedObjects) clone.setCoords()
@@ -209,7 +211,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: '_cloneToInternalClipboard',
         code: 'CLONE_FAILED',
-        message: 'Ошибка клонирования объекта для внутреннего буфера',
+        message: 'Failed to clone the object for the internal clipboard',
+        userMessage: this.editor.t('notifications.clipboard.copyFailed'),
         data: error as object
       })
       return false
@@ -231,7 +234,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method,
         code: 'COPY_FAILED',
-        message: 'Ошибка копирования объекта в системный буфер обмена',
+        message: 'Failed to copy the object to the system clipboard',
+        userMessage: this.editor.t('notifications.clipboard.systemCopyFailed'),
         data: error as object
       })
     })
@@ -248,7 +252,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: '_copyToSystemClipboard',
         code: 'CLIPBOARD_NOT_SUPPORTED',
-        message: 'navigator.clipboard не поддерживается в этом браузере или отсутствует HTTPS-соединение.'
+        message: 'navigator.clipboard is not supported in this browser or an HTTPS connection is unavailable.',
+        userMessage: this.editor.t('notifications.clipboard.unavailable')
       })
       return false
     }
@@ -270,7 +275,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: '_copyToSystemClipboard',
         code: 'COPY_FAILED',
-        message: 'Ошибка копирования объекта',
+        message: 'Failed to copy the object',
+        userMessage: this.editor.t('notifications.clipboard.systemCopyFailed'),
         data: error as object
       })
       return false
@@ -305,7 +311,7 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: '_copyImageToClipboard',
         code: 'CLIPBOARD_WRITE_IMAGE_FAILED',
-        message: `Ошибка записи изображения в буфер обмена, выполняется fallback к текстовому копированию: ${error}`,
+        message: `Failed to write the image to the clipboard; falling back to copying text: ${error}`,
         data: error as object
       })
 
@@ -330,7 +336,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: '_copyTextToClipboard',
         code: 'CLIPBOARD_WRITE_TEXT_FAILED',
-        message: `Ошибка записи текста в буфер обмена: ${error}`,
+        message: `Failed to write text to the clipboard: ${error}`,
+        userMessage: this.editor.t('notifications.clipboard.systemCopyFailed'),
         data: error as object
       })
       return false
@@ -457,7 +464,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: '_handleImageImport',
         code: 'EXTERNAL_PASTE_DEFERRED_REJECTED',
-        message: 'Вставка изображения из буфера обмена была отменена или завершилась ошибкой',
+        message: 'Pasting the image from the clipboard was canceled or failed',
+        userMessage: this.editor.t('notifications.clipboard.pasteImageCanceled'),
         data: { error }
       })
     }
@@ -537,7 +545,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: 'copyPaste',
         code: 'COPY_PASTE_FAILED',
-        message: 'Ошибка создания копии объекта',
+        message: 'Failed to create a copy of the object',
+        userMessage: this.editor.t('notifications.clipboard.duplicateFailed'),
         data: error as object
       })
       return false
@@ -593,7 +602,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: 'cut',
         code: 'CUT_FAILED',
-        message: 'Ошибка вырезания объекта',
+        message: 'Failed to cut the object',
+        userMessage: this.editor.t('notifications.clipboard.cutFailed'),
         data: error as object
       })
       return false
@@ -655,7 +665,8 @@ export default class ClipboardManager {
             origin: 'ClipboardManager',
             method: 'handlePasteEvent',
             code: 'PASTE_IMAGE_FAILED',
-            message: 'Ошибка вставки изображения из буфера обмена',
+            message: 'Failed to paste the image from the clipboard',
+            userMessage: this.editor.t('notifications.clipboard.pasteImageFailed'),
             data: error as object
           })
         })
@@ -679,7 +690,8 @@ export default class ClipboardManager {
             origin: 'ClipboardManager',
             method: 'handlePasteEvent',
             code: 'PASTE_HTML_IMAGE_FAILED',
-            message: 'Ошибка вставки изображения из HTML',
+            message: 'Failed to paste the image from HTML',
+            userMessage: this.editor.t('notifications.clipboard.pasteImageFailed'),
             data: error as object
           })
         })
@@ -735,7 +747,8 @@ export default class ClipboardManager {
         origin: 'ClipboardManager',
         method: 'paste',
         code: 'PASTE_FAILED',
-        message: 'Ошибка вставки объекта',
+        message: 'Failed to paste the object',
+        userMessage: this.editor.t('notifications.clipboard.pasteFailed'),
         data: error as object
       })
       return false

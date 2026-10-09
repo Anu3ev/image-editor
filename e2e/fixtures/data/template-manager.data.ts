@@ -378,6 +378,31 @@ export const TEMPLATE_REPLACED_IMAGE_RESOLUTIONS = [
   }
 ] as const
 
+const REPLACED_VERTICAL_SOURCE = 'https://static.insales-cdn.com/files/1/3425/124923233/original/vertical_1_2.jpg'
+const REPLACED_HORIZONTAL_SOURCE = 'https://static.insales-cdn.com/files/1/3417/124923225/original/horizontal_2_1.jpg'
+
+/** Deterministic non-square images for the source-replacement geometry scenarios. */
+export const TEMPLATE_REPLACED_IMAGE_ROUTE_MOCKS = [
+  {
+    url: REPLACED_VERTICAL_SOURCE,
+    contentType: 'image/svg+xml',
+    body: [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="400">',
+      '<rect width="200" height="400" fill="#2457ff"/>',
+      '</svg>'
+    ].join('')
+  },
+  {
+    url: REPLACED_HORIZONTAL_SOURCE,
+    contentType: 'image/svg+xml',
+    body: [
+      '<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200">',
+      '<rect width="400" height="200" fill="#f28f3b"/>',
+      '</svg>'
+    ].join('')
+  }
+]
+
 /** Templates where the original square image is replaced by one with a different aspect ratio. */
 export const TEMPLATE_REPLACED_IMAGE_CASES: {
   label: string
@@ -391,7 +416,7 @@ export const TEMPLATE_REPLACED_IMAGE_CASES: {
       objects: [
         {
           ...TEMPLATE_REPLACED_IMAGE_BASE_OBJECT,
-          src: 'https://static.insales-cdn.com/files/1/3425/124923233/original/vertical_1_2.jpg'
+          src: REPLACED_VERTICAL_SOURCE
         }
       ]
     }
@@ -404,7 +429,7 @@ export const TEMPLATE_REPLACED_IMAGE_CASES: {
       objects: [
         {
           ...TEMPLATE_REPLACED_IMAGE_BASE_OBJECT,
-          src: 'https://static.insales-cdn.com/files/1/3417/124923225/original/horizontal_2_1.jpg'
+          src: REPLACED_HORIZONTAL_SOURCE
         }
       ]
     }

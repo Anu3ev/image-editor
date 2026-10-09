@@ -264,6 +264,7 @@ export default class ImageManager {
     options: exportCanvasAsImageFileOptions = {}
   ): Promise<SuccessfulExportResult | null> {
     const request = createCanvasExportRequest({
+      t: this.editor.t,
       options
     })
 
@@ -283,7 +284,8 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportCanvasAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
-        message: `Ошибка экспорта изображения: ${(error as Error).message}`,
+        message: `Failed to export the image: ${error instanceof Error ? error.message : String(error)}`,
+        userMessage: this.editor.t('notifications.image.exportFailed'),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,
@@ -317,6 +319,7 @@ export default class ImageManager {
     } = options
     const activeObject = object || this.editor.canvas.getActiveObject()
     const request = createObjectExportRequest({
+      t: this.editor.t,
       object: activeObject ?? undefined,
       options
     })
@@ -326,7 +329,8 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportObjectAsImageFile',
         code: 'NO_OBJECT_SELECTED',
-        message: 'Не выбран объект для экспорта',
+        message: 'No object selected for export',
+        userMessage: this.editor.t('notifications.image.noSelection'),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,
@@ -348,7 +352,8 @@ export default class ImageManager {
         origin: 'ImageManager',
         method: 'exportObjectAsImageFile',
         code: 'IMAGE_EXPORT_FAILED',
-        message: `Ошибка экспорта объекта: ${(error as Error).message}`,
+        message: `Failed to export the object: ${error instanceof Error ? error.message : String(error)}`,
+        userMessage: this.editor.t('notifications.image.exportFailed'),
         data: {
           contentType: request.contentType,
           fileName: request.fileName,

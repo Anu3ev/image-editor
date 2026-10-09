@@ -244,11 +244,11 @@ function assertExactObjectBounds({
     && Number.isFinite(bottom)
 
   if (!hasFiniteEdges) {
-    throw new Error(`Invalid ${source}: edges must be finite`)
+    throw new Error(`Invalid ${source}: edge coordinates must be finite`)
   }
 
   if (right < left || bottom < top) {
-    throw new Error(`Invalid ${source}: edges must be ordered`)
+    throw new Error(`Invalid ${source}: edge coordinates must be ordered`)
   }
 }
 

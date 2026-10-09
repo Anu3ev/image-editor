@@ -20,6 +20,7 @@ import {
   TEMPLATE_REPLACED_IMAGE_CASES,
   TEMPLATE_REPLACED_IMAGE_CENTER,
   TEMPLATE_REPLACED_IMAGE_RESOLUTIONS,
+  TEMPLATE_REPLACED_IMAGE_ROUTE_MOCKS,
   TEMPLATE_RELATIVE_TOLERANCE,
   TEMPLATE_SHAPE_LONG_TEXT_OPTIONS,
   TEMPLATE_SHAPE_TEXT_BASE_RESOLUTION,
@@ -285,6 +286,8 @@ test.describe('Готовый шаблон', () => {
 })
 
 test.describe('Картинка из шаблона после замены src', () => {
+  test.use({ editorRouteMocks: [TEMPLATE_REPLACED_IMAGE_ROUTE_MOCKS, { scope: 'test' }] })
+
   for (const { label, template: imageTemplate } of TEMPLATE_REPLACED_IMAGE_CASES) {
     test(`${label} остаётся в центре исходного места`, async({
       canvas,

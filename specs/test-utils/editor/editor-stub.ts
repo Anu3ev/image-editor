@@ -1,5 +1,6 @@
 import { Point } from 'fabric'
 import type { FabricObject } from 'fabric'
+import { english } from '../../../src/editor/i18n'
 import { createCanvasStub } from '../canvas/canvas-stub'
 
 type PlacementOriginX = 'left' | 'center' | 'right'
@@ -221,6 +222,7 @@ export const createEditorStub = () => {
   }
 
   return {
+    t: english,
     canvas,
     historyManager: {
       skipHistory: false,

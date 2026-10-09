@@ -107,7 +107,7 @@ function assertEnvironmentInputs({
   const sourceIds = new Set<string>()
   for (const source of sources) {
     if (!source.id.trim() || sourceIds.has(source.id)) {
-      throw new Error(`Movement snap source id "${source.id}" must be non-empty and unique`)
+      throw new Error(`Movement snap source ID "${source.id}" must be non-empty and unique`)
     }
 
     sourceIds.add(source.id)
@@ -120,14 +120,14 @@ function createBoundsSnapshot({ bounds }: { bounds: ObjectBounds }): ObjectBound
   const { left, right, top, bottom, centerX, centerY } = bounds
   const values = [left, right, top, bottom, centerX, centerY]
   if (!values.every(Number.isFinite) || right < left || bottom < top) {
-    throw new Error('Movement snap source bounds must contain finite ordered values')
+    throw new Error('Movement snap source bounds must contain finite, ordered values')
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (Math.abs(centerX - expectedCenterX) > EXACT_BOUNDS_CENTER_EPSILON
     || Math.abs(centerY - expectedCenterY) > EXACT_BOUNDS_CENTER_EPSILON) {
-    throw new Error('Movement snap source centers must be derived from its edges')
+    throw new Error('Movement snap sources must derive their center coordinates from their edges')
   }
 
   return Object.freeze({ left, right, top, bottom, centerX, centerY })

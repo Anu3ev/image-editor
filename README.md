@@ -138,6 +138,31 @@ const editor = await initEditor('editor', {
 
 See the [integration guide](./guides/integration.md) for configuration, image import/export, text, shapes, cropping, and other editing operations.
 
+### Library language
+
+English (`en`) and Russian (`ru`) are bundled. English is the default.
+
+```ts
+const editor = await initEditor('editor', { language: 'ru' })
+```
+
+Add a language or override selected translations with `customLanguages`:
+
+```ts
+import initEditor, { type EditorLocale } from '@anu3ev/fabric-image-editor'
+
+const portuguese = {
+  ui: { toolbar: { delete: 'Excluir', duplicate: 'Duplicar' } }
+} satisfies EditorLocale
+
+const editor = await initEditor('editor', {
+  language: 'pt',
+  customLanguages: { pt: portuguese }
+})
+```
+
+See [Language and translations](./guides/integration.md#language-and-translations) for available keys, fallback rules, partial overrides, and notifications.
+
 ## 🎮 Demo Application
 
 The repository includes a development demo for trying library operations. See [Run the demo from source](./CONTRIBUTING.md#run-the-demo-from-source) for local setup.

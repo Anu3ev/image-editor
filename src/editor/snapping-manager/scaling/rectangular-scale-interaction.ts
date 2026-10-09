@@ -87,7 +87,7 @@ export function applyRectangularScalePlan({
     effectiveValues: plan.effectiveValues
   })
   if (multipliers.x <= 0 || multipliers.y <= 0) {
-    throw new Error('План прямоугольного скейлинга должен содержать положительные множители')
+    throw new Error('The rectangular scaling plan must contain positive multipliers')
   }
 
   target.set({
@@ -114,7 +114,7 @@ export function readAppliedRectangularScaleMultipliers({
 }): RectangularScaleMultipliers {
   const multipliers = readRectangularScaleMultipliers({ projection, target })
   if (!multipliers || multipliers.x <= 0 || multipliers.y <= 0) {
-    throw new Error('Прямоугольный скейлинг должен содержать положительные применённые множители')
+    throw new Error('Rectangular scaling must contain positive applied multipliers')
   }
 
   return multipliers
@@ -137,7 +137,7 @@ export function readFinalRectangularScaleGeometry({
   transform: Transform
 }): FinalScaleGeometry {
   const bounds = getObjectExactBounds({ object: target })
-  if (!bounds) throw new Error('Прямоугольному скейлингу нужны точные итоговые границы')
+  if (!bounds) throw new Error('Rectangular scaling requires exact final bounds')
 
   const anchor = target.getPointByOrigin(transform.originX, transform.originY)
 
@@ -274,7 +274,7 @@ function createScaleScenePoint({
   point: RectangularScalePoint
 }): RectangularScalePoint {
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-    throw new Error('Точка прямоугольного скейлинга должна содержать конечные координаты')
+    throw new Error('The rectangular scaling point must contain finite coordinates')
   }
 
   return Object.freeze({ x: point.x, y: point.y })

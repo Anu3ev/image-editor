@@ -318,7 +318,7 @@ describe('Жизненный цикл прилипания во время ск�
     expect(() => runtime.verifyScalePlan({
       token: planned.token,
       finalGeometry: invalidGeometry
-    })).toThrow('centers')
+    })).toThrow('Scale snapping bounds must derive their center coordinates from their edges')
 
     const verification = runtime.verifyScalePlan({
       token: planned.token,

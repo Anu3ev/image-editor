@@ -352,7 +352,7 @@ export default class HistoryManager {
       state = this.diffPatcher.patch(state, patches[i].diff)
     }
 
-    console.log('getFullState state', state)
+    console.log('State from getFullState', state)
     return state
   }
 
@@ -483,19 +483,19 @@ export default class HistoryManager {
       this.baseState = currentStateObj
       this.patches = []
       this.currentIndex = 0
-      console.log('Базовое состояние сохранено.')
+      console.log('Base state saved.')
       return { saved: false }
     }
 
     const diff = this._resolveStateDiff({ currentStateObj })
     if (!diff) return { saved: false }
 
-    console.log('baseState', this.baseState)
-    console.log('diff', diff)
+    console.log('Base state (baseState)', this.baseState)
+    console.log('State differences (diff)', diff)
 
     const patchId = this._appendHistoryPatch({ diff })
 
-    console.log('Состояние сохранено. Текущий индекс истории:', this.currentIndex)
+    console.log('State saved. Current history index:', this.currentIndex)
 
     return {
       saved: true,
@@ -517,11 +517,11 @@ export default class HistoryManager {
     })
     const diff = this.diffPatcher.diff(normalizedPrevState, normalizedCurrentState)
 
-    console.log('normalizedPrevState', normalizedPrevState)
-    console.log('normalizedCurrentState', normalizedCurrentState)
+    console.log('Normalized previous state (normalizedPrevState)', normalizedPrevState)
+    console.log('Normalized current state (normalizedCurrentState)', normalizedCurrentState)
 
     if (!diff) {
-      console.log('Нет изменений для сохранения.')
+      console.log('No changes to save.')
       return null
     }
 
@@ -531,7 +531,7 @@ export default class HistoryManager {
     })
 
     if (statesEqual) {
-      console.log('statesEqual. Нет изменений для сохранения.')
+      console.log('statesEqual. No changes to save.')
       return null
     }
 
@@ -631,7 +631,7 @@ export default class HistoryManager {
    * @fires editor:history-changed
    */
   public saveState(): void {
-    console.log('saveState')
+    console.log('Saving state (saveState)')
     if (this.skipHistory) return
     if (this._isUiBlocked()) {
       this._deferSaveAfterUiUnblock()
@@ -640,7 +640,7 @@ export default class HistoryManager {
 
     this._isSavingState = true
 
-    console.time('saveState')
+    console.time('Saving state (saveState)')
 
     try {
       const pendingCommittedState = this._consumePendingCommittedState()
@@ -665,7 +665,7 @@ export default class HistoryManager {
 
       const currentStateObj = this._captureCurrentState()
 
-      console.timeEnd('saveState')
+      console.timeEnd('Saving state (saveState)')
 
       const saveResult = this._saveSerializedState({
         currentStateObj
@@ -690,7 +690,7 @@ export default class HistoryManager {
   public async loadStateFromFullState(fullState: CanvasFullState): Promise<void> {
     if (this._destroyed || !fullState) return
 
-    console.log('loadStateFromFullState fullState', fullState)
+    console.log('Full state (fullState) for loadStateFromFullState', fullState)
 
     const {
       canvas,
@@ -797,7 +797,7 @@ export default class HistoryManager {
     this.flushPendingSave()
 
     if (this.currentIndex <= 0) {
-      console.log('Нет предыдущих состояний для отмены.')
+      console.log('No previous states to undo.')
       return
     }
 
@@ -812,7 +812,7 @@ export default class HistoryManager {
       await this.loadStateFromFullState(fullState)
       if (this._destroyed) return
 
-      console.log('Undo выполнен. Текущий индекс истории:', this.currentIndex)
+      console.log('Undo completed. Current history index:', this.currentIndex)
 
       this.canvas.fire('editor:undo', {
         fullState,
@@ -828,7 +828,8 @@ export default class HistoryManager {
         origin: 'HistoryManager',
         method: 'undo',
         code: 'UNDO_ERROR',
-        message: 'Ошибка отмены действия',
+        message: 'Failed to undo the action',
+        userMessage: this.editor.t('notifications.history.undoFailed'),
         data: error as Error
       })
     } finally {
@@ -850,7 +851,7 @@ export default class HistoryManager {
     this.flushPendingSave()
 
     if (this.currentIndex >= this.patches.length) {
-      console.log('Нет состояний для повтора.')
+      console.log('No states to redo.')
       return
     }
 
@@ -861,12 +862,12 @@ export default class HistoryManager {
       this.totalChangesCount += 1
 
       const fullState = this.getFullState()
-      console.log('fullState', fullState)
+      console.log('Full state (fullState)', fullState)
 
       await this.loadStateFromFullState(fullState)
       if (this._destroyed) return
 
-      console.log('Redo выполнен. Текущий индекс истории:', this.currentIndex)
+      console.log('Redo completed. Current history index:', this.currentIndex)
 
       this.canvas.fire('editor:redo', {
         fullState,
@@ -882,7 +883,8 @@ export default class HistoryManager {
         origin: 'HistoryManager',
         method: 'redo',
         code: 'REDO_ERROR',
-        message: 'Ошибка повтора действия',
+        message: 'Failed to redo the action',
+        userMessage: this.editor.t('notifications.history.redoFailed'),
         data: error as Error
       })
     } finally {

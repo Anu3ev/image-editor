@@ -160,7 +160,7 @@ export default class TextManager {
           style,
           shouldRoundDimensions
         })
-        if (!updated) throw new Error('Итоговый размер текста должен сохраниться через общий механизм обновления')
+        if (!updated) throw new Error('The final text size must be saved through the shared update mechanism')
       }
     })
     this.activeSelectionScalingController = new TextActiveSelectionScalingController({
@@ -203,7 +203,7 @@ export default class TextManager {
   public addText(
     {
       id = `background-textbox-${nanoid()}`,
-      text = 'Новый текст',
+      text = this.editor.t('text.defaults.newText'),
       autoExpand = true,
       fontFamily,
       fontSize = 48,

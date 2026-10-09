@@ -66,7 +66,7 @@ const UNHANDLED_OBJECT_MOVEMENT_STEP: UnhandledObjectMovementStep = Object.freez
 export class MovementSnappingController {
   private readonly _editor: ImageEditor
 
-  private readonly _runtime = new MovementSnappingRuntime()
+  private readonly _runtime: MovementSnappingRuntime
 
   private _activeTarget: SupportedMovementTarget | null = null
 
@@ -77,6 +77,7 @@ export class MovementSnappingController {
     editor: ImageEditor
   }) {
     this._editor = editor
+    this._runtime = new MovementSnappingRuntime()
   }
 
   /** Starts a shared session only for a top-level object that has already been migrated. */
@@ -252,7 +253,7 @@ export class MovementSnappingController {
     target: SupportedMovementTarget
   }): MovementTargetPosition {
     if (!Number.isFinite(target.left) || !Number.isFinite(target.top)) {
-      throw new Error('Object movement snapping requires finite target position')
+      throw new Error('Object movement snapping requires a finite target position')
     }
 
     return {

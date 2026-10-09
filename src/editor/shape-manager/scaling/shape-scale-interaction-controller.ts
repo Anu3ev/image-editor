@@ -497,7 +497,7 @@ export default class ShapeScaleInteractionController {
     mode: RectangularScaleGestureMode
   }): FinalScaleGeometry {
     const bounds = getObjectExactBounds({ object: session.target })
-    if (!bounds) throw new Error('Shape must have exact bounds after scale')
+    if (!bounds) throw new Error('The shape must have exact bounds after scaling')
 
     const multipliers = this._readAppliedMultipliers({ session })
     const anchor = session.target.getPointByOrigin(

@@ -1,4 +1,3 @@
-/* eslint-disable no-use-before-define -- The public contract precedes the internal checks. */
 import {
   FabricImage,
   Textbox,
@@ -6,6 +5,7 @@ import {
   type FabricObject,
   type Transform
 } from 'fabric'
+/* eslint-disable no-use-before-define -- The public contract precedes the internal checks. */
 
 import type { ImageEditor } from '../..'
 import type {
@@ -376,7 +376,7 @@ function captureProtectedSelectionTextState({
   target: FabricObject
 }): ProtectedSelectionTextState {
   if (!(target instanceof Textbox)) {
-    throw new Error('Текстовый состав должен содержать только объекты Textbox')
+    throw new Error('A text composition must contain only Textbox objects')
   }
 
   return Object.freeze({

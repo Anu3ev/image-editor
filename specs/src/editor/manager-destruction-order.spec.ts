@@ -1,3 +1,4 @@
+import { english } from '../../../src/editor/i18n'
 import { ImageEditor } from '../../../src/editor'
 import { createFullOptions } from '../../test-utils/editor/options'
 
@@ -5,6 +6,7 @@ it('завершает сессии общего выделения до уни�
   const destructionOrder: string[] = []
   const destroyMock = jest.fn()
   const editor = Object.assign(Object.create(ImageEditor.prototype) as ImageEditor, {
+    t: english,
     canvas: { dispose: jest.fn() },
     errorManager: { cleanBuffer: jest.fn() },
     imageManager: { destroy: jest.fn() },
@@ -31,6 +33,7 @@ it('освобождает созданные ресурсы один раз, д
   const failure = new Error('Listener cleanup failed')
   const log = jest.spyOn(console, 'error').mockImplementation(() => {})
   const editor = Object.assign(Object.create(ImageEditor.prototype) as ImageEditor, {
+    t: english,
     listeners: { destroy: jest.fn(() => { throw failure }) },
     canvas: { dispose: jest.fn().mockRejectedValue(new Error('Disposal failed')) },
     workerManager: { terminate: jest.fn() },

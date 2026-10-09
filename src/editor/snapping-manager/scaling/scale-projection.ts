@@ -94,7 +94,7 @@ export function createScaleProjection({
   const edgeNames = new Set<ScaleSceneEdge>()
   const edges = input.edges.map((edgeInput) => {
     if (edgeNames.has(edgeInput.edge)) {
-      throw new Error(`Scale projection contains duplicate ${edgeInput.edge} edge`)
+      throw new Error(`The scale projection contains a duplicate ${edgeInput.edge} edge`)
     }
     edgeNames.add(edgeInput.edge)
 
@@ -189,7 +189,7 @@ export function getScaleProjectionCorrectionMagnitude({
     epsilon: PROJECTION_RANK_EPSILON
   })
   if (!solution) {
-    throw new Error(`Scale constraint for ${constraint.edge} edge cannot be projected`)
+    throw new Error(`The scale constraint for the ${constraint.edge} edge cannot be projected`)
   }
 
   return resolveVectorDistance({ projection, first: rawValues, second: solution.values })
@@ -211,10 +211,10 @@ function assertProjectionVariables({ input }: { input: ScaleProjectionInput }): 
     throw new Error('Scale projection must contain one or two variables')
   }
   if (variables.length !== baselineValues.length) {
-    throw new Error('Scale projection variables and baseline values must have equal length')
+    throw new Error('The scale projection must contain the same number of variables and baseline values')
   }
   if (variables.length !== variableSceneWeights.length) {
-    throw new Error('Scale projection variables and scene weights must have equal length')
+    throw new Error('The scale projection must contain the same number of variables and scene weights')
   }
   if (new Set(variables).size !== variables.length) {
     throw new Error('Scale projection variables must be unique')
@@ -240,10 +240,10 @@ function createProjectionEdge({
   variableCount: number
 }): ScaleProjectionEdge {
   if (input.coefficients.length !== variableCount) {
-    throw new Error(`Scale projection coefficients for ${input.edge} edge have invalid length`)
+    throw new Error(`The scale projection has an invalid number of coefficients for the ${input.edge} edge`)
   }
   if (!input.coefficients.every(Number.isFinite)) {
-    throw new Error(`Scale projection coefficients for ${input.edge} edge must be finite`)
+    throw new Error(`Scale projection coefficients for the ${input.edge} edge must be finite`)
   }
 
   return Object.freeze({
@@ -283,7 +283,7 @@ function assertProjectionValues({
   values: readonly number[]
 }): void {
   if (values.length !== projection.variables.length) {
-    throw new Error('Scale projection values have invalid length')
+    throw new Error('The scale projection has an invalid number of values')
   }
   if (!values.every(Number.isFinite)) {
     throw new Error('Scale projection values must be finite')
@@ -315,10 +315,12 @@ function assertProjectionConstraints({
   for (const constraint of constraints) {
     const projectionEdge = getScaleProjectionEdge({ projection, edge: constraint.edge })
     if (!projectionEdge || projectionEdge.axis !== constraint.axis) {
-      throw new Error(`Scale projection does not contain ${constraint.edge} edge on ${constraint.axis} axis`)
+      throw new Error(
+        `The scale projection does not contain the ${constraint.edge} edge on the ${constraint.axis} axis`
+      )
     }
     if (!Number.isFinite(constraint.position)) {
-      throw new Error(`Scale projection constraint for ${constraint.edge} edge must be finite`)
+      throw new Error(`The scale projection constraint for the ${constraint.edge} edge must be finite`)
     }
   }
 }
@@ -359,13 +361,13 @@ function resolveSingleConstraint({
 }): ScaleProjectionSolution | null {
   const projectionEdge = getScaleProjectionEdge({ projection, edge: constraint.edge })
   if (!projectionEdge) {
-    throw new Error(`Scale projection does not contain ${constraint.edge} edge`)
+    throw new Error(`The scale projection does not contain the ${constraint.edge} edge`)
   }
 
   const rawPositions = projectScaleEdgePositions({ projection, values: rawValues })
   const rawPosition = rawPositions[constraint.edge]
   if (rawPosition === null) {
-    throw new Error(`Scale projection did not resolve ${constraint.edge} position`)
+    throw new Error(`The scale projection did not resolve the position of the ${constraint.edge} edge`)
   }
 
   const positionCorrection = constraint.position - rawPosition

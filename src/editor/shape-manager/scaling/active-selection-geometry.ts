@@ -97,10 +97,10 @@ export function captureActiveSelectionCommittedFrame({
   const height = selection.height * Math.abs(selection.scaleY ?? 1)
 
   if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
-    throw new Error('Размер восстановленной рамки общего выделения должен быть положительным и конечным')
+    throw new Error('The restored selection frame must have positive finite dimensions')
   }
   if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    throw new Error('Центр восстановленной рамки общего выделения должен состоять из конечных координат')
+    throw new Error('The restored selection frame center must have finite coordinates')
   }
 
   return {
@@ -136,9 +136,9 @@ export function captureRotatedActiveSelectionShapeGeometry({
   if (!hasSupportedSelectionTransform({ selection })) return null
 
   const center = group.getRelativeCenterPoint()
-  if (!Number.isFinite(angle)) throw new Error('Угол повёрнутого шейпа должен быть конечным')
+  if (!Number.isFinite(angle)) throw new Error('The rotated shape angle must be finite')
   if (!Number.isFinite(center.x) || !Number.isFinite(center.y)) {
-    throw new Error('Центр повёрнутого шейпа должен состоять из конечных координат')
+    throw new Error('The rotated shape center must have finite coordinates')
   }
 
   return { angle, center }
@@ -171,10 +171,10 @@ export function applyRotatedActiveSelectionShapeGeometry({
   )
 
   if (!Number.isFinite(sceneCenter.x) || !Number.isFinite(sceneCenter.y)) {
-    throw new Error('Итоговый центр повёрнутого шейпа должен состоять из конечных координат')
+    throw new Error('The final center of the rotated shape must have finite coordinates')
   }
   if (!localMatrix.every(Number.isFinite)) {
-    throw new Error('Компенсирующая матрица повёрнутого шейпа должна состоять из конечных значений')
+    throw new Error('The rotated shape compensation matrix must contain finite values')
   }
 
   util.applyTransformToObject(group, localMatrix)

@@ -27,7 +27,7 @@ export default class TextWidthResizeMeasurer {
     target,
     gesture
   }: {
-    target: EditorTextbox
+  target: EditorTextbox
     gesture: TextWidthResizeGestureProjection
   }) {
     this.gesture = gesture
@@ -57,7 +57,7 @@ export default class TextWidthResizeMeasurer {
       gesture: this.gesture
     })
     if (!projection) {
-      throw new Error('Не удалось измерить геометрию Textbox после переноса строк')
+      throw new Error('Could not measure the Textbox geometry after text wrapping')
     }
 
     return Object.freeze({ projection, width: appliedWidth })

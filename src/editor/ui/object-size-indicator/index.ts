@@ -6,6 +6,7 @@ import type {
   TPointerEventInfo,
   Transform
 } from 'fabric'
+import { english, type Translate } from '../../i18n'
 import type { EditorOptions } from '../../types/options'
 import type { ImageEditor } from '../..'
 import CursorIndicator from '../cursor-indicator'
@@ -152,7 +153,7 @@ export default class ObjectSizeIndicatorManager {
     }
 
     this.indicator.showAtPointer({
-      text: ObjectSizeIndicatorManager._formatSize({ size }),
+      text: ObjectSizeIndicatorManager._formatSize({ size, t: this.editor.t }),
       event
     })
   }
@@ -220,11 +221,11 @@ export default class ObjectSizeIndicatorManager {
   /**
    * Formats the object size label.
    */
-  private static _formatSize({ size }: { size: ObjectDisplaySize }): string {
+  private static _formatSize({ size, t = english }: { size: ObjectDisplaySize, t?: Translate }): string {
     const width = ObjectSizeIndicatorManager._formatDimension({ value: size.width })
     const height = ObjectSizeIndicatorManager._formatDimension({ value: size.height })
 
-    return `ширина: ${width} высота: ${height}`
+    return t('ui.indicators.objectSize', { width, height })
   }
 
   /**

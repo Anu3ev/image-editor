@@ -9,7 +9,7 @@ import {
 import type { EditorOptions } from '../../types/options'
 import { ImageEditor } from '../..'
 import { resolveShapeGroupFromTarget } from '../../shape-manager/domain/shape-reference'
-import defaultConfig from './default-config'
+import { createDefaultConfig } from './default-config'
 
 type ToolbarActionHandler = (
   editor: ImageEditor,
@@ -143,6 +143,7 @@ export default class ToolbarManager {
   private _initToolbar(): void {
     if (!this.options.showToolbar) return
 
+    const defaultConfig = createDefaultConfig(this.editor.t)
     const toolbarConfig: ToolbarConfig = this.options.toolbar || {}
 
     this.config = {
@@ -229,7 +230,14 @@ export default class ToolbarManager {
 
       const btn = document.createElement('button')
 
-      btn.innerHTML = icons[handle] ? `<img src="${icons[handle]}" title="${name}" />` : name
+      if (icons[handle]) {
+        const icon = document.createElement('img')
+        icon.src = icons[handle]
+        icon.title = name
+        btn.appendChild(icon)
+      } else {
+        btn.innerHTML = name
+      }
 
       Object.assign(btn.style, btnStyle)
 

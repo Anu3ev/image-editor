@@ -176,7 +176,7 @@ export default class SelectionManager {
     }
 
     if (!didFinish) {
-      throw new Error('Сессия скейлинга шейпов должна завершиться после фиксации')
+      throw new Error('The shape scaling session must finish after commit')
     }
 
     return true

@@ -121,7 +121,7 @@ export function applyActiveSelectionShapeDomainChild({
   text: ShapeTextNode
 }): void {
   if (Math.min(frame.scaleX, frame.scaleY) <= 0) {
-    throw new Error('Компенсируемая рамка шейпа должна иметь положительный масштаб')
+    throw new Error('The compensated shape frame must have a positive scale')
   }
 
   applyShapeScalingPreviewLayout({

@@ -64,8 +64,16 @@ export class CropFrameInteraction {
   private session: CropScaleSession | CropMovementSession | null = null
 
   /** Connects the owner to all handles and the full crop gesture lifecycle. */
-  constructor({ canvas, frame, snapping }: { canvas: Canvas; frame: Rect; snapping: SnappingManager }) {
-    if (!(frame instanceof CropFrame)) throw new Error('Взаимодействие crop требует CropFrame')
+  constructor({
+    canvas,
+    frame,
+    snapping
+  }: {
+    canvas: Canvas
+    frame: Rect
+    snapping: SnappingManager
+  }) {
+    if (!(frame instanceof CropFrame)) throw new Error('Crop interaction requires a CropFrame')
 
     this.canvas = canvas
     this.frame = frame
@@ -225,7 +233,7 @@ export class CropFrameInteraction {
   }): void {
     const { frame, projection, transform } = session
     const source = frame.cropSource
-    if (!source) throw new Error('Crop resize потерял источник')
+    if (!source) throw new Error('The crop resize operation lost its source')
 
     const rect = resolveCropScaledRect({ session, multipliers })
     const center = new Point(rect.left + (rect.width / 2), rect.top + (rect.height / 2))

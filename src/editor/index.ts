@@ -1,6 +1,7 @@
 import { Canvas, Pattern, Point, Rect } from 'fabric'
 import { nanoid } from 'nanoid'
 import type { EditorOptions } from './types/options'
+import { createTranslator, type Translate } from './i18n'
 
 import Listeners from './listeners'
 import ModuleLoader from './module-loader'
@@ -37,7 +38,6 @@ import { addRectangleToCanvas } from './utils/primitive-shapes'
 // TODO: Add comprehensive tests with jest
 // TODO: Make the demo more attractive
 // TODO: Drawing mode
-// TODO: Consider how to handle translations in the editor
 // TODO: Highlight an object when the mouse hovers over its area beneath another object, and allow it to be selected
 
 /**
@@ -45,6 +45,9 @@ import { addRectangleToCanvas } from './utils/primitive-shapes'
  * @class
  */
 export class ImageEditor {
+  /** Fixed-language translator; never changes other editors or persisted content. */
+  public readonly t: Translate
+
   /**
    * Editor options and settings
    */
@@ -235,6 +238,7 @@ export class ImageEditor {
    */
   constructor(canvasId: string, options: EditorOptions, cleanupHostResources?: () => void) {
     this.options = options
+    this.t = createTranslator(options)
     this._cleanupHostResources = cleanupHostResources
     this.containerId = canvasId
     this.editorId = `${canvasId}-${nanoid()}`
@@ -385,7 +389,7 @@ export class ImageEditor {
           origin: 'ImageEditor',
           method: 'init',
           code: 'INITIAL_STATE_LOAD_FAILED',
-          message: 'Не удалось загрузить состояние редактора. Попытка импортировать начальное изображение.',
+          message: 'Failed to load the editor state. Attempting to import the initial image.',
           data: error as Error
         })
       } finally {
@@ -405,7 +409,7 @@ export class ImageEditor {
     this._assertActive()
     this.historyManager.saveState()
 
-    console.log('editor:ready')
+    console.log('Editor ready')
     this.canvas.fire('editor:ready', this)
     this._assertActive()
 
@@ -515,10 +519,10 @@ export class ImageEditor {
       try {
         // Fabric dispose() may finish asynchronously after a deferred render.
         Promise.resolve(cleanup()).catch((error: unknown) => {
-          console.error('Failed to clean up ImageEditor resource', error)
+          console.error('Failed to clean up an ImageEditor resource', error)
         })
       } catch (error) {
-        console.error('Failed to clean up ImageEditor resource', error)
+        console.error('Failed to clean up an ImageEditor resource', error)
       }
     })
   }

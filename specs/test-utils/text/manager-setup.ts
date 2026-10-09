@@ -1,4 +1,5 @@
 import { ActiveSelection, Textbox } from 'fabric'
+import { english } from '../../../src/editor/i18n'
 import HistoryManager from '../../../src/editor/history-manager'
 import TextManager from '../../../src/editor/text-manager'
 import type { EditorFontDefinition } from '../../../src/editor/types/font'
@@ -195,6 +196,7 @@ export const createTextManagerTestSetup = (
   }
 
   const editor = {
+    t: english,
     canvas,
     options: {
       fonts,

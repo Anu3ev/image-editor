@@ -46,26 +46,37 @@ export default class ErrorManager {
    * @param options.code — Error code (from errorCodes)
    * @param options.data — Additional data (optional)
    * @param options.message — Error message (optional; uses the error code if omitted)
+   * @param options.userMessage — Optional end-user text, forwarded unchanged
    * @fires editor:error
    */
-  public emitError({ origin = 'ImageEditor', method = 'Unknown Method', code, data, message }: ErrorItem): void {
+  public emitError({
+    origin = 'ImageEditor',
+    method: providedMethod,
+    code,
+    data,
+    message,
+    userMessage
+  }: ErrorItem): void {
+    const method = providedMethod === undefined ? 'Unknown Method' : providedMethod
     if (!ErrorManager.isValidErrorCode(code)) {
-      console.warn('Неизвестный код ошибки: ', { code, origin, method })
+      console.warn('Unknown error code: ', { code, origin, method })
       return
     }
 
     if (!code) return
 
     const msg = message || code
+    const methodLabel = providedMethod === undefined ? 'Unknown method' : method
 
     // write to the console
-    console.error(`${origin}. ${method}. ${code}. ${msg}`, data)
+    console.error(`${origin}. ${methodLabel}. ${code}. ${msg}`, data)
 
     const errorData = {
       code,
       origin,
       method,
       message: msg,
+      ...userMessage === undefined ? {} : { userMessage },
       data
     }
 
@@ -85,23 +96,34 @@ export default class ErrorManager {
    * @param ptions.code — Warning code (from errorCodes)
    * @param options.data — Additional data (optional)
    * @param options.message — Warning message (optional; uses the warning code if omitted)
+   * @param options.userMessage — Optional end-user text, forwarded unchanged
    * @fires editor:warning
    */
-  public emitWarning({ origin = 'ImageEditor', method = 'Unknown Method', code, message, data }:ErrorItem): void {
+  public emitWarning({
+    origin = 'ImageEditor',
+    method: providedMethod,
+    code,
+    message,
+    userMessage,
+    data
+  }: ErrorItem): void {
+    const method = providedMethod === undefined ? 'Unknown Method' : providedMethod
     if (!ErrorManager.isValidErrorCode(code)) {
-      console.warn('Неизвестный код предупреждения: ', { code, origin, method })
+      console.warn('Unknown warning code: ', { code, origin, method })
       return
     }
 
     const msg = message || code
+    const methodLabel = providedMethod === undefined ? 'Unknown method' : method
 
-    console.warn(`${origin}. ${method}. ${code}. ${msg}`, data)
+    console.warn(`${origin}. ${methodLabel}. ${code}. ${msg}`, data)
 
     const warningData = {
       code,
       origin,
       method,
       message: msg,
+      ...userMessage === undefined ? {} : { userMessage },
       data
     }
 

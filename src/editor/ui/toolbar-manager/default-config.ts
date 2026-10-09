@@ -1,5 +1,6 @@
 import { ActiveSelection, FabricObject } from 'fabric'
 import { ImageEditor } from '../..'
+import { english, type Translate } from '../../i18n'
 import {
   copyPasteIcon,
   lockIcon,
@@ -11,7 +12,47 @@ import {
   deleteIcon
 } from './icons'
 
-export default {
+/** Materializes the built-in action arrays for editor options and the toolbar. */
+export const createDefaultActions = (t: Translate = english) => ({
+  lockedActions: [{
+    name: t('ui.toolbar.unlock'),
+    handle: 'unlock'
+  }],
+
+  actions: [
+    {
+      name: t('ui.toolbar.duplicate'),
+      handle: 'copyPaste'
+    },
+    {
+      name: t('ui.toolbar.lock'),
+      handle: 'lock'
+    },
+    {
+      name: t('ui.toolbar.bringToFront'),
+      handle: 'bringToFront'
+    },
+    {
+      name: t('ui.toolbar.sendToBack'),
+      handle: 'sendToBack'
+    },
+    {
+      name: t('ui.toolbar.bringForward'),
+      handle: 'bringForward'
+    },
+    {
+      name: t('ui.toolbar.sendBackward'),
+      handle: 'sendBackwards'
+    },
+    {
+      name: t('ui.toolbar.delete'),
+      handle: 'delete'
+    }
+  ]
+})
+
+/** Creates toolbar labels in the owning editor’s language. */
+export const createDefaultConfig = (t: Translate = english) => ({
   style: {
     position: 'absolute',
     display: 'none',
@@ -46,41 +87,7 @@ export default {
   toolbarClass: 'fabric-editor-toolbar',
   btnClass: 'fabric-editor-toolbar-btn',
 
-  lockedActions: [{
-    name: 'Разблокировать',
-    handle: 'unlock'
-  }],
-
-  actions: [
-    {
-      name: 'Создать копию',
-      handle: 'copyPaste'
-    },
-    {
-      name: 'Заблокировать',
-      handle: 'lock'
-    },
-    {
-      name: 'На передний план',
-      handle: 'bringToFront'
-    },
-    {
-      name: 'На задний план',
-      handle: 'sendToBack'
-    },
-    {
-      name: 'На один уровень вверх',
-      handle: 'bringForward'
-    },
-    {
-      name: 'На один уровень вниз',
-      handle: 'sendBackwards'
-    },
-    {
-      name: 'Удалить',
-      handle: 'delete'
-    }
-  ],
+  ...createDefaultActions(t),
 
   offsetTop: 50,
 
@@ -146,4 +153,6 @@ export default {
       editor.layerManager.sendBackwards(target ?? undefined)
     }
   }
-}
+})
+
+export default createDefaultConfig()

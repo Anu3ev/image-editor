@@ -185,6 +185,7 @@ export const test = base.extend<EditorFixtures & EditorInternalFixtures>({
     try {
       await use(model)
     } finally {
+      await model.localization.destroyAll()
       await finishEditorInteractions({ model })
     }
   },

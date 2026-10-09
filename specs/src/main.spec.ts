@@ -20,7 +20,7 @@ describe('initEditor', () => {
   })
 
   it('отклоняет инициализацию, если контейнер не найден', async() => {
-    await expect(initEditor('missing')).rejects.toThrow('Контейнер с ID "missing" не найден.')
+    await expect(initEditor('missing')).rejects.toThrow('Container with ID "missing" was not found.')
     expect(initialize).not.toHaveBeenCalled()
   })
 

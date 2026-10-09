@@ -88,7 +88,7 @@ export default class TextCornerScaleMeasurer {
     target,
     transform
   }: {
-    canvasManager: CanvasManager
+  canvasManager: CanvasManager
     gesture: TextCornerScaleGestureProjection
     target: EditorTextbox
     transform: Transform
@@ -122,13 +122,13 @@ export default class TextCornerScaleMeasurer {
       samples,
       scale: appliedScale
     })
-    if (!projection) throw new Error('Не удалось построить проекцию скейлинга текста')
+    if (!projection) throw new Error('Could not build the text scaling projection')
 
     const measurement = Object.freeze({ canonicalState, projection, scale: appliedScale })
     this.measurements.set(appliedScale, measurement)
     if (this.measurements.size > TEXT_CORNER_SCALE_MEASUREMENT_CACHE_SIZE) {
       const oldestScale = this.measurements.keys().next().value
-      if (typeof oldestScale !== 'number') throw new Error('Кеш измерений текста не должен быть пустым')
+      if (typeof oldestScale !== 'number') throw new Error('The text measurement cache must not be empty')
 
       this.measurements.delete(oldestScale)
     }
@@ -162,7 +162,7 @@ export default class TextCornerScaleMeasurer {
       if (changesGeometry) return Object.freeze(samples)
     }
 
-    throw new Error('Не удалось найти различимую геометрию углового скейлинга текста')
+    throw new Error('Could not find distinguishable text corner scaling geometry')
   }
 
   /** Applies the specified multiplier and returns exact text bounds. */
@@ -194,7 +194,7 @@ export default class TextCornerScaleMeasurer {
     })
 
     const bounds = getObjectExactBounds({ object: this.textbox })
-    if (!bounds) throw new Error('Не удалось измерить геометрию текста после скейлинга')
+    if (!bounds) throw new Error('Could not measure the text geometry after scaling')
 
     return Object.freeze({
       canonicalState: captureTextCornerScaleCanonicalState({ textbox: this.textbox }),

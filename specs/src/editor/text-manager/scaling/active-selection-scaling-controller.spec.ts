@@ -36,7 +36,7 @@ it('начинает и очищает измерительную сессию �
     projection: harness.projection,
     selection: harness.target,
     transform: harness.transform
-  })).toThrow('Сессия скейлинга выделения с текстом уже начата')
+  })).toThrow('A scaling session for the selection containing text has already started')
   expect(controller.clearScaling({ selection: harness.target })).toBe(true)
   expect(controller.clearScaling({ selection: harness.target })).toBe(false)
 })
@@ -125,7 +125,7 @@ it('при ошибках проверки и координат сохраня�
 
   expect(() => controller.commitScaling({
     selection: harness.target
-  })).toThrow('SelectionManager должен снять временную рамку до фиксации текстов')
+  })).toThrow('SelectionManager must remove the temporary frame before committing text objects')
   expect(secondSetCoordsMock).toHaveBeenCalledTimes(1)
   expect(controller.hasConfirmedScalePreview({ selection: harness.target })).toBe(true)
   expect(controller.clearScaling({ selection: harness.target })).toBe(true)

@@ -392,7 +392,7 @@ export default class TextScalingController {
       canvasManager,
       persistScaledTextbox
     }: {
-      canvas: Canvas
+  canvas: Canvas
       canvasManager: CanvasManager
       persistScaledTextbox: PersistScaledTextbox
     }
@@ -479,8 +479,8 @@ export default class TextScalingController {
     transform: Transform
   }): AppliedTextCornerScale {
     const state = this.scalingState.get(target)
-    if (!state) throw new Error('Угловой скейлинг текста должен начинаться с исходного состояния')
-    if (!Number.isFinite(scale) || scale <= 0) throw new Error('Множитель скейлинга текста должен быть положительным')
+    if (!state) throw new Error('Text corner scaling must start from the initial state')
+    if (!Number.isFinite(scale) || scale <= 0) throw new Error('The text scaling multiplier must be positive')
 
     const previous = captureCurrentTextScaleState({ state, textbox: target })
     const materialized = this._materializeStandaloneCornerScale({
@@ -563,7 +563,7 @@ export default class TextScalingController {
     target: EditorTextbox
   }): void {
     const state = this.scalingState.get(target)
-    if (!state) throw new Error('Для перехода на прежнее завершение должен существовать активный скейлинг текста')
+    if (!state) throw new Error('Switching to legacy commit behavior requires active text scaling')
 
     state.shouldRoundDimensionsOnCommit = true
   }

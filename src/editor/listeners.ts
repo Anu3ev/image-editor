@@ -1177,7 +1177,7 @@ class Listeners {
               return true
             }
           } catch (error) {
-            console.warn(`Error checking selection container with selector "${selector}":`, error)
+            console.warn(`Error checking the selection container with selector "${selector}":`, error)
           }
         }
       }

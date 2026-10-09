@@ -16,7 +16,7 @@ export function applyCanonicalTextboxWidth({
   width: number
 }): number {
   if (!Number.isFinite(width)) {
-    throw new Error('Ширина Textbox должна быть конечным числом')
+    throw new Error('Textbox width must be a finite number')
   }
 
   const nextWidth = Math.max(MINIMUM_TEXT_WIDTH, width)

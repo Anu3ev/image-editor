@@ -200,7 +200,7 @@ test.describe('Защита объектов от удаления', () => {
       await editorModel.selectAllObjects()
       await toolbar.waitUntilVisible()
       await toolbar.clickAction({
-        name: 'Удалить'
+        name: 'Delete'
       })
       await editorModel.waitForObjectCount({ count: 1 })
     })

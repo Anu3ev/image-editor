@@ -1,3 +1,4 @@
+import { english, type Translate } from '../i18n'
 import type { ImageManagerEditor } from './types'
 
 /** Options for converting a Blob to a data URL through the editor worker. */
@@ -15,11 +16,13 @@ export function exportSVGStringAsFile(
   {
     exportAsBase64,
     exportAsBlob,
-    fileName = 'image.svg'
+    t = english,
+    fileName = t('image.filenames.defaultSvg')
   }: {
     exportAsBase64?: boolean,
     exportAsBlob?: boolean,
     fileName?: string
+    t?: Translate
   } = {}
 ): Blob | Base64URLString | File {
   if (exportAsBlob) {
@@ -55,7 +58,7 @@ export async function convertBlobToDataUrl({
     )
 
     if (typeof dataUrl !== 'string') {
-      throw new Error('toDataURL worker должен вернуть строку')
+      throw new Error('The toDataURL worker must return a string')
     }
 
     return dataUrl as Base64URLString

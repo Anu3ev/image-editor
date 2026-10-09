@@ -275,7 +275,7 @@ export class ImageScaleSnappingController {
   }): HandledImageScaleStep {
     const step = session.runtime.resolveScalePlan({ marker, intent })
     if (step.kind === 'duplicate') {
-      throw new Error('Шаг скейлинга изображения стал повторным после начальной проверки сессии')
+      throw new Error('The image scaling step became a duplicate after the initial session check')
     }
 
     try {
@@ -543,7 +543,7 @@ function createDuplicateImageScaleStep({
   duplicate: NonNullable<ReturnType<ScaleSnappingRuntime['getDuplicateStep']>>
 }): HandledImageScaleStep {
   if (!duplicate.verification) {
-    throw new Error('Повторный шаг скейлинга изображения не может завершиться до проверки результата')
+    throw new Error('A duplicate image scaling step cannot finish before the result is verified')
   }
 
   return createHandledImageScaleStep({

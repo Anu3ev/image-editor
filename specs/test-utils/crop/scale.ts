@@ -1,3 +1,5 @@
+import { ImageEditor } from '../../../src/editor'
+import { english } from '../../../src/editor/i18n'
 import SnappingManager from '../../../src/editor/snapping-manager'
 import { createScaleSnapCandidates } from '../../../src/editor/snapping-manager/scaling/scale-snap-candidates'
 import { CropFrameInteraction } from '../../../src/editor/crop-manager/interaction/crop-frame-interaction'
@@ -7,6 +9,7 @@ import { createCropGestureHarness } from './interaction'
 /** Creates an observable environment for the shared crop-scaling resolver. */
 function createSnapping() {
   const snapping: SnappingManager = Object.create(SnappingManager.prototype)
+  snapping.editor = Object.assign(Object.create(ImageEditor.prototype), { t: english })
   const capture: jest.MockedFunction<SnappingManager['captureScaleSnapEnvironment']> = jest.fn(({ targetEdges }) => ({
     zoom: 1,
     candidates: createScaleSnapCandidates({

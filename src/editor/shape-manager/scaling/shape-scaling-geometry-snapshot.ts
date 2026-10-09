@@ -145,7 +145,7 @@ function restoreShapeRounding({
   snapshot: ShapeNodeRoundingSnapshot
 }): void {
   if (!snapshot) return
-  if (!(shape instanceof Rect)) throw new Error('Скругление можно восстановить только для прямоугольного шейпа')
+  if (!(shape instanceof Rect)) throw new Error('Corner rounding can only be restored for a rectangular shape')
 
   shape.set(snapshot)
 }
@@ -190,7 +190,7 @@ export function captureShapeScalingGeometry({
   group: ShapeGroup
 }): ShapeScalingGeometrySnapshot {
   const { shape, text } = getShapeNodes({ group })
-  if (!shape || !text) throw new Error('Снимок скейлинга требует полноценную композицию шейпа')
+  if (!shape || !text) throw new Error('A scaling snapshot requires a complete shape composition')
 
   return Object.freeze({
     group,
@@ -254,7 +254,7 @@ export function restoreShapeScalingSnapshots({
   for (let index = snapshots.length - 1; index >= 0; index -= 1) {
     const snapshot = snapshots[index]
     if (!snapshot) {
-      failures.push(new Error('Каждому шейпу должен соответствовать снимок геометрии'))
+      failures.push(new Error('Each shape must have a geometry snapshot'))
       continue
     }
 

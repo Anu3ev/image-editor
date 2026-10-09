@@ -30,7 +30,7 @@ function resolveEdgeCoefficient({
 }): number {
   const valueDelta = sample.values[variableIndex] - value
   if (Math.abs(valueDelta) <= ACTIVE_SELECTION_TEXT_SCALE_PROJECTION_EPSILON) {
-    throw new Error('Соседнее измерение текста должно менять выбранный множитель')
+    throw new Error('A neighboring text measurement must change the selected multiplier')
   }
 
   return (sample.bounds[edge] - bounds[edge]) / valueDelta
@@ -48,13 +48,13 @@ function assertProjectionSamples({
 }): void {
   const variableCount = projectionMode.projection.variables.length
   if (variableCount < 1 || variableCount > 2) {
-    throw new Error('Скейлинг выделения с текстами должен иметь одну или две степени свободы')
+    throw new Error('Scaling a selection containing text must have one or two degrees of freedom')
   }
   if (values.length !== variableCount || samples.length !== variableCount) {
-    throw new Error('Каждой переменной скейлинга текста должно соответствовать соседнее измерение')
+    throw new Error('Each text scaling variable must have a neighboring measurement')
   }
   if (samples.some((sample) => sample.values.length !== variableCount)) {
-    throw new Error('Соседние измерения текста должны использовать одинаковый набор множителей')
+    throw new Error('Neighboring text measurements must use the same set of multipliers')
   }
 }
 

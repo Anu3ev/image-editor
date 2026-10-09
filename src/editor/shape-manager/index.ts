@@ -637,7 +637,7 @@ export default class ShapeManager {
 
     const appliedScale = this.scalingController.resolveActiveSelectionCommittedScale({ selection })
     if (!isPositiveFiniteScale(appliedScale)) {
-      throw new Error('ShapeManager должен применить положительный конечный масштаб общего выделения')
+      throw new Error('ShapeManager must apply a positive finite scale to the selection')
     }
 
     transform.scaleX = selection.scaleX
@@ -655,14 +655,14 @@ export default class ShapeManager {
     children: readonly FabricObject[]
   }): void {
     if (children.length < 1) {
-      throw new Error('Для очистки общего скейлинга нужен хотя бы один дочерний шейп')
+      throw new Error('Clearing selection scaling state requires at least one child shape')
     }
 
     const groups: ShapeGroup[] = []
 
     for (const child of children) {
       if (!isShapeGroup(child)) {
-        throw new Error('Доменную сессию шейпов можно очистить только для shape-групп')
+        throw new Error('The shape domain session can only be cleared for shape-group objects')
       }
 
       groups.push(child)
@@ -689,11 +689,11 @@ export default class ShapeManager {
     transform?: Transform | null
   }): ActiveSelectionShapeScaleCommit {
     const groups = children.map((child) => {
-      if (!isShapeGroup(child)) throw new Error('Фиксация смешанного состава принимает только шейпы')
+      if (!isShapeGroup(child)) throw new Error('Committing a mixed composition accepts only shapes')
 
       return child
     })
-    if (groups.length === 0) throw new Error('Фиксация смешанного состава требует хотя бы один шейп')
+    if (groups.length === 0) throw new Error('Committing a mixed composition requires at least one shape')
 
     const beforeSnapshots = groups.map((group) => captureShapeScalingGeometry({ group }))
     const { scaleX, scaleY } = this.scalingController.resolveActiveSelectionCommittedScale({ selection })
@@ -767,7 +767,7 @@ export default class ShapeManager {
         scaleY,
         transform
       })
-      if (!committed) throw new Error('Каждый измеренный шейп должен зафиксировать рассчитанные размеры')
+      if (!committed) throw new Error('Each measured shape must commit its calculated dimensions')
 
       this.editor.canvasManager.applyObjectPlacement({ object: group, placement })
       group.setCoords()

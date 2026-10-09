@@ -89,7 +89,7 @@ export default class ShapeTextNodeController {
   constructor({
     resolveTextManager
   }: {
-    resolveTextManager: () => TextManager
+  resolveTextManager: () => TextManager
   }) {
     this.resolveTextManager = resolveTextManager
     this.internalUpdates = new WeakSet()
@@ -303,7 +303,7 @@ export default class ShapeTextNodeController {
     const textManager = this.resolveTextManager()
 
     if (!textManager) {
-      throw new Error('Shape text operation requires initialized TextManager')
+      throw new Error('Shape text operations require an initialized TextManager')
     }
 
     return textManager

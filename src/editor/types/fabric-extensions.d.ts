@@ -3,9 +3,14 @@ import type { FabricObject as FabricObjectInstance } from 'fabric'
 import type { EditorFontDefinition } from './font'
 import type { ImageEditor } from '..'
 import type { ImportImageOptions } from '../image-manager/types'
+import type { CustomLanguages } from '../i18n'
 import type { ToolbarConfig } from '../ui/toolbar-manager'
 
 export interface EditorCanvasOptions {
+  /** Library language for this instance: English by default, with Russian also bundled. */
+  language?: string
+  /** Additional nested locales or partial overrides of the built-in English and Russian catalogs. */
+  customLanguages?: CustomLanguages
   /**
    * Width of the editor workspace.
    */

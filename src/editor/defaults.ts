@@ -1,5 +1,6 @@
 import type { EditorOptions } from './types/options'
 import defaultFonts from './default-fonts'
+import { createDefaultActions } from './ui/toolbar-manager/default-config'
 
 export const defaults: Partial<EditorOptions> = {
   /**
@@ -34,42 +35,7 @@ export const defaults: Partial<EditorOptions> = {
     'image/webp'
   ],
   showToolbar: true,
-  toolbar: {
-    lockedActions: [{
-      name: 'Разблокировать',
-      handle: 'unlock'
-    }],
-    actions: [
-      {
-        name: 'Создать копию',
-        handle: 'copyPaste'
-      },
-      {
-        name: 'Заблокировать',
-        handle: 'lock'
-      },
-      {
-        name: 'На передний план',
-        handle: 'bringToFront'
-      },
-      {
-        name: 'На задний план',
-        handle: 'sendToBack'
-      },
-      {
-        name: 'На один уровень вверх',
-        handle: 'bringForward'
-      },
-      {
-        name: 'На один уровень вниз',
-        handle: 'sendBackwards'
-      },
-      {
-        name: 'Удалить',
-        handle: 'delete'
-      }
-    ]
-  },
+  toolbar: createDefaultActions(),
   initialState: null,
   initialImage: null,
   defaultScale: 0.5,

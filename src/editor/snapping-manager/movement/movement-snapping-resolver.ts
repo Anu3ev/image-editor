@@ -822,8 +822,8 @@ function calculateMovementAxisSpacing({
   }
 
   return axis === 'x'
-    ? calculateHorizontalSpacing(params)
-    : calculateVerticalSpacing(params)
+    ? calculateHorizontalSpacing({ ...params })
+    : calculateVerticalSpacing({ ...params })
 }
 
 /** Creates a stable identifier from the exact primary interval data. */
@@ -1170,14 +1170,14 @@ function createExactBoundsSnapshot({ bounds }: { bounds: Bounds }): Bounds {
   const { left, right, top, bottom, centerX, centerY } = bounds
   const values = [left, right, top, bottom, centerX, centerY]
   if (!values.every(Number.isFinite) || right < left || bottom < top) {
-    throw new Error('Movement snapping bounds must contain finite ordered values')
+    throw new Error('Movement snapping bounds must contain finite, ordered values')
   }
 
   const expectedCenterX = left + ((right - left) / 2)
   const expectedCenterY = top + ((bottom - top) / 2)
   if (Math.abs(centerX - expectedCenterX) > EXACT_BOUNDS_CENTER_EPSILON
     || Math.abs(centerY - expectedCenterY) > EXACT_BOUNDS_CENTER_EPSILON) {
-    throw new Error('Movement snapping bounds centers must be derived from its edges')
+    throw new Error('Movement snapping bounds must derive their center coordinates from their edges')
   }
 
   return Object.freeze({ left, right, top, bottom, centerX, centerY })
@@ -1251,7 +1251,7 @@ function assertAxisHold({
 
   const candidate = baseline.candidates[hold.candidate.snapshotIndex]
   if (!candidate || candidate.id !== hold.candidate.id || candidate.position !== hold.candidate.position) {
-    throw new Error('Movement hold state candidate does not belong to the active baseline')
+    throw new Error('The movement hold state candidate does not belong to the active baseline')
   }
 }
 

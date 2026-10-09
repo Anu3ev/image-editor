@@ -7,6 +7,7 @@ export type handleMessageParams = {
   success: boolean
   data: File | Blob | Base64URLString
   error?: string
+  cause?: unknown
 }
 
 /** Result handlers for a pending request. */
@@ -30,10 +31,13 @@ export default class WorkerManager {
     this.worker = scriptUrl ? new Worker(scriptUrl, { type: 'module' }) : new DefaultWorker()
     this.worker.onmessage = this._handleMessage.bind(this)
     this.worker.onerror = (event) => {
-      this._stop(event.error instanceof Error ? event.error : new Error(event.message || 'Worker failed'))
+      const error = event.error instanceof Error
+        ? event.error
+        : new Error(event.message || 'Worker failed')
+      this._stop(error)
     }
     this.worker.onmessageerror = () => {
-      this._stop(new Error('Failed to deserialize worker response'))
+      this._stop(new Error('Failed to deserialize the worker response'))
     }
   }
 
@@ -44,7 +48,7 @@ export default class WorkerManager {
       return
     }
 
-    const { requestId, success, data: payload, error } = data
+    const { requestId, success, data: payload, error, cause } = data
     const callback = this._callbacks.get(requestId)
     // A duplicate response for an already completed request does not need to be handled.
     if (!callback) return
@@ -54,12 +58,18 @@ export default class WorkerManager {
       return
     }
 
+    if (!success && error !== undefined && typeof error !== 'string') {
+      this._stop(new Error('Invalid worker response'))
+      return
+    }
+
     this._callbacks.delete(requestId)
     if (success) {
       callback.resolve(payload)
       return
     }
-    callback.reject(new Error(error || 'Worker request failed'))
+    const message = error || 'Worker request failed'
+    callback.reject(Object.assign(new Error(message), { cause }))
   }
 
   /** Sends a command and guarantees that the Promise settles if the worker fails or stops. */

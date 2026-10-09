@@ -179,7 +179,7 @@ function resolveSelectionLocalBounds({
   selection: ActiveSelection
 }): ActiveSelectionLocalBounds {
   const [first, ...rest] = selection.getObjects()
-  if (!first) throw new Error('Сессия скейлинга шейпов требует непустое общее выделение')
+  if (!first) throw new Error('A shape scaling session requires a non-empty selection')
 
   let bounds = resolveActiveSelectionObjectLocalBounds({ target: first })
   for (const object of rest) {
@@ -284,7 +284,7 @@ export default class ShapeActiveSelectionScalingController {
     canvas,
     shapeScalingState
   }: {
-    canvas: Canvas
+  canvas: Canvas
     shapeScalingState: WeakMap<ShapeGroup, ShapeScalingState>
   }) {
     this.canvas = canvas
@@ -380,7 +380,7 @@ export default class ShapeActiveSelectionScalingController {
     transform: Transform
   }): ActiveSelectionScaleDomainMeasurement {
     const items = this._collectPreviewItems({ selection, transform })
-    if (items.length === 0) throw new Error('Доменное измерение требует хотя бы один шейп')
+    if (items.length === 0) throw new Error('Domain measurement requires at least one shape')
 
     const preview = this._resolveScalingPreview({ items, mode, multipliers, selection, transform })
     const children = Object.freeze(items.map((item) => {
@@ -415,13 +415,13 @@ export default class ShapeActiveSelectionScalingController {
   }): void {
     const plan = this._getDomainPlan({ measurement, selection })
     if (children.length !== plan.children.length) {
-      throw new Error('Применение должно содержать все измеренные шейпы')
+      throw new Error('Application must include all measured shapes')
     }
 
     const applications = plan.children.map((childPlan, index) => {
       const child = children[index]
       if (!child || child.target !== childPlan.item.group) {
-        throw new Error('Порядок применяемых шейпов должен совпадать с измерением')
+        throw new Error('The order of applied shapes must match the measurement order')
       }
 
       return { child, childPlan }
@@ -514,7 +514,7 @@ export default class ShapeActiveSelectionScalingController {
   }): void {
     const { group, shape, state, text } = item
     const sessionItem = preview.session.items.get(group)
-    if (!sessionItem) throw new Error('Для шейпа должно существовать состояние текущей сессии скейлинга')
+    if (!sessionItem) throw new Error('The shape must have state in the current scaling session')
 
     state.isProportionalScaling = preview.isProportionalCornerScale
     const { layoutScale, minimumHeight } = this._resolveShapePreviewDimensions({
@@ -643,7 +643,7 @@ export default class ShapeActiveSelectionScalingController {
   }): ActiveSelectionScaleDomainChildMeasurement {
     const sessionItem = preview.session.items.get(child.item.group)
     if (!sessionItem || sessionItem.rotatedGeometry) {
-      throw new Error('Смешанное измерение поддерживает только прямой канонический шейп')
+      throw new Error('Mixed-composition measurement only supports unrotated canonical shapes')
     }
 
     return createActiveSelectionShapeDomainChildMeasurement({
@@ -692,7 +692,7 @@ export default class ShapeActiveSelectionScalingController {
   }): ActiveSelectionShapeDomainPlan {
     const plan = this.domainPlans.get(measurement)
     if (!plan || plan.preview.session !== this.scalingSessions.get(selection)) {
-      throw new Error('Применению шейпов должно предшествовать измерение той же сессии')
+      throw new Error('Shapes must be measured in the same session before they are applied')
     }
 
     return plan
@@ -1051,7 +1051,7 @@ export default class ShapeActiveSelectionScalingController {
       const sessionItem = session.items.get(item.group)
       const layoutResult = proportionalLayoutResults.get(item.group)
       if (!sessionItem || !layoutResult) {
-        throw new Error('Для шейпа должны быть рассчитаны ограничения текущей сессии')
+        throw new Error('Constraints for the shape must be calculated for the current session')
       }
 
       return resolveActiveSelectionShapeScaleConstraint({

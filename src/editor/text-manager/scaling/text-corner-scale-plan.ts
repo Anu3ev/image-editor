@@ -242,7 +242,7 @@ export function resolveReachedTextCornerScaleFallback({
 }> {
   const [plannedScale] = plan.effectiveValues
   if (typeof plannedScale !== 'number' || !Number.isFinite(plannedScale)) {
-    throw new Error('План углового скейлинга текста должен содержать конечный множитель')
+    throw new Error('The text corner scaling plan must contain a finite multiplier')
   }
 
   if (typeof preferredScale === 'number' && Number.isFinite(preferredScale)) {

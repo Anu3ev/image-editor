@@ -394,7 +394,7 @@ export default class CropManager {
 
     if (session.options.preserveAspectRatio) {
       if (!(session.frame instanceof CropFrame)) {
-        throw new Error('Crop session frame должен быть CropFrame')
+        throw new Error('The crop session frame must be a CropFrame')
       }
 
       size = resolveCropSize({
@@ -616,7 +616,7 @@ export default class CropManager {
     preserveAspectRatio: boolean
   }): void {
     if (!(frame instanceof CropFrame)) {
-      throw new Error('Crop session frame должен быть CropFrame')
+      throw new Error('The crop session frame must be a CropFrame')
     }
 
     frame.preserveAspectRatio = preserveAspectRatio
@@ -1002,7 +1002,8 @@ export default class CropManager {
       origin: 'CropManager',
       method: 'startImageCrop',
       code: errorCodes.CROP_MANAGER.INVALID_IMAGE_TARGET,
-      message: 'Для кропа изображения нужно выбрать raster image объект.',
+      message: 'Select a raster image object to crop an image.',
+      userMessage: this.editor.t('notifications.crop.invalidTarget'),
       data: {
         targetType: target?.type,
         targetId: target?.id
@@ -1018,7 +1019,8 @@ export default class CropManager {
       origin: 'CropManager',
       method: 'startImageCrop',
       code: errorCodes.CROP_MANAGER.LOCKED_IMAGE_TARGET,
-      message: 'Заблокированное изображение нельзя обрезать.',
+      message: 'A locked image cannot be cropped.',
+      userMessage: this.editor.t('notifications.crop.lockedTarget'),
       data: {
         targetType: target.type,
         targetId: target.id

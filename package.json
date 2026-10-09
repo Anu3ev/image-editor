@@ -1,6 +1,6 @@
 {
   "name": "@anu3ev/fabric-image-editor",
-  "version": "0.12.1",
+  "version": "0.13.0",
   "description": "TypeScript image editor library built on FabricJS, allowing you to create instances with an integrated montage area and providing an API to modify and manage state.",
   "keywords": [
     "image-editor",
@@ -65,6 +65,7 @@
   },
   "dependencies": {
     "fabric": "^7.2.0",
+    "i18next": "^26.4.2",
     "jsondiffpatch": "^0.7.3",
     "jspdf": "^4.2.1",
     "nanoid": "^5.1.7",

@@ -18,6 +18,7 @@ import type {
   SnappingObjectSnapshot
 } from '../types'
 import { waitForCanvasRender } from '../helpers/canvas-render.helper'
+import { LocalizationModel } from './localization.model'
 import { ShapeModel } from './shape/shape.model'
 import { CanvasModel } from './canvas.model'
 import { HistoryModel } from './history.model'
@@ -66,6 +67,8 @@ const DOM_DELTA_PIXEL = 0
 const VIEWPORT_PAN_ZOOM_ATTEMPTS = 6
 
 export class EditorModel {
+  readonly localization: LocalizationModel
+
   readonly shapes: ShapeModel
 
   readonly canvas: CanvasModel
@@ -97,6 +100,7 @@ export class EditorModel {
   readonly crop: CropModel
 
   constructor(readonly page: Page) {
+    this.localization = new LocalizationModel(page)
     this.shapes = new ShapeModel(page)
     this.canvas = new CanvasModel(page)
     this.history = new HistoryModel(page)
@@ -450,7 +454,7 @@ export class EditorModel {
       const style = window.getComputedStyle(indicator)
       const bounds = indicator.getBoundingClientRect()
       const text = indicator.textContent ?? ''
-      const match = text.match(/ширина:\s*([\d\s]+)\s+высота:\s*([\d\s]+)/)
+      const match = text.match(/Width:\s*([\d\s]+)\s+Height:\s*([\d\s]+)/)
       const width = match ? Number(match[1].replace(/\s/g, '')) : null
       const height = match ? Number(match[2].replace(/\s/g, '')) : null
 

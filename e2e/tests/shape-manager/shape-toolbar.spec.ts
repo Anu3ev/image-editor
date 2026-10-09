@@ -41,7 +41,7 @@ test.describe('Удаление шейпов через тулбар', () => {
 
     await test.step('Нажать кнопку "Удалить" в тулбаре', async() => {
       await toolbar.clickAction({
-        name: 'Удалить'
+        name: 'Delete'
       })
     })
 
@@ -83,7 +83,7 @@ test.describe('Удаление шейпов через тулбар', () => {
 
     await test.step('Нажать кнопку "Удалить" в тулбаре', async() => {
       await toolbar.clickAction({
-        name: 'Удалить'
+        name: 'Delete'
       })
     })
 
