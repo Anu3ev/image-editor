@@ -7,6 +7,7 @@ The examples use the `editor` instance created in [Initialization and cleanup](#
 ## Contents
 
 - [Initialization and cleanup](#initialization-and-cleanup)
+- [Language and translations](#language-and-translations)
 - [Errors and events](#errors-and-events)
 - [Images and export](#images-and-export)
 - [Text](#text)
@@ -78,6 +79,33 @@ editor.destroy()
 ```
 
 Repeated `destroy()` calls are safe. Destroy the previous instance before mounting another editor in the same container.
+
+## Language and translations
+
+Set `language` when initializing the editor. English (`en`) is the default and fallback; Russian (`ru`) is also bundled. Locale codes are case-insensitive. Missing translations resolve through the requested regional locale, its base language, then English. For example, `pt-BR` can use a custom `pt` catalog, with missing keys falling back to English. Unsupported languages also fall back to English.
+
+Use `customLanguages` to add locales or partially override built-in ones. The exported `EditorLocale` type provides nested key completion; every key is optional and accepts a translated string. `CustomLanguages` types a map of locale codes to catalogs.
+
+```ts
+import initEditor, { type CustomLanguages } from '@anu3ev/fabric-image-editor'
+
+const customLanguages = {
+  ru: { ui: { toolbar: { delete: 'Убрать' } } }
+} satisfies CustomLanguages
+
+const editor = await initEditor('editor', {
+  language: 'ru-RU',
+  customLanguages
+})
+```
+
+This overrides only the Russian Delete label; other built-in translations remain available. See the [English catalog](../src/editor/i18n/en.ts) for all keys and interpolation placeholders. Preserve placeholders such as `{{width}}`, `{{height}}`, `{{angle}}`, and `{{format}}` when translating their values.
+
+Resources are copied for each editor, so one instance's customizations never affect another. The language is fixed at initialization; destroy and recreate an instance to choose another language.
+
+The selected language applies to built-in toolbar labels, indicators, default inserted text, and export filenames. Authored text, custom toolbar labels, serialized content, event names, and error codes remain unchanged. The development demo's own controls are English-only.
+
+Actionable errors and warnings may include an optional localized `userMessage`, customizable through the `notifications` branch of `EditorLocale`. Library-authored technical `message` fields and console diagnostics remain in English; caller-provided messages and external errors are preserved. See [Errors and events](#errors-and-events) for displaying notifications and handling initialization failures.
 
 ## Errors and events
 

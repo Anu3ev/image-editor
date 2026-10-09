@@ -140,19 +140,13 @@ See the [integration guide](./guides/integration.md) for configuration, image im
 
 ### Library language
 
-Pass `language` when creating an editor. English (`en`) is the default and
-fallback; Russian (`ru`) is also bundled. Missing translations resolve through
-the exact regional locale, its base language, then English. Locale codes are
-case-insensitive, and unsupported languages fall back to English.
+English (`en`) and Russian (`ru`) are bundled. English is the default.
 
 ```ts
 const editor = await initEditor('editor', { language: 'ru' })
 ```
 
-Add locales or partially override built-in ones with `customLanguages`. Use
-`EditorLocale` for nested key completion; every key is optional and accepts a
-translated string. See the [full English catalog](./src/editor/i18n/en.ts) for
-available keys and interpolation placeholders.
+Add a language or override selected translations with `customLanguages`:
 
 ```ts
 import initEditor, { type EditorLocale } from '@anu3ev/fabric-image-editor'
@@ -162,25 +156,12 @@ const portuguese = {
 } satisfies EditorLocale
 
 const editor = await initEditor('editor', {
-  language: 'pt-BR',
+  language: 'pt',
   customLanguages: { pt: portuguese }
 })
 ```
 
-`CustomLanguages` is also exported for typing a map of locale codes to catalogs.
-Partial overrides such as `{ ru: { ui: { toolbar: { delete: 'Убрать' } } } }`
-preserve other built-in translations. Resources are copied for each editor, so
-one instance's customizations never affect another.
-
-Each instance has its own i18next translator. The language is fixed at
-initialization; create a new instance to choose another language. Built-in
-toolbar labels, indicators, default inserted text, and export filenames use that
-language. Actionable errors and warnings may also include a localized `userMessage`,
-customizable through the `notifications` branch of `EditorLocale`. Technical
-`message` fields and console diagnostics remain in English. Caller-provided
-messages and external errors are preserved without translation. Your
-text, custom toolbar labels, serialized content, event names, and error codes stay
-unchanged. The demo remains English-only.
+See [Language and translations](./guides/integration.md#language-and-translations) for available keys, fallback rules, partial overrides, and notifications.
 
 ## 🎮 Demo Application
 
