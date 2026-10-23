@@ -308,14 +308,12 @@ function resolveScaleXUpdate({
   })
   if (desiredWidth === null) return null
 
-  const { angle = 0 } = target
-  const { width: baseWidth, height: baseHeight } = resolveBaseDimensions({ target })
-  const absNextScaleX = resolveScaleForWidth({
-    desiredWidth,
-    baseWidth,
-    baseHeight,
-    scaleY: Math.abs(scaleY) || 1,
-    angle
+  const absNextScaleX = resolveScaleForBoundsSize({
+    target,
+    axis: 'x',
+    desiredSize: desiredWidth,
+    scaleX,
+    scaleY
   })
   if (absNextScaleX === null) return null
 
@@ -353,14 +351,12 @@ function resolveScaleYUpdate({
   })
   if (desiredHeight === null) return null
 
-  const { angle = 0 } = target
-  const { width: baseWidth, height: baseHeight } = resolveBaseDimensions({ target })
-  const absNextScaleY = resolveScaleForHeight({
-    desiredHeight,
-    baseWidth,
-    baseHeight,
-    scaleX: Math.abs(scaleX) || 1,
-    angle
+  const absNextScaleY = resolveScaleForBoundsSize({
+    target,
+    axis: 'y',
+    desiredSize: desiredHeight,
+    scaleX,
+    scaleY
   })
   if (absNextScaleY === null) return null
 
@@ -921,80 +917,149 @@ function resolveBaseDimensions({ target }: { target: FabricObject }): { width: n
   }
 }
 
-/**
- * Calculates the X-axis scale for a given bounding box width.
- */
-function resolveScaleForWidth({
-  desiredWidth,
-  baseWidth,
-  baseHeight,
-  scaleY,
-  angle
-}: {
-  desiredWidth: number
-  baseWidth: number
-  baseHeight: number
-  scaleY: number
-  angle: number
-}): number | null {
-  return resolveScaleForRotatedBoundsSize({
-    desiredSize: desiredWidth,
-    baseAxisSize: baseWidth,
-    scaledCrossAxisSize: baseHeight * scaleY,
-    angle
-  })
+/** Linear part of the object transform: how each local axis contributes to scene X and Y. */
+type LinearTransform = {
+  xFromX: number
+  xFromY: number
+  yFromX: number
+  yFromY: number
 }
 
-/**
- * Calculates the Y-axis scale for a given bounding box height.
- */
-function resolveScaleForHeight({
-  desiredHeight,
-  baseWidth,
-  baseHeight,
-  scaleX,
-  angle
-}: {
-  desiredHeight: number
-  baseWidth: number
-  baseHeight: number
-  scaleX: number
-  angle: number
-}): number | null {
-  return resolveScaleForRotatedBoundsSize({
-    desiredSize: desiredHeight,
-    baseAxisSize: baseHeight,
-    scaledCrossAxisSize: baseWidth * scaleX,
-    angle
-  })
+/** One term `|slope * scale + offset|` of a bounds size that is linear in the scale being solved. */
+type BoundsSizeTerm = {
+  slope: number
+  offset: number
 }
 
+/** Slope below which a bounds size term does not depend on the scale. */
+const BOUNDS_SLOPE_EPSILON = 0.000000001
+
 /**
- * Calculates scale on one axis for the target size of a rotated bounding box.
+ * Calculates the scale on one axis that gives the object bounds the desired size on that axis.
+ * The bounds width is `|xFromX| * width + |xFromY| * height`, and every entry of the rotation, scale and skew
+ * matrix is linear in the scale being solved, so the size is a sum of absolute linear terms. Skew adds the other
+ * axis to the bounds, so a formula that only accounts for rotation overshoots the guide on a skewed object.
+ * Of the scales that reach the size, the one closest to the current scale wins.
  */
-function resolveScaleForRotatedBoundsSize({
+function resolveScaleForBoundsSize({
+  target,
+  axis,
   desiredSize,
-  baseAxisSize,
-  scaledCrossAxisSize,
-  angle
+  scaleX,
+  scaleY
 }: {
+  target: FabricObject
+  axis: 'x' | 'y'
   desiredSize: number
-  baseAxisSize: number
-  scaledCrossAxisSize: number
-  angle: number
+  scaleX: number
+  scaleY: number
 }): number | null {
+  const { width, height } = resolveBaseDimensions({ target })
+  const fixedScaleX = Math.abs(scaleX) || 1
+  const fixedScaleY = Math.abs(scaleY) || 1
+  const transformAt = (scale: number): LinearTransform => getLinearTransform({
+    target,
+    scaleX: axis === 'x' ? scale : fixedScaleX,
+    scaleY: axis === 'y' ? scale : fixedScaleY
+  })
+  const atZero = transformAt(0)
+  const atOne = transformAt(1)
+  const terms = axis === 'x'
+    ? [
+      { slope: (atOne.xFromX - atZero.xFromX) * width, offset: atZero.xFromX * width },
+      { slope: (atOne.xFromY - atZero.xFromY) * height, offset: atZero.xFromY * height }
+    ]
+    : [
+      { slope: (atOne.yFromX - atZero.yFromX) * width, offset: atZero.yFromX * width },
+      { slope: (atOne.yFromY - atZero.yFromY) * height, offset: atZero.yFromY * height }
+    ]
+
+  return solveAbsoluteSum({
+    terms,
+    value: desiredSize,
+    closestTo: axis === 'x' ? fixedScaleX : fixedScaleY
+  })
+}
+
+/**
+ * Returns the linear part of Fabric's object transform: rotation of the signed scale, skewX and skewY.
+ * A flip or a negative scale mirrors an axis before skew and rotation mix the axes, so the sign changes the bounds
+ * of a rotated skewed object even though the scale passed in is a magnitude.
+ */
+function getLinearTransform({
+  target,
+  scaleX,
+  scaleY
+}: {
+  target: FabricObject
+  scaleX: number
+  scaleY: number
+}): LinearTransform {
+  const {
+    angle = 0,
+    skewX = 0,
+    skewY = 0,
+    flipX = false,
+    flipY = false,
+    scaleX: targetScaleX = 1,
+    scaleY: targetScaleY = 1
+  } = target
   const radians = (angle * Math.PI) / 180
-  const cos = Math.abs(Math.cos(radians))
-  const sin = Math.abs(Math.sin(radians))
-  const axisComponent = baseAxisSize * cos
-  const crossAxisComponent = scaledCrossAxisSize * sin
+  const cos = Math.cos(radians)
+  const sin = Math.sin(radians)
+  const tanX = Math.tan((skewX * Math.PI) / 180)
+  const tanY = Math.tan((skewY * Math.PI) / 180)
+  const signedScaleX = scaleX * Math.sign(targetScaleX || 1) * (flipX ? -1 : 1)
+  const signedScaleY = scaleY * Math.sign(targetScaleY || 1) * (flipY ? -1 : 1)
+  const scaledXFromX = signedScaleX * (1 + (tanX * tanY))
+  const scaledXFromY = signedScaleX * tanX
+  const scaledYFromX = signedScaleY * tanY
 
-  if (axisComponent <= 0) return null
+  return {
+    xFromX: (cos * scaledXFromX) - (sin * scaledYFromX),
+    xFromY: (cos * scaledXFromY) - (sin * signedScaleY),
+    yFromX: (sin * scaledXFromX) + (cos * scaledYFromX),
+    yFromY: (sin * scaledXFromY) + (cos * signedScaleY)
+  }
+}
 
-  const nextScale = (desiredSize - crossAxisComponent) / axisComponent
-  if (!Number.isFinite(nextScale) || nextScale <= 0) return null
+/**
+ * Solves `sum(|slope * scale + offset|) = value` for a positive scale and returns the solution closest to
+ * `closestTo`, or null when the value is unreachable. The sum is linear between the points where a term changes
+ * sign, so each such segment is solved directly.
+ */
+function solveAbsoluteSum({
+  terms,
+  value,
+  closestTo
+}: {
+  terms: BoundsSizeTerm[]
+  value: number
+  closestTo: number
+}): number | null {
+  const signChanges = terms
+    .filter(({ slope }) => Math.abs(slope) > BOUNDS_SLOPE_EPSILON)
+    .map(({ slope, offset }) => -offset / slope)
+    .filter((point) => point > 0)
+  const segmentStarts = [0, ...signChanges].sort((first, second) => first - second)
+  const solutions = segmentStarts.flatMap((start, index) => {
+    const end = segmentStarts[index + 1] ?? Infinity
+    const probe = Number.isFinite(end) ? (start + end) / 2 : start + 1
+    const { slope, offset } = terms.reduce((sum, term) => {
+      const sign = (term.slope * probe) + term.offset < 0 ? -1 : 1
 
-  return nextScale
+      return { slope: sum.slope + (sign * term.slope), offset: sum.offset + (sign * term.offset) }
+    }, { slope: 0, offset: 0 })
+    if (Math.abs(slope) <= BOUNDS_SLOPE_EPSILON) return []
+
+    const scale = (value - offset) / slope
+    return scale > 0 && scale >= start && scale <= end ? [scale] : []
+  })
+  if (!solutions.length) return null
+
+  return solutions.reduce((best, scale) => {
+    return Math.abs(scale - closestTo) < Math.abs(best - closestTo) ? scale : best
+  })
 }
 
 /** Converts the text frame width to its canonical width. */

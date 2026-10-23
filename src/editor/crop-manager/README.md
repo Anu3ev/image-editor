@@ -39,6 +39,8 @@
   Rounding to integer pixels after guide calculation must not move that edge.
 - `allowFrameOverflow = false` constrains the crop frame to source-image bounds.
   In this mode, clamp and scale limits must rely on `getCropRectInSource()` and `getSourceSize()`, not a raw canvas bounding box.
+- On a skewed source, the frame size on one axis also widens its source-space bounds on the other. The free clamp therefore shrinks each overflowing axis exactly as much as needed given the other axis. When shrinking only the overflowing axes cannot fit the frame while keeping every shrunk axis at least the minimum crop size, for example under a steep skew, it shrinks the frame proportionally instead. A one-pass per-axis ratio is not enough here: it leaves an overflow, so every later move would shrink the frame again.
+  A requested aspect ratio (the start option, `setAspectRatio()`, or `resetFrameToSource()` with `preserveAspectRatio`) uses the proportional clamp. An explicit `size`, including a start `size` passed together with `aspectRatio`, keeps the axis that already fits.
 - `isFrameOverflowingSource({ target, axis })` reports transient overflow before the source-bound move clamp runs. Without `axis`, it preserves the combined check used by scaling; with `x` or `y`, it lets movement snapping disable only the constrained axis.
 - `fitFrame({ type })` uses montage-area `contain` and `cover` only when `allowFrameOverflow = true`.
   With overflow disabled, both values use the same source-bound reset geometry, so fitting expands the current frame without re-centering it to the montage area.
@@ -88,6 +90,7 @@ Nested or skewed sources, independently transformed frames and locked frame axes
 - [`snapping/crop-scale-plan.ts`](./snapping/crop-scale-plan.ts) combines the shared geometric scale plan with the existing source-guide hold rules.
 - [`snapping/crop-scale-pixel-grid.ts`](./snapping/crop-scale-pixel-grid.ts) supplies source-pixel dimensions explicitly. Shared pixel-grid code only constructs and applies scale candidates; [`snapping/crop-scale-snap-guards.ts`](./snapping/crop-scale-snap-guards.ts) owns source-boundary and source-size preference rules.
 - Pixel rounding preserves the fixed frame point with or without a guide, including Ctrl. The untouched axis retains its fractional size. The crop session is explicitly typed with `CropFrame`; the public `CropState.frame` remains compatible with `Rect`.
+- On a skewed source in strict mode, the frame is a parallelogram in source coordinates, so the box-based source limits and fixed sides below would slide or freeze it. `crop-controls` therefore gives a skewed source no box-based bounds, and after each legacy resize step [`domain/crop-anchored-fit.ts`](./domain/crop-anchored-fit.ts) shrinks the frame around the fixed point of the gesture until its corners are inside the source. A proportional resize or a side handle shrinks along one scale; a free corner resize keeps the size closest to the one the pointer asks for.
 
 - `crop-controls` calculates source-bound scale limits and annotates the current `Transform` with transient fields:
   `cropSourceScaleBounds`, `cropSourceScaleAnchorX/Y`, `cropSourceScaleClamped`, `cropSourceBoundScale`,

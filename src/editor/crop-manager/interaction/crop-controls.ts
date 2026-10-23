@@ -10,6 +10,7 @@ import {
 import {
   getCropRectInSource,
   getSourceSize,
+  isFrameRectangularInSource,
   MAX_CROP_FRAME_HEIGHT,
   MAX_CROP_FRAME_WIDTH,
   MIN_CROP_FRAME_HEIGHT,
@@ -999,6 +1000,8 @@ function getProportionalSourceMaxScale({
 
 /**
  * Returns the source bounds for resizing, or null in allow overflow mode.
+ * A frame that is not a rectangle in source coordinates, for example on a skewed source, also returns null: limits
+ * and fixed sides derived from its bounding box there would move or freeze the frame. CropManager fits it instead.
  */
 function getSourceScaleBounds({
   target,
@@ -1012,16 +1015,18 @@ function getSourceScaleBounds({
   }
 
   const cropTarget = target as CropFrameScaleTarget
-  if (cropTarget.cropAllowFrameOverflow !== false || !cropTarget.cropSource) {
+  const { cropSource } = cropTarget
+  const usesBoxBounds = cropSource && isFrameRectangularInSource({ source: cropSource, frame: cropTarget })
+  if (cropTarget.cropAllowFrameOverflow !== false || !cropSource || !usesBoxBounds) {
     transform.cropSourceScaleBounds = null
 
     return null
   }
 
   transform.cropSourceScaleBounds = {
-    sourceSize: getSourceSize({ source: cropTarget.cropSource }),
+    sourceSize: getSourceSize({ source: cropSource }),
     startRect: getCropRectInSource({
-      source: cropTarget.cropSource,
+      source: cropSource,
       frame: cropTarget
     })
   }

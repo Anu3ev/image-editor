@@ -94,3 +94,23 @@ export const SNAPPING_IMAGE_SCALE_RELEASE_OFFSET_PX = 12
 
 /** Tolerance of Fabric control geometry relative to the pointer in viewport pixels. */
 export const SNAPPING_IMAGE_SCALE_POINTER_TOLERANCE_PX = 1.5
+
+/** Size of the skewed image used to scale it up to the artboard edges. */
+export const SKEWED_IMAGE_SCALE_SIZE = {
+  width: 200,
+  height: 120
+} as const
+
+/** Side handles that scale a skewed image toward one artboard edge, with the skew that widens that axis. */
+export const SKEWED_IMAGE_EDGE_CASES = [
+  { imageSkew: { skewX: 20, skewY: 0 }, control: 'mr', edge: 'right', directionX: 1, directionY: 0 },
+  { imageSkew: { skewX: 20, skewY: 0 }, control: 'ml', edge: 'left', directionX: -1, directionY: 0 },
+  { imageSkew: { skewX: 0, skewY: 20 }, control: 'mt', edge: 'top', directionX: 0, directionY: -1 },
+  { imageSkew: { skewX: 0, skewY: 20 }, control: 'mb', edge: 'bottom', directionX: 0, directionY: 1 }
+] as const
+
+/** Pointer distance of one scaling step from the previous pointer position, small enough to stop inside the snap zone. */
+export const SKEWED_IMAGE_POINTER_STEP_PX = 3
+
+/** Upper bound of pointer steps before the artboard edge must be reached. */
+export const SKEWED_IMAGE_MAX_POINTER_STEPS = 120
