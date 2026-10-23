@@ -13,12 +13,14 @@ import {
 import { CropFrameControlModel } from './crop-frame-control.model'
 import { CropDimmingOverlayModel } from './crop-dimming-overlay.model'
 import { CropEventRecorder } from './crop-event-recorder'
+import { CropSourceFitModel } from './crop-source-fit.model'
 import type {
   CropControlKey,
   CropImageSourceInfo,
   CropRectInfo,
   CropResizeFromControlParams,
   CropSizeInfo,
+  CropSourceOverflowInfo,
   CropStartParams,
   CropStateInfo,
   EditorObjectInfo,
@@ -50,6 +52,7 @@ type CropResizeDragResult = {
 type CropSlowResizeState = {
   state: CropStateInfo
   indicator: ObjectSizeIndicatorInfo
+  sourceOverflow: CropSourceOverflowInfo
 }
 
 /** Result of a browser-side crop-frame center-drag step. */
@@ -202,6 +205,9 @@ export class CropModel {
   /** Recording of public crop apply, cancel, and change events. */
   readonly events: CropEventRecorder
 
+  /** E2E model of how the active crop frame fits inside its source. */
+  readonly sourceFit: CropSourceFitModel
+
   /** Pointer position of the last unfinished crop-frame resize. */
   private lastResizePointer: CropResizePointer | null = null
 
@@ -213,6 +219,7 @@ export class CropModel {
     this.frameControls = new CropFrameControlModel(page)
     this.dimmingOverlay = new CropDimmingOverlayModel(page)
     this.events = new CropEventRecorder(page)
+    this.sourceFit = new CropSourceFitModel(page)
   }
 
   /** Returns true if crop mode is active. */
@@ -1171,7 +1178,8 @@ export class CropModel {
       await waitForCanvasRender({ page: this.page })
       states.push({
         state: await this.requireState(),
-        indicator: await this.getObjectSizeIndicator()
+        indicator: await this.getObjectSizeIndicator(),
+        sourceOverflow: await this.sourceFit.getFrameOverflow()
       })
       this.lastResizePointer = nextPoint
     }

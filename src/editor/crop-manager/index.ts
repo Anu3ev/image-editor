@@ -1,4 +1,5 @@
 import {
+  ActiveSelection,
   FabricImage,
   Rect,
   type Canvas,
@@ -14,6 +15,11 @@ import type { AnchorBuckets, GuideLine } from '../snapping-manager/types'
 import { applyCropFrameScaleSnapping } from './snapping/crop-frame-scale-snapping'
 import { getObjectExactBounds } from '../utils/geometry'
 import { CropFrameInteraction } from './interaction/crop-frame-interaction'
+import { fitResizedCropFrameToSource } from './domain/crop-anchored-fit'
+import {
+  resolveScalingAxisState,
+  resolveScalingTransformState
+} from '../snapping-manager/scaling/legacy-scale-snapping'
 import type {
   CropFrameChangeEvent,
   CropSourceBoundTransform
@@ -24,6 +30,7 @@ import {
   clampCropFrameToSourcePreservingAspectRatio,
   getCropRectInSource,
   getSourceSize,
+  isFrameRectangularInSource,
   resolveImageCropSourceAspectRatio,
   resolveCropSize
 } from './domain/crop-geometry'
@@ -262,7 +269,7 @@ export default class CropManager {
       options
     })
 
-    this._activateSession({ session })
+    this._activateSession({ session, options })
 
     return this.getState()
   }
@@ -288,7 +295,7 @@ export default class CropManager {
       options
     })
 
-    this._activateSession({ session })
+    this._activateSession({ session, options })
 
     return this.getState()
   }
@@ -312,7 +319,8 @@ export default class CropManager {
 
     this._applyFrameSize({
       session,
-      size: nextSize
+      size: nextSize,
+      preserveAspectRatio: aspectRatio !== null
     })
 
     return this.getState()
@@ -320,6 +328,7 @@ export default class CropManager {
 
   /**
    * Updates the crop frame to an explicit size.
+   * The size is kept as requested even in keep-ratio mode: in strict mode only the overflowing axes shrink.
    */
   public setSize({ size }: { size: CropSize }): CropState | null {
     const { _session: session } = this
@@ -406,7 +415,8 @@ export default class CropManager {
 
     this._applyFrameSize({
       session,
-      size
+      size,
+      preserveAspectRatio: session.options.preserveAspectRatio
     })
 
     return this.getState()
@@ -477,12 +487,9 @@ export default class CropManager {
     const { _session: session } = this
     if (!session) return false
 
-    this._finishSession({
+    this._cancelSession({
+      session,
       nextActiveObject: session.previousActiveObject
-    })
-    this.editor.canvas.fire('editor:crop:cancelled', {
-      mode: session.mode,
-      target: session.target
     })
 
     return true
@@ -493,6 +500,23 @@ export default class CropManager {
    */
   public destroy(): void {
     this.cancel()
+  }
+
+  /**
+   * Ends the crop session without applying it and selects `nextActiveObject` afterwards.
+   */
+  private _cancelSession({
+    session,
+    nextActiveObject
+  }: {
+    session: CropSession
+    nextActiveObject: FabricObject | null
+  }): void {
+    this._finishSession({ nextActiveObject })
+    this.editor.canvas.fire('editor:crop:cancelled', {
+      mode: session.mode,
+      target: session.target
+    })
   }
 
   /**
@@ -624,9 +648,19 @@ export default class CropManager {
 
   /**
    * Activates the crop session on the canvas.
+   * A frame created for a requested aspect ratio keeps it when strict mode fits the frame to the source; an explicit
+   * size takes precedence over the ratio, as in resolveCropSize(). Otherwise only the overflowing axes shrink, so a
+   * default frame keeps as much of the source as possible.
    */
-  private _activateSession({ session }: { session: CropSession }): void {
+  private _activateSession({
+    session,
+    options
+  }: {
+    session: CropSession
+    options: StartCanvasCropOptions | StartImageCropOptions
+  }): void {
     const { canvas, historyManager } = this.editor
+    const hasRequestedAspectRatio = !options.size && Boolean(options.aspectRatio)
 
     historyManager.suspendHistory()
     this.editor.toolbar.hideTemporarily()
@@ -646,7 +680,10 @@ export default class CropManager {
     canvas.add(session.frame)
     canvas.bringObjectToFront(session.frame)
     canvas.setActiveObject(session.frame)
-    this._clampFrameIfNeeded({ session })
+    this._clampFrameIfNeeded({
+      session,
+      preserveAspectRatio: hasRequestedAspectRatio
+    })
     this._bindCanvasSelectionEvents({ session })
     canvas.requestRenderAll()
 
@@ -702,7 +739,10 @@ export default class CropManager {
 
     if (!this._frameInteraction?.ownsTransform(event?.transform)) {
       const restored = restoreCropSourceBoundFrame({ session, event })
-      this._clampFrameIfNeeded({ session, preserveAspectRatio: session.effectivePreserveAspectRatio })
+      const fittedResize = this._fitNonRectangularSourceResize({ session, transform: event?.transform })
+      if (!fittedResize) {
+        this._clampFrameIfNeeded({ session, preserveAspectRatio: session.effectivePreserveAspectRatio })
+      }
       restoreCropScaleAnchor({ session, transform: event?.transform })
       if (!restored) {
         session.sourceBoundFrameState = event?.transform?.cropSourceScaleClamped === true
@@ -716,6 +756,42 @@ export default class CropManager {
 
     this.editor.canvas.fire('editor:crop:changed', this.getState())
     this.editor.canvas.requestRenderAll()
+  }
+
+  /**
+   * Fits a strict legacy resize step around the fixed point of the gesture when the frame is not a rectangle in
+   * source coordinates, for example on a skewed source. The regular clamp re-centers the frame in source
+   * coordinates, which slides it sideways there. A guide published by legacy snapping before this step is hidden
+   * when the fit moves the frame off it. Returns false for every other case, and when no allowed size fits, so the
+   * regular clamp still runs.
+   */
+  private _fitNonRectangularSourceResize({
+    session,
+    transform
+  }: {
+    session: CropSession
+    transform?: Transform | null
+  }): boolean {
+    const { source, frame, options } = session
+    if (options.allowFrameOverflow || !transform) return false
+    if (!isCropFrameResizeTransform({ transform })) return false
+    if (isFrameRectangularInSource({ source, frame })) return false
+
+    const { originX, originY } = resolveScalingTransformState({ target: frame, transform })
+    const { shouldSnapX, shouldSnapY } = resolveScalingAxisState({ transform })
+    const result = fitResizedCropFrameToSource({
+      source,
+      frame,
+      originX,
+      originY,
+      axes: { x: shouldSnapX, y: shouldSnapY },
+      preserveAspectRatio: session.effectivePreserveAspectRatio
+    })
+    if (result === 'shrunk') {
+      this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
+    }
+
+    return result !== 'impossible'
   }
 
   /**
@@ -737,15 +813,27 @@ export default class CropManager {
 
   /**
    * Cancels crop mode if the crop frame is no longer the active object.
+   * A newly selected object stays selected; a cleared selection, or one that includes the crop frame, returns to the
+   * object that was active before crop.
    */
   private readonly _handleCanvasSelectionChanged = (): void => {
     const { _session: session } = this
     if (!session) return
     if (!session.options.cancelOnSelectionClear) return
     if (this._isSpacePanActive()) return
-    if (this.editor.canvas.getActiveObject() === session.frame) return
 
-    this.cancel()
+    const activeObject = this.editor.canvas.getActiveObject()
+    if (activeObject === session.frame) return
+
+    // This runs inside Fabric's setActiveObject(), so restoring the object that was active before crop would
+    // replace a newly selected object, such as a shape added during crop, while Fabric reports it as selected.
+    // A multi-selection that includes the temporary frame cannot outlive it, so it is replaced as before.
+    const containsFrame = activeObject instanceof ActiveSelection
+      && activeObject.getObjects().includes(session.frame)
+    this._cancelSession({
+      session,
+      nextActiveObject: activeObject && !containsFrame ? activeObject : session.previousActiveObject
+    })
   }
 
   /**
@@ -792,10 +880,6 @@ export default class CropManager {
     const { canvas } = this.editor
     const canvasWithCache = canvas as CanvasWithTargetCache
     const previousSkipTargetFind = canvasWithCache.skipTargetFind
-    const cancelledPayload = {
-      mode: session.mode,
-      target: session.target
-    }
 
     canvasWithCache.skipTargetFind = true
     canvasWithCache._targetInfo = {
@@ -803,13 +887,11 @@ export default class CropManager {
       currentSubTargets: []
     }
 
-    this._finishSession({ nextActiveObject: null })
+    this._cancelSession({ session, nextActiveObject: null })
     this._deferPointerDownSelectionRestore({
       nextActiveObject,
       previousSkipTargetFind
     })
-
-    this.editor.canvas.fire('editor:crop:cancelled', cancelledPayload)
   }
 
   /**
@@ -839,13 +921,17 @@ export default class CropManager {
 
   /**
    * Applies a new local frame size.
+   * With `preserveAspectRatio`, the strict-mode clamp keeps the requested proportions instead of shrinking only
+   * the overflowing axes.
    */
   private _applyFrameSize({
     session,
-    size
+    size,
+    preserveAspectRatio
   }: {
     session: CropSession
     size: CropSize
+    preserveAspectRatio?: boolean
   }): void {
     session.frame.set({
       width: size.width,
@@ -854,7 +940,7 @@ export default class CropManager {
       scaleY: session.source.scaleY ?? 1
     })
     session.frame.setCoords()
-    this._clampFrameIfNeeded({ session })
+    this._clampFrameIfNeeded({ session, preserveAspectRatio })
     this.editor.canvas.requestRenderAll()
   }
 
@@ -978,18 +1064,17 @@ export default class CropManager {
 
   /**
    * Restores the active object if it is still on the canvas.
+   * An ActiveSelection is never one of the canvas objects itself, and an object that is already active is kept
+   * without selecting it again.
    */
   private _restoreActiveObject({ object }: { object: FabricObject | null }): void {
     const { canvas } = this.editor
-    if (!object) {
+    const isOnCanvas = object instanceof ActiveSelection || Boolean(object && canvas.getObjects().includes(object))
+    if (!object || !isOnCanvas) {
       canvas.discardActiveObject()
       return
     }
-
-    if (!canvas.getObjects().includes(object)) {
-      canvas.discardActiveObject()
-      return
-    }
+    if (canvas.getActiveObject() === object) return
 
     canvas.setActiveObject(object)
   }

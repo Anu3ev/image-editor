@@ -1,14 +1,17 @@
 import { Rect } from 'fabric'
 
 import {
+  clampCropFrameToSource,
   clampCropFrameToSourcePreservingAspectRatio,
   getCropRectInSource,
+  isFrameRectangularInSource,
   MAX_CROP_FRAME_HEIGHT,
   MAX_CROP_FRAME_WIDTH,
   MIN_CROP_FRAME_SIZE,
   resolveImageCropSourceAspectRatio,
   resolveCropSize
 } from '../../../../src/editor/crop-manager/domain/crop-geometry'
+import { createSkewedCropSourceFrame } from '../../../test-utils/crop/frame'
 
 describe('crop geometry', () => {
   it('оставляет explicit размер больше источника, когда overflow разрешён', () => {
@@ -260,5 +263,80 @@ describe('crop geometry', () => {
     expect(rect.width).toBeCloseTo(667, 5)
     expect(rect.height).toBeCloseTo(667, 5)
     expect(rect.top).toBeCloseTo(-333.5, 5)
+  })
+
+  it('fits a frame to a skewed source by shrinking only the overflowing axis', () => {
+    const { source, frame } = createSkewedCropSourceFrame({ skewXDegrees: 12 })
+
+    clampCropFrameToSource({ source, frame })
+
+    const rect = getCropRectInSource({ source, frame })
+    expect(rect.width).toBeCloseTo(1000, 8)
+    expect(rect.height).toBe(667)
+    expect(frame.scaleX).toBeLessThan(1)
+    expect(frame.scaleY).toBe(1)
+  })
+
+  it('shrinks both overflowing axes of a skewed frame until each touches the source', () => {
+    const { source, frame } = createSkewedCropSourceFrame({ skewXDegrees: 12, frameHeight: 700 })
+
+    clampCropFrameToSource({ source, frame })
+
+    const rect = getCropRectInSource({ source, frame })
+    expect(rect.width).toBeCloseTo(1000, 8)
+    expect(rect.height).toBeCloseTo(667, 8)
+    expect(frame.scaleX).toBeLessThan(1)
+    expect(frame.scaleY).toBeLessThan(1)
+  })
+
+  it('moves a fitted frame on a skewed source back inside the source', () => {
+    const { source, frame } = createSkewedCropSourceFrame({ skewXDegrees: 12, frameWidth: 600, frameLeft: 400 })
+
+    clampCropFrameToSource({ source, frame })
+
+    const rect = getCropRectInSource({ source, frame })
+    expect(frame.scaleX).toBe(1)
+    expect(rect.left + rect.width).toBeCloseTo(500, 8)
+  })
+
+  it('does not change a fitted frame on a skewed source when it is clamped again', () => {
+    const { source, frame } = createSkewedCropSourceFrame({ skewXDegrees: 12, frameHeight: 700 })
+    clampCropFrameToSource({ source, frame })
+    const { left, top, scaleX, scaleY } = frame
+
+    clampCropFrameToSource({ source, frame })
+
+    expect(frame.left).toBe(left)
+    expect(frame.top).toBe(top)
+    expect(frame.scaleX).toBe(scaleX)
+    expect(frame.scaleY).toBe(scaleY)
+  })
+
+  it('shrinks the frame proportionally when the overflowing axis alone would drop below the minimum size', () => {
+    const { source, frame } = createSkewedCropSourceFrame({ skewXDegrees: 56 })
+
+    clampCropFrameToSource({ source, frame })
+
+    const rect = getCropRectInSource({ source, frame })
+    expect(rect.width).toBeCloseTo(1000, 8)
+    expect(frame.scaleX).toBeCloseTo(frame.scaleY, 10)
+    expect(frame.width * frame.scaleX).toBeGreaterThan(MIN_CROP_FRAME_SIZE)
+  })
+
+  it('shrinks the frame proportionally when the overflowing axis alone cannot absorb a steep skew', () => {
+    const { source, frame } = createSkewedCropSourceFrame({ skewXDegrees: 60 })
+
+    clampCropFrameToSource({ source, frame })
+
+    const rect = getCropRectInSource({ source, frame })
+    expect(rect.width).toBeCloseTo(1000, 8)
+    expect(rect.height).toBeLessThanOrEqual(667)
+    expect(frame.scaleX).toBeCloseTo(frame.scaleY, 10)
+  })
+
+  it('treats a frame on a skewed source as not rectangular in source coordinates', () => {
+    expect(isFrameRectangularInSource(createSkewedCropSourceFrame({ skewXDegrees: 0 }))).toBe(true)
+    expect(isFrameRectangularInSource(createSkewedCropSourceFrame({ skewXDegrees: 12 }))).toBe(false)
+    expect(isFrameRectangularInSource(createSkewedCropSourceFrame({ skewYDegrees: -8 }))).toBe(false)
   })
 })

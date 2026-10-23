@@ -45,6 +45,17 @@ export const MAX_CROP_FRAME_HEIGHT = CANVAS_MAX_HEIGHT
 export const MIN_CROP_FRAME_SIZE = MIN_CROP_FRAME_WIDTH
 
 /**
+ * Relative size of the 2x2 shrink system determinant below which the system counts as singular.
+ */
+const SINGULAR_SYSTEM_EPSILON = 0.000001
+
+/**
+ * Overflow or clamp offset in source pixels below which a frame counts as already inside the source.
+ * It absorbs floating-point error, so a repeated clamp of a fitted frame changes neither its size nor position.
+ */
+export const SOURCE_FIT_EPSILON = 0.000001
+
+/**
  * Returns the crop frame size based on an explicit size, aspect ratio, or full source size.
  */
 export function resolveCropSize({
@@ -141,14 +152,55 @@ export function getCropRectInSource({
   source: FabricObject
   frame: Rect
 }): CropRect {
-  const sourceMatrix = source.calcTransformMatrix()
-  const inverseSourceMatrix = util.invertTransform(sourceMatrix)
-  const frameMatrix = frame.calcTransformMatrix()
-  const localPoints = getFrameLocalCorners({ frame }).map((point) => {
-    return point.transform(frameMatrix).transform(inverseSourceMatrix)
+  const localPoints = mapFramePointsToSource({
+    source,
+    frame,
+    points: getFrameLocalCorners({ frame })
   })
 
   return getBoundsFromPoints({ points: localPoints })
+}
+
+/**
+ * Returns true if the frame stays a rectangle aligned with the source axes in source coordinates.
+ * Skew on the source or on its parent group turns the frame into a parallelogram there, so limits and fixed sides
+ * taken from the frame bounding box in source coordinates no longer describe the frame itself.
+ */
+export function isFrameRectangularInSource({
+  source,
+  frame
+}: {
+  source: FabricObject
+  frame: Rect
+}): boolean {
+  const [origin, alongX, alongY] = mapFramePointsToSource({
+    source,
+    frame,
+    points: [new Point(0, 0), new Point(1, 0), new Point(0, 1)]
+  })
+  const xAxisDrift = Math.abs(alongX.y - origin.y)
+  const yAxisDrift = Math.abs(alongY.x - origin.x)
+
+  return xAxisDrift <= SOURCE_FIT_EPSILON * Math.abs(alongX.x - origin.x)
+    && yAxisDrift <= SOURCE_FIT_EPSILON * Math.abs(alongY.y - origin.y)
+}
+
+/**
+ * Maps points from frame-local coordinates to local source coordinates.
+ */
+export function mapFramePointsToSource({
+  source,
+  frame,
+  points
+}: {
+  source: FabricObject
+  frame: Rect
+  points: Point[]
+}): Point[] {
+  const frameMatrix = frame.calcTransformMatrix()
+  const inverseSourceMatrix = util.invertTransform(source.calcTransformMatrix())
+
+  return points.map((point) => point.transform(frameMatrix).transform(inverseSourceMatrix))
 }
 
 /**
@@ -298,7 +350,11 @@ function clampCropSize({
 }
 
 /**
- * Shrinks the frame if it exceeds the source size.
+ * Shrinks only the overflowing axes of the frame so it fits the source.
+ * On a skewed source the frame size on one axis also widens its bounds on the other, so each axis shrinks just
+ * enough given the other one. When shrinking only the overflowing axes cannot fit the frame while keeping every
+ * shrunk axis at least the minimum crop size, for example under a steep skew, the frame is shrunk
+ * proportionally instead.
  */
 function shrinkFrameToSource({
   source,
@@ -307,22 +363,161 @@ function shrinkFrameToSource({
   source: FabricObject
   frame: Rect
 }): void {
-  const rect = getCropRectInSource({
-    source,
-    frame
+  const shrink = resolvePerAxisShrink({
+    extent: getFrameSourceExtent({ source, frame }),
+    sourceSize: getSourceSize({ source })
   })
-  const sourceSize = getSourceSize({ source })
-  const widthRatio = sourceSize.width / Math.max(rect.width, MIN_CROP_FRAME_WIDTH)
-  const heightRatio = sourceSize.height / Math.max(rect.height, MIN_CROP_FRAME_HEIGHT)
 
-  if (widthRatio < 1) {
-    frame.set({ scaleX: (frame.scaleX ?? 1) * widthRatio })
-  }
-  if (heightRatio < 1) {
-    frame.set({ scaleY: (frame.scaleY ?? 1) * heightRatio })
+  if (!shrink) {
+    shrinkFrameToSourcePreservingAspectRatio({
+      source,
+      frame
+    })
+    return
   }
 
+  frame.set({
+    scaleX: (frame.scaleX ?? 1) * shrink.x,
+    scaleY: (frame.scaleY ?? 1) * shrink.y
+  })
   frame.setCoords()
+}
+
+/**
+ * Frame bounds in source pixels, split by the frame axis that produces them.
+ * Scaling the frame by `x` on its X axis multiplies `widthFromX` and `heightFromX` by `x`, and likewise for Y,
+ * so `width = widthFromX + widthFromY`. Skew is what makes `widthFromY` and `heightFromX` non-zero.
+ */
+type CropFrameSourceExtent = {
+  widthFromX: number
+  widthFromY: number
+  heightFromX: number
+  heightFromY: number
+}
+
+/**
+ * Measures how each frame axis contributes to the frame bounds in source pixels.
+ */
+function getFrameSourceExtent({
+  source,
+  frame
+}: {
+  source: FabricObject
+  frame: Rect
+}): CropFrameSourceExtent {
+  const [center, halfX, halfY] = mapFramePointsToSource({
+    source,
+    frame,
+    points: [
+      new Point(0, 0),
+      new Point(frame.width / 2, 0),
+      new Point(0, frame.height / 2)
+    ]
+  })
+
+  return {
+    widthFromX: 2 * Math.abs(halfX.x - center.x),
+    widthFromY: 2 * Math.abs(halfY.x - center.x),
+    heightFromX: 2 * Math.abs(halfX.y - center.y),
+    heightFromY: 2 * Math.abs(halfY.y - center.y)
+  }
+}
+
+/**
+ * Scale multipliers for the crop frame axes.
+ */
+export type CropAxisShrink = {
+  x: number
+  y: number
+}
+
+/**
+ * Returns per-axis scale multipliers that fit the frame into the source while shrinking only overflowing axes,
+ * or `null` when no such multipliers keep a shrunk axis at least the minimum crop size.
+ */
+function resolvePerAxisShrink({
+  extent,
+  sourceSize
+}: {
+  extent: CropFrameSourceExtent
+  sourceSize: CropSize
+}): CropAxisShrink | null {
+  const { widthFromX, widthFromY, heightFromX, heightFromY } = extent
+  const overflowsWidth = widthFromX + widthFromY - sourceSize.width > SOURCE_FIT_EPSILON
+  const overflowsHeight = heightFromX + heightFromY - sourceSize.height > SOURCE_FIT_EPSILON
+  if (!overflowsWidth && !overflowsHeight) return { x: 1, y: 1 }
+
+  // With the other axis unchanged, one axis shrinks until both bounds fit: on a skewed source it also narrows
+  // the bounds of the other axis. When both axes shrink, both bounds touch the source: a 2x2 linear system.
+  const shrinkXOnly = {
+    x: Math.min(
+      resolveAxisLimit({ available: sourceSize.width - widthFromY, extent: widthFromX }),
+      resolveAxisLimit({ available: sourceSize.height - heightFromY, extent: heightFromX })
+    ),
+    y: 1
+  }
+  const shrinkYOnly = {
+    x: 1,
+    y: Math.min(
+      resolveAxisLimit({ available: sourceSize.height - heightFromX, extent: heightFromY }),
+      resolveAxisLimit({ available: sourceSize.width - widthFromX, extent: widthFromY })
+    )
+  }
+  const determinant = (widthFromX * heightFromY) - (widthFromY * heightFromX)
+  const determinantScale = (widthFromX * heightFromY) + (widthFromY * heightFromX)
+  const shrinkBoth = Math.abs(determinant) > determinantScale * SINGULAR_SYSTEM_EPSILON
+    ? {
+      x: ((sourceSize.width * heightFromY) - (widthFromY * sourceSize.height)) / determinant,
+      y: ((widthFromX * sourceSize.height) - (sourceSize.width * heightFromX)) / determinant
+    }
+    : null
+  const candidates = [
+    overflowsWidth && overflowsHeight ? shrinkBoth : null,
+    overflowsWidth ? shrinkXOnly : null,
+    overflowsHeight ? shrinkYOnly : null
+  ]
+
+  return resolveFittingShrink({ candidates, extent, sourceSize })
+}
+
+/**
+ * Returns the largest multiplier for one axis contribution that fits the available source length.
+ */
+function resolveAxisLimit({ available, extent }: { available: number, extent: number }): number {
+  if (extent <= 0) return Infinity
+
+  return available / extent
+}
+
+/**
+ * Returns the first candidate that fits the frame into the source and keeps every shrunk axis at least the
+ * minimum crop size. Multipliers above 1 are capped, because a candidate never enlarges the frame.
+ */
+function resolveFittingShrink({
+  candidates,
+  extent,
+  sourceSize
+}: {
+  candidates: Array<CropAxisShrink | null>
+  extent: CropFrameSourceExtent
+  sourceSize: CropSize
+}): CropAxisShrink | null {
+  for (const candidate of candidates) {
+    if (!candidate) continue
+
+    const x = Math.min(1, candidate.x)
+    const y = Math.min(1, candidate.y)
+    const width = (x * extent.widthFromX) + (y * extent.widthFromY)
+    const height = (x * extent.heightFromX) + (y * extent.heightFromY)
+    const keepsMinimumWidth = x === 1 || x * extent.widthFromX >= MIN_CROP_FRAME_WIDTH
+    const keepsMinimumHeight = y === 1 || y * extent.heightFromY >= MIN_CROP_FRAME_HEIGHT
+    const fitsSource = width - sourceSize.width <= SOURCE_FIT_EPSILON
+      && height - sourceSize.height <= SOURCE_FIT_EPSILON
+
+    if (keepsMinimumWidth && keepsMinimumHeight && fitsSource) return { x, y }
+  }
+
+  return null
 }
 
 /**
@@ -356,6 +551,8 @@ function shrinkFrameToSourcePreservingAspectRatio({
 
 /**
  * Moves the frame back inside the source without changing its size.
+ * A frame flush with both opposite source edges gets a floating-point offset on every clamp, so an offset within
+ * the fit tolerance leaves the frame in place and a repeated clamp, such as the one on mouseup, does not move it.
  */
 function moveFrameInsideSource({
   source,
@@ -374,6 +571,11 @@ function moveFrameInsideSource({
     rect,
     sourceSize
   })
+
+  if (Math.abs(localOffset.x) <= SOURCE_FIT_EPSILON && Math.abs(localOffset.y) <= SOURCE_FIT_EPSILON) {
+    frame.setCoords()
+    return
+  }
 
   const nextCenter = new Point(
     localCenter.x + localOffset.x,

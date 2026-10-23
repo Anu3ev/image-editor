@@ -1,4 +1,5 @@
 import { test, expect } from '../../fixtures/editor.fixture'
+import { waitForCanvasRender } from '../../helpers/canvas-render.helper'
 
 /** All standard handles of the active crop frame and active selection. */
 const ALL_SCALE_HANDLES = ['tl', 'tr', 'br', 'bl', 'ml', 'mt', 'mr', 'mb'] as const
@@ -93,3 +94,68 @@ test('при сохранении crop после потери выделени�
   expect(selectionCapability.childIds, 'общее выделение должно содержать рамку активной crop-области')
     .toContain(frameId)
 })
+
+for (const mode of ['image', 'canvas'] as const) {
+  test.describe(`Adding an object during ${mode} crop`, () => {
+    test.beforeEach(async({ crop }) => {
+      if (mode === 'image') {
+        // The image is the first object created by the file-level beforeEach.
+        await crop.startImageCrop({ objectIndex: 0 })
+        return
+      }
+
+      await crop.startCanvasCrop()
+    })
+
+    test('ends crop and selects the new shape with its own size', async({ crop, editorModel, page, shapes }) => {
+      const shape = shapes.checkCreation({ shape: await shapes.add({ presetKey: 'square' }), presetKey: 'square' })
+
+      expect(await crop.isActive(), 'selecting the new shape must end crop mode').toBe(false)
+      await test.step('the new shape is the active object right after adding', async() => {
+        expect(await editorModel.getActiveObject()).toMatchObject({
+          id: shape.id,
+          type: shape.type,
+          width: shape.width,
+          height: shape.height,
+          scaleX: shape.scaleX,
+          scaleY: shape.scaleY
+        })
+      })
+
+      await test.step('the selection does not change after the next render', async() => {
+        await waitForCanvasRender({ page })
+
+        expect(await editorModel.getActiveObject()).toMatchObject({ id: shape.id, width: shape.width })
+      })
+    })
+
+    test('saves the shape added during crop as one undoable step', async({ crop, editorModel, history, shapes }) => {
+      const { frame } = await crop.requireState()
+      const objectsBefore = (await editorModel.getObjects()).filter(({ id }) => id !== frame.id)
+      const shape = shapes.checkCreation({ shape: await shapes.add({ presetKey: 'square' }), presetKey: 'square' })
+
+      expect((await editorModel.getObjects()).map(({ id }) => id)).toContain(shape.id)
+
+      await history.undo()
+
+      expect((await editorModel.getObjects()).map(({ id }) => id)).toEqual(objectsBefore.map(({ id }) => id))
+    })
+
+    test('ends crop and selects new text', async({ crop, editorModel, text }) => {
+      const textObject = await text.add({ text: 'Crop' })
+      expect(textObject, 'text must be added').not.toBeNull()
+
+      expect(await crop.isActive()).toBe(false)
+      expect(await editorModel.getActiveObject()).toMatchObject({ id: textObject?.id, type: textObject?.type })
+    })
+
+    test('keeps crop active when the shape is added without selection', async({ crop, editorModel, shapes }) => {
+      const state = await crop.requireState()
+      const shape = await shapes.add({ presetKey: 'square', options: { withoutSelection: true } })
+      expect(shape, 'shape must be added').not.toBeNull()
+
+      expect(await crop.isActive()).toBe(true)
+      expect(await editorModel.getActiveObject()).toMatchObject({ id: state.frame.id })
+    })
+  })
+}

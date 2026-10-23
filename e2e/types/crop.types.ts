@@ -52,6 +52,12 @@ export interface CropStateInfo {
   frame: CropFrameInfo
 }
 
+/** Unrounded overflow of the crop frame beyond its source on each axis, in source pixels. */
+export interface CropSourceOverflowInfo {
+  x: number
+  y: number
+}
+
 /** Image pixel/source state after applying an image crop. */
 export interface CropImageSourceInfo {
   id: string | null
