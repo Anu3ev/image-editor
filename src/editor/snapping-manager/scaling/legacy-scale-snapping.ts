@@ -11,6 +11,7 @@ import type {
   GuideLine
 } from '../types'
 import type { ScalingStepSnapGuard } from './scaling-snap-guard'
+import { resolveOriginOffset } from '../../utils/geometry'
 
 type AxisSnapEdge = 'left' | 'right' | 'top' | 'bottom'
 
@@ -294,24 +295,22 @@ function resolveScaleXUpdate({
   target,
   bounds,
   originX,
+  originY,
   scaleX,
   scaleY,
   verticalSnap
 }: ScaleSnapContext): AxisScaleUpdate | null {
-  const { guidePosition } = verticalSnap
-  if (guidePosition === null) return null
+  const { candidate, guidePosition } = verticalSnap
+  if (guidePosition === null || !candidate) return null
 
-  const desiredWidth = resolveDesiredWidth({
-    bounds,
-    originX,
-    snap: verticalSnap
-  })
-  if (desiredWidth === null) return null
-
-  const absNextScaleX = resolveScaleForBoundsSize({
+  const absNextScaleX = resolveScaleForEdgePosition({
     target,
     axis: 'x',
-    desiredSize: desiredWidth,
+    edge: candidate.edge,
+    edgePosition: guidePosition,
+    bounds,
+    originX,
+    originY,
     scaleX,
     scaleY
   })
@@ -336,25 +335,23 @@ function resolveScaleXUpdate({
 function resolveScaleYUpdate({
   target,
   bounds,
+  originX,
   originY,
   scaleX,
   scaleY,
   horizontalSnap
 }: ScaleSnapContext): AxisScaleUpdate | null {
-  const { guidePosition } = horizontalSnap
-  if (guidePosition === null) return null
+  const { candidate, guidePosition } = horizontalSnap
+  if (guidePosition === null || !candidate) return null
 
-  const desiredHeight = resolveDesiredHeight({
-    bounds,
-    originY,
-    snap: horizontalSnap
-  })
-  if (desiredHeight === null) return null
-
-  const absNextScaleY = resolveScaleForBoundsSize({
+  const absNextScaleY = resolveScaleForEdgePosition({
     target,
     axis: 'y',
-    desiredSize: desiredHeight,
+    edge: candidate.edge,
+    edgePosition: guidePosition,
+    bounds,
+    originX,
+    originY,
     scaleX,
     scaleY
   })
@@ -917,149 +914,184 @@ function resolveBaseDimensions({ target }: { target: FabricObject }): { width: n
   }
 }
 
-/** Linear part of the object transform: how each local axis contributes to scene X and Y. */
-type LinearTransform = {
-  xFromX: number
-  xFromY: number
-  yFromX: number
-  yFromY: number
-}
-
-/** One term `|slope * scale + offset|` of a bounds size that is linear in the scale being solved. */
-type BoundsSizeTerm = {
+/** Position of one object corner relative to the fixed point on one scene axis: `slope * scale + offset`. */
+type CornerOffsetTerm = {
   slope: number
   offset: number
 }
 
-/** Slope below which a bounds size term does not depend on the scale. */
-const BOUNDS_SLOPE_EPSILON = 0.000000001
+/** Slope below which a corner offset does not depend on the scale. */
+const CORNER_SLOPE_EPSILON = 0.000000001
+
+/** Relative tolerance for checking that a solved scale puts the moving edge on the guide. */
+const EDGE_POSITION_EPSILON = 0.000001
 
 /**
- * Calculates the scale on one axis that gives the object bounds the desired size on that axis.
- * The bounds width is `|xFromX| * width + |xFromY| * height`, and every entry of the rotation, scale and skew
- * matrix is linear in the scale being solved, so the size is a sum of absolute linear terms. Skew adds the other
- * axis to the bounds, so a formula that only accounts for rotation overshoots the guide on a skewed object.
- * Of the scales that reach the size, the one closest to the current scale wins.
+ * Calculates the scale on one axis that puts the moving bounds edge of the object on the guide.
+ * The fixed point of the transform stays in place, and every corner offset from it is linear in the scale being
+ * solved, so the moving edge is the largest or smallest of those offsets. Rotation combined with skew also moves
+ * the opposite bounds edge, which is why the edge itself is solved rather than the bounds size. Without rotation
+ * and skew this is `(guide - fixed edge) / size`. Of the scales that reach the guide, the closest to the current
+ * scale wins.
  */
-function resolveScaleForBoundsSize({
+function resolveScaleForEdgePosition({
   target,
   axis,
-  desiredSize,
+  edge,
+  edgePosition,
+  bounds,
+  originX,
+  originY,
   scaleX,
   scaleY
 }: {
   target: FabricObject
   axis: 'x' | 'y'
-  desiredSize: number
+  edge: AxisSnapEdge
+  edgePosition: number
+  bounds: Bounds
+  originX: Transform['originX']
+  originY: Transform['originY']
   scaleX: number
   scaleY: number
 }): number | null {
-  const { width, height } = resolveBaseDimensions({ target })
-  const fixedScaleX = Math.abs(scaleX) || 1
-  const fixedScaleY = Math.abs(scaleY) || 1
-  const transformAt = (scale: number): LinearTransform => getLinearTransform({
-    target,
-    scaleX: axis === 'x' ? scale : fixedScaleX,
-    scaleY: axis === 'y' ? scale : fixedScaleY
-  })
-  const atZero = transformAt(0)
-  const atOne = transformAt(1)
-  const terms = axis === 'x'
-    ? [
-      { slope: (atOne.xFromX - atZero.xFromX) * width, offset: atZero.xFromX * width },
-      { slope: (atOne.xFromY - atZero.xFromY) * height, offset: atZero.xFromY * height }
-    ]
-    : [
-      { slope: (atOne.yFromX - atZero.yFromX) * width, offset: atZero.yFromX * width },
-      { slope: (atOne.yFromY - atZero.yFromY) * height, offset: atZero.yFromY * height }
-    ]
+  const terms = getCornerOffsetTerms({ target, axis, originX, originY, scaleX, scaleY })
+  const currentScale = axis === 'x' ? Math.abs(scaleX) || 1 : Math.abs(scaleY) || 1
+  const offsetAt = ({ scale, extreme }: { scale: number, extreme: 'min' | 'max' }): number => {
+    return Math[extreme](...terms.map(({ slope, offset }) => (slope * scale) + offset))
+  }
+  // The bounds start edge holds the smallest corner offset, which gives the fixed point in scene coordinates.
+  const fixedPosition = (axis === 'x' ? bounds.left : bounds.top) - offsetAt({ scale: currentScale, extreme: 'min' })
+  const movingExtreme = edge === 'right' || edge === 'bottom' ? 'max' : 'min'
+  const targetOffset = edgePosition - fixedPosition
+  const tolerance = EDGE_POSITION_EPSILON * Math.max(1, Math.abs(targetOffset))
+  const solutions = terms
+    .filter(({ slope }) => Math.abs(slope) > CORNER_SLOPE_EPSILON)
+    .map(({ slope, offset }) => (targetOffset - offset) / slope)
+    .filter((scale) => {
+      return scale > 0 && Math.abs(offsetAt({ scale, extreme: movingExtreme }) - targetOffset) <= tolerance
+    })
+  if (!solutions.length) return null
 
-  return solveAbsoluteSum({
-    terms,
-    value: desiredSize,
-    closestTo: axis === 'x' ? fixedScaleX : fixedScaleY
+  return solutions.reduce((best, scale) => {
+    return Math.abs(scale - currentScale) < Math.abs(best - currentScale) ? scale : best
   })
 }
 
 /**
- * Returns the linear part of Fabric's object transform: rotation of the signed scale, skewX and skewY.
- * A flip or a negative scale mirrors an axis before skew and rotation mix the axes, so the sign changes the bounds
- * of a rotated skewed object even though the scale passed in is a magnitude.
+ * Returns how far each corner of the object bounds box lies from the fixed point of the transform on one scene
+ * axis, as a linear function of the scale on the matching object axis.
+ * Fabric measures a skewed object by the box around its skewed shape before rotation: its bounds and selection
+ * frame are that box rotated, and the origin point of that box stays fixed while scaling. Fabric adds a regular
+ * stroke to the shape before scaling and skew and a uniform stroke to the box after them, so each box side is
+ * `growth * scale + fixed`, and only the solved axis grows with the scale being solved. That keeps every corner
+ * offset linear in it. The box is symmetric, so flips do not change it.
  */
-function getLinearTransform({
+function getCornerOffsetTerms({
   target,
+  axis,
+  originX,
+  originY,
   scaleX,
   scaleY
 }: {
   target: FabricObject
+  axis: 'x' | 'y'
+  originX: Transform['originX']
+  originY: Transform['originY']
   scaleX: number
   scaleY: number
-}): LinearTransform {
-  const {
-    angle = 0,
-    skewX = 0,
-    skewY = 0,
-    flipX = false,
-    flipY = false,
-    scaleX: targetScaleX = 1,
-    scaleY: targetScaleY = 1
-  } = target
+}): CornerOffsetTerm[] {
+  const { width, height } = resolveBaseDimensions({ target })
+  const { angle = 0, strokeWidth = 0, strokeUniform = false } = target
+  // Text already counts its stroke in the base dimensions.
+  const isText = target instanceof Textbox
+  const preScaleStroke = isText || strokeUniform ? 0 : strokeWidth
+  const postScaleStroke = !isText && strokeUniform ? strokeWidth : 0
   const radians = (angle * Math.PI) / 180
   const cos = Math.cos(radians)
   const sin = Math.sin(radians)
-  const tanX = Math.tan((skewX * Math.PI) / 180)
-  const tanY = Math.tan((skewY * Math.PI) / 180)
-  const signedScaleX = scaleX * Math.sign(targetScaleX || 1) * (flipX ? -1 : 1)
-  const signedScaleY = scaleY * Math.sign(targetScaleY || 1) * (flipY ? -1 : 1)
-  const scaledXFromX = signedScaleX * (1 + (tanX * tanY))
-  const scaledXFromY = signedScaleX * tanX
-  const scaledYFromX = signedScaleY * tanY
+  const skewedCorners = getSkewedCorners({ target, width: width + preScaleStroke, height: height + preScaleStroke })
+  const boxX = getBoxSideTerm({
+    range: getRange(skewedCorners.map(({ x }) => x)),
+    scale: scaleX,
+    isSolved: axis === 'x',
+    postScaleStroke
+  })
+  const boxY = getBoxSideTerm({
+    range: getRange(skewedCorners.map(({ y }) => y)),
+    scale: scaleY,
+    isSolved: axis === 'y',
+    postScaleStroke
+  })
 
-  return {
-    xFromX: (cos * scaledXFromX) - (sin * scaledYFromX),
-    xFromY: (cos * scaledXFromY) - (sin * signedScaleY),
-    yFromX: (sin * scaledXFromX) + (cos * scaledYFromX),
-    yFromY: (sin * scaledXFromY) + (cos * signedScaleY)
-  }
+  // After rotation, scene X is `cos * x - sin * y` and scene Y is `sin * x + cos * y`.
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([cornerX, cornerY]) => {
+    const shareX = (cornerX / 2) - resolveOriginOffset({ origin: originX })
+    const shareY = (cornerY / 2) - resolveOriginOffset({ origin: originY })
+    const [rotateX, rotateY] = axis === 'x' ? [cos, -sin] : [sin, cos]
+
+    return {
+      slope: (rotateX * shareX * boxX.growth) + (rotateY * shareY * boxY.growth),
+      offset: (rotateX * shareX * boxX.fixed) + (rotateY * shareY * boxY.fixed)
+    }
+  })
+}
+
+/** One side of the object bounds box before rotation: `growth * scale + fixed`. */
+type BoxSideTerm = {
+  growth: number
+  fixed: number
 }
 
 /**
- * Solves `sum(|slope * scale + offset|) = value` for a positive scale and returns the solution closest to
- * `closestTo`, or null when the value is unreachable. The sum is linear between the points where a term changes
- * sign, so each such segment is solved directly.
+ * Returns one box side as a function of the solved scale. A side on the other axis keeps its current scale.
  */
-function solveAbsoluteSum({
-  terms,
-  value,
-  closestTo
+function getBoxSideTerm({
+  range,
+  scale,
+  isSolved,
+  postScaleStroke
 }: {
-  terms: BoundsSizeTerm[]
-  value: number
-  closestTo: number
-}): number | null {
-  const signChanges = terms
-    .filter(({ slope }) => Math.abs(slope) > BOUNDS_SLOPE_EPSILON)
-    .map(({ slope, offset }) => -offset / slope)
-    .filter((point) => point > 0)
-  const segmentStarts = [0, ...signChanges].sort((first, second) => first - second)
-  const solutions = segmentStarts.flatMap((start, index) => {
-    const end = segmentStarts[index + 1] ?? Infinity
-    const probe = Number.isFinite(end) ? (start + end) / 2 : start + 1
-    const { slope, offset } = terms.reduce((sum, term) => {
-      const sign = (term.slope * probe) + term.offset < 0 ? -1 : 1
+  range: number
+  scale: number
+  isSolved: boolean
+  postScaleStroke: number
+}): BoxSideTerm {
+  if (isSolved) return { growth: range, fixed: postScaleStroke }
 
-      return { slope: sum.slope + (sign * term.slope), offset: sum.offset + (sign * term.offset) }
-    }, { slope: 0, offset: 0 })
-    if (Math.abs(slope) <= BOUNDS_SLOPE_EPSILON) return []
+  return { growth: 0, fixed: (range * (Math.abs(scale) || 1)) + postScaleStroke }
+}
 
-    const scale = (value - offset) / slope
-    return scale > 0 && scale >= start && scale <= end ? [scale] : []
+/**
+ * Returns the corners of a shape of the given size after Fabric's skewX, then skewY, at scale 1 and before rotation.
+ */
+function getSkewedCorners({
+  target,
+  width,
+  height
+}: {
+  target: FabricObject
+  width: number
+  height: number
+}): Array<{ x: number, y: number }> {
+  const { skewX = 0, skewY = 0 } = target
+  const tanX = Math.tan((skewX * Math.PI) / 180)
+  const tanY = Math.tan((skewY * Math.PI) / 180)
+
+  return [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([cornerX, cornerY]) => {
+    const x = cornerX * (width / 2)
+    const y = cornerY * (height / 2)
+
+    return { x: ((1 + (tanX * tanY)) * x) + (tanX * y), y: (tanY * x) + y }
   })
-  if (!solutions.length) return null
+}
 
-  return solutions.reduce((best, scale) => {
-    return Math.abs(scale - closestTo) < Math.abs(best - closestTo) ? scale : best
-  })
+/**
+ * Returns the distance between the smallest and the largest value.
+ */
+function getRange(values: number[]): number {
+  return Math.max(...values) - Math.min(...values)
 }
 
 /** Converts the text frame width to its canonical width. */

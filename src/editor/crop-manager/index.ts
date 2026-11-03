@@ -17,20 +17,20 @@ import { getObjectExactBounds } from '../utils/geometry'
 import { CropFrameInteraction } from './interaction/crop-frame-interaction'
 import { fitResizedCropFrameToSource } from './domain/crop-anchored-fit'
 import {
+  applyCropFrameTransformState,
+  getCropFrameTransformState
+} from './domain/crop-frame-transform-state'
+import {
   resolveScalingAxisState,
   resolveScalingTransformState
 } from '../snapping-manager/scaling/legacy-scale-snapping'
-import type {
-  CropFrameChangeEvent,
-  CropSourceBoundTransform
-} from './interaction/crop-resize.types'
+import type { CropFrameChangeEvent } from './interaction/crop-resize.types'
 import { errorCodes } from '../error-manager/error-codes'
 import {
   clampCropFrameToSource,
   clampCropFrameToSourcePreservingAspectRatio,
   getCropRectInSource,
   getSourceSize,
-  isFrameRectangularInSource,
   resolveImageCropSourceAspectRatio,
   resolveCropSize
 } from './domain/crop-geometry'
@@ -39,11 +39,6 @@ import {
   createCropFrame,
   setCropFrameActiveResizePreserveAspectRatio
 } from './domain/crop-frame'
-import { getCropFrameTransformState } from './domain/crop-frame-transform-state'
-import {
-  restoreCropScaleAnchor,
-  restoreCropSourceBoundFrame
-} from './interaction/crop-source-bound-resize'
 import {
   isCropFrameResizeTransform,
   resolveCropFrameResizePreserveAspectRatio
@@ -92,6 +87,12 @@ const DEFAULT_CROP_SESSION_OPTIONS = {
 const SOURCE_BOUNDS_OVERFLOW_EPSILON = 0.5
 
 /**
+ * Smallest distance, in source pixels, from which a resized frame side is held at the source edge. The hold also
+ * covers one screen pixel, because the pointer cannot stop between screen pixels.
+ */
+const SOURCE_EDGE_HOLD_PIXELS = 1
+
+/**
  * Part of the internal Fabric canvas state needed only to suppress the current pointer event.
  */
 type CanvasWithTargetCache = Canvas & {
@@ -108,10 +109,6 @@ type CanvasWithTargetCache = Canvas & {
  */
 type CropResizeModeEvent = {
   e?: Pick<TPointerEvent, 'shiftKey'>
-  transform?: Pick<
-    CropSourceBoundTransform,
-    'cropSourceScaleClamped' | 'cropSourceScalePreserveAspectRatio'
-  >
 }
 
 /**
@@ -214,8 +211,7 @@ export default class CropManager {
   }
 
   /**
-   * Returns the effective aspect ratio preservation state for the given event.
-   * Accounts for Shift being held and the source-bound clamp.
+   * Returns the effective aspect ratio preservation state for the given event, accounting for Shift being held.
    * Returns true if crop mode is inactive.
    */
   private _getEffectivePreserveAspectRatio(
@@ -223,12 +219,6 @@ export default class CropManager {
   ): boolean {
     const { _session: session } = this
     if (!session) return true
-
-    if (event?.transform?.cropSourceScaleClamped === true) {
-      const preserveAspectRatio = event?.transform?.cropSourceScalePreserveAspectRatio
-
-      return preserveAspectRatio ?? true
-    }
 
     return resolveCropFrameResizePreserveAspectRatio({
       target: session.frame,
@@ -544,7 +534,7 @@ export default class CropManager {
       options: sessionOptions,
       previousActiveObject: this.editor.canvas.getActiveObject() ?? null,
       interactivity: [],
-      sourceBoundFrameState: null,
+      lastFittedResize: null,
       effectivePreserveAspectRatio: sessionOptions.preserveAspectRatio
     }
   }
@@ -574,7 +564,7 @@ export default class CropManager {
       options: sessionOptions,
       previousActiveObject: this.editor.canvas.getActiveObject() ?? null,
       interactivity: [],
-      sourceBoundFrameState: null,
+      lastFittedResize: null,
       effectivePreserveAspectRatio: sessionOptions.preserveAspectRatio
     }
   }
@@ -738,16 +728,9 @@ export default class CropManager {
     session.effectivePreserveAspectRatio = this._getEffectivePreserveAspectRatio(event)
 
     if (!this._frameInteraction?.ownsTransform(event?.transform)) {
-      const restored = restoreCropSourceBoundFrame({ session, event })
-      const fittedResize = this._fitNonRectangularSourceResize({ session, transform: event?.transform })
+      const fittedResize = this._fitLegacyResizeToSource({ session, transform: event?.transform })
       if (!fittedResize) {
         this._clampFrameIfNeeded({ session, preserveAspectRatio: session.effectivePreserveAspectRatio })
-      }
-      restoreCropScaleAnchor({ session, transform: event?.transform })
-      if (!restored) {
-        session.sourceBoundFrameState = event?.transform?.cropSourceScaleClamped === true
-          ? getCropFrameTransformState({ frame: session.frame })
-          : null
       }
     }
     if (isCropFrameResizeTransform({ transform: event?.transform })) {
@@ -759,13 +742,15 @@ export default class CropManager {
   }
 
   /**
-   * Fits a strict legacy resize step around the fixed point of the gesture when the frame is not a rectangle in
-   * source coordinates, for example on a skewed source. The regular clamp re-centers the frame in source
-   * coordinates, which slides it sideways there. A guide published by legacy snapping before this step is hidden
-   * when the fit moves the frame off it. Returns false for every other case, and when no allowed size fits, so the
-   * regular clamp still runs.
+   * Fits a strict legacy resize step into the source around the fixed point of the gesture, for every frame.
+   * Re-centering the frame in source coordinates would slide it on a skewed source, and limits taken from its
+   * bounding box in source coordinates would freeze it there. A guide published by legacy snapping before this step
+   * is hidden whenever the fit changes the frame, because the frame may no longer touch it. When no allowed size fits, the frame returns to the last size
+   * that fit in this gesture, or to its size at the start of the gesture. A side that stops within one source or
+   * screen pixel of the source edge is held at that edge. Returns false for moves and overflow mode, which keep the
+   * regular clamp.
    */
-  private _fitNonRectangularSourceResize({
+  private _fitLegacyResizeToSource({
     session,
     transform
   }: {
@@ -775,7 +760,6 @@ export default class CropManager {
     const { source, frame, options } = session
     if (options.allowFrameOverflow || !transform) return false
     if (!isCropFrameResizeTransform({ transform })) return false
-    if (isFrameRectangularInSource({ source, frame })) return false
 
     const { originX, originY } = resolveScalingTransformState({ target: frame, transform })
     const { shouldSnapX, shouldSnapY } = resolveScalingAxisState({ transform })
@@ -785,13 +769,56 @@ export default class CropManager {
       originX,
       originY,
       axes: { x: shouldSnapX, y: shouldSnapY },
-      preserveAspectRatio: session.effectivePreserveAspectRatio
+      preserveAspectRatio: session.effectivePreserveAspectRatio,
+      edgeHoldDistance: this._getSourceEdgeHoldDistance({ frame })
     })
-    if (result === 'shrunk') {
+
+    if (result !== 'unchanged') {
       this.editor.snappingManager.publishVerifiedScaleGuides({ guides: [] })
     }
+    if (result === 'impossible') {
+      this._restoreLastFittedResize({ session, transform })
+      return true
+    }
 
-    return result !== 'impossible'
+    session.lastFittedResize = { transform, state: getCropFrameTransformState({ frame }) }
+
+    return true
+  }
+
+  /**
+   * Returns the hold distance at a source edge in source pixels: one source pixel or one screen pixel, whichever is
+   * larger.
+   */
+  private _getSourceEdgeHoldDistance({ frame }: { frame: CropFrame }): number {
+    const sourceScale = Math.min(Math.abs(frame.cropSourceScaleX), Math.abs(frame.cropSourceScaleY)) || 1
+    const screenPixel = 1 / (sourceScale * this.editor.canvas.getZoom())
+
+    return Math.max(SOURCE_EDGE_HOLD_PIXELS, screenPixel)
+  }
+
+  /**
+   * Returns the frame to the last size that fit the source in this gesture, or to its size at the gesture start.
+   */
+  private _restoreLastFittedResize({
+    session,
+    transform
+  }: {
+    session: CropSession
+    transform: Transform
+  }): void {
+    const { frame, lastFittedResize } = session
+    if (lastFittedResize?.transform === transform) {
+      applyCropFrameTransformState({ frame, state: lastFittedResize.state })
+      return
+    }
+
+    // Fabric keeps the frame's own left and top here; its originX and originY are the origin of the gesture.
+    const { original } = transform
+    applyCropFrameTransformState({
+      frame,
+      state: { left: original.left, top: original.top, scaleX: original.scaleX, scaleY: original.scaleY }
+    })
   }
 
   /**

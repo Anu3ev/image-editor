@@ -8,6 +8,8 @@ import {
 } from 'fabric'
 
 import {
+  MAX_CROP_FRAME_HEIGHT,
+  MAX_CROP_FRAME_WIDTH,
   MIN_CROP_FRAME_HEIGHT,
   MIN_CROP_FRAME_WIDTH,
   SOURCE_FIT_EPSILON,
@@ -16,6 +18,8 @@ import {
   type CropAxisShrink
 } from './crop-geometry'
 import { getCropFrameSourceSize } from './crop-frame-size'
+import { resolveOriginOffset } from '../../utils/geometry'
+import type { CropSize } from '../types'
 
 /** Frame axes that the current resize gesture changes. */
 export type CropResizeAxes = {
@@ -31,9 +35,10 @@ type CropFitConstraint = {
 }
 
 /**
- * Result of fitting a resized frame: it already fit, it was shrunk to fit, or no allowed size fits.
+ * Result of fitting a resized frame: it already fit, its size was changed to fit or to hold at a source edge, or no
+ * allowed size fits.
  */
-export type CropAnchoredFitResult = 'unchanged' | 'shrunk' | 'impossible'
+export type CropAnchoredFitResult = 'unchanged' | 'fitted' | 'impossible'
 
 /** Constraint coefficient below which a constraint does not depend on a multiplier. */
 const COEFFICIENT_EPSILON = 0.000000001
@@ -44,7 +49,9 @@ const COEFFICIENT_EPSILON = 0.000000001
  * Box-based source limits do not work when the frame is a parallelogram in source coordinates, so the corners are
  * fitted directly. Each corner position is linear in the axis scale multipliers, which turns every source edge into
  * one linear constraint. A proportional resize and a side handle shrink along one multiplier; a free corner resize
- * keeps the size closest to the one the pointer asks for.
+ * keeps the size closest to the one the pointer asks for. A moving side that stops no further than
+ * `edgeHoldDistance` source pixels short of a source edge is extended onto it, because the pointer moves in whole
+ * screen pixels and could not reach an edge that lies between them.
  */
 export function fitResizedCropFrameToSource({
   source,
@@ -52,7 +59,8 @@ export function fitResizedCropFrameToSource({
   originX,
   originY,
   axes,
-  preserveAspectRatio
+  preserveAspectRatio,
+  edgeHoldDistance
 }: {
   source: FabricObject
   frame: Rect
@@ -60,6 +68,7 @@ export function fitResizedCropFrameToSource({
   originY: TOriginY
   axes: CropResizeAxes
   preserveAspectRatio: boolean
+  edgeHoldDistance: number
 }): CropAnchoredFitResult {
   // Fabric origin points include the stroke, whose local size changes with the scale under strokeUniform, so the
   // fixed point is taken on the stroke-free frame that the source constraint is about.
@@ -67,23 +76,22 @@ export function fitResizedCropFrameToSource({
     resolveOriginOffset({ origin: originX }) * frame.width,
     resolveOriginOffset({ origin: originY }) * frame.height
   )
-  const constraints = getCornerFitConstraints({ source, frame, localFixedPoint })
-  if (isWithinConstraints({ constraints, multipliers: { x: 1, y: 1 } })) return 'unchanged'
-
   const frameSize = getCropFrameSourceSize({ frame })
-  const minimum = {
-    x: Math.min(1, MIN_CROP_FRAME_WIDTH / frameSize.width),
-    y: Math.min(1, MIN_CROP_FRAME_HEIGHT / frameSize.height)
-  }
-  const multipliers = preserveAspectRatio || !axes.x || !axes.y
-    ? resolveLineMultipliers({ constraints, minimum, axes: preserveAspectRatio ? { x: true, y: true } : axes })
-    : resolveClosestMultipliers({
-      constraints,
-      minimum,
-      width: frame.width * (frame.scaleX ?? 1),
-      height: frame.height * (frame.scaleY ?? 1)
-    })
-  if (!multipliers) return 'impossible'
+  // The maximum crop size bounds the edge hold, which may grow a frame the crop controls have already limited.
+  const constraints = [
+    ...getCornerFitConstraints({ source, frame, localFixedPoint }),
+    { x: 1, y: 0, limit: MAX_CROP_FRAME_WIDTH / frameSize.width },
+    { x: 0, y: 1, limit: MAX_CROP_FRAME_HEIGHT / frameSize.height }
+  ]
+  const lineAxes = preserveAspectRatio ? { x: true, y: true } : axes
+  const isLineResize = preserveAspectRatio || !axes.x || !axes.y
+  const fitted = resolveFittedMultipliers({ constraints, frame, frameSize, lineAxes, isLineResize })
+  if (!fitted) return 'impossible'
+
+  const multipliers = isLineResize
+    ? holdLineAtSourceEdge({ constraints, multipliers: fitted, axes: lineAxes, frameSize, edgeHoldDistance })
+    : holdCornerAtSourceEdges({ constraints, multipliers: fitted, frameSize, edgeHoldDistance })
+  if (multipliers.x === 1 && multipliers.y === 1) return 'unchanged'
 
   const fixedPoint = localFixedPoint.transform(frame.calcTransformMatrix())
   frame.set({
@@ -97,18 +105,91 @@ export function fitResizedCropFrameToSource({
   })
   frame.setCoords()
 
-  return 'shrunk'
+  return 'fitted'
 }
 
 /**
- * Returns the origin position relative to the object center as a share of its size, from -0.5 to 0.5.
+ * Returns the multipliers that fit the frame into the source, `{ x: 1, y: 1 }` for a frame that already fits, or
+ * null when even the minimum size does not fit.
  */
-function resolveOriginOffset({ origin }: { origin: TOriginX | TOriginY }): number {
-  if (typeof origin === 'number') return origin - 0.5
-  if (origin === 'left' || origin === 'top') return -0.5
-  if (origin === 'right' || origin === 'bottom') return 0.5
+function resolveFittedMultipliers({
+  constraints,
+  frame,
+  frameSize,
+  lineAxes,
+  isLineResize
+}: {
+  constraints: CropFitConstraint[]
+  frame: Rect
+  frameSize: CropSize
+  lineAxes: CropResizeAxes
+  isLineResize: boolean
+}): CropAxisShrink | null {
+  if (isWithinConstraints({ constraints, multipliers: { x: 1, y: 1 } })) return { x: 1, y: 1 }
 
-  return 0
+  const minimum = {
+    x: Math.min(1, MIN_CROP_FRAME_WIDTH / frameSize.width),
+    y: Math.min(1, MIN_CROP_FRAME_HEIGHT / frameSize.height)
+  }
+
+  return isLineResize
+    ? resolveLineMultipliers({ constraints, minimum, axes: lineAxes })
+    : resolveClosestMultipliers({
+      constraints,
+      minimum,
+      width: frame.width * (frame.scaleX ?? 1),
+      height: frame.height * (frame.scaleY ?? 1)
+    })
+}
+
+/**
+ * Extends the moving axes of a side or proportional resize up to the nearest source edge when every moving side
+ * grows by no more than the hold distance.
+ */
+function holdLineAtSourceEdge({
+  constraints,
+  multipliers,
+  axes,
+  frameSize,
+  edgeHoldDistance
+}: {
+  constraints: CropFitConstraint[]
+  multipliers: CropAxisShrink
+  axes: CropResizeAxes
+  frameSize: CropSize
+  edgeHoldDistance: number
+}): CropAxisShrink {
+  const current = axes.x ? multipliers.x : multipliers.y
+  const reach = getLineReach({ constraints, axes, multipliers })
+  const growth = Math.max(axes.x ? frameSize.width : 0, axes.y ? frameSize.height : 0) * (reach - current)
+  // A frame already at the edge only differs from it by floating-point noise and keeps its size.
+  if (growth <= SOURCE_FIT_EPSILON || growth > edgeHoldDistance) return multipliers
+
+  return { x: axes.x ? reach : multipliers.x, y: axes.y ? reach : multipliers.y }
+}
+
+/**
+ * Extends each axis of a free corner resize up to the nearest source edge when it grows by no more than the hold
+ * distance. The horizontal side is held first, so the vertical one is measured against the held width.
+ */
+function holdCornerAtSourceEdges({
+  constraints,
+  multipliers,
+  frameSize,
+  edgeHoldDistance
+}: {
+  constraints: CropFitConstraint[]
+  multipliers: CropAxisShrink
+  frameSize: CropSize
+  edgeHoldDistance: number
+}): CropAxisShrink {
+  const heldX = holdLineAtSourceEdge({
+    constraints, multipliers, axes: { x: true, y: false }, frameSize, edgeHoldDistance
+  })
+
+  return holdLineAtSourceEdge({
+    constraints, multipliers: heldX, axes: { x: false, y: true }, frameSize, edgeHoldDistance
+  })
 }
 
 /**
@@ -183,22 +264,34 @@ function resolveLineMultipliers({
   minimum: CropAxisShrink
   axes: CropResizeAxes
 }): CropAxisShrink | null {
-  const toMultipliers = (multiplier: number): CropAxisShrink => ({
-    x: axes.x ? multiplier : 1,
-    y: axes.y ? multiplier : 1
-  })
-  const largest = constraints.reduce((current, { x, y, limit }) => {
-    const coefficient = (axes.x ? x : 0) + (axes.y ? y : 0)
-    const available = limit - (axes.x ? 0 : x) - (axes.y ? 0 : y)
-    if (coefficient <= COEFFICIENT_EPSILON) return current
-
-    return Math.min(current, available / coefficient)
-  }, 1)
+  const largest = Math.min(1, getLineReach({ constraints, axes, multipliers: { x: 1, y: 1 } }))
   const smallest = Math.max(axes.x ? minimum.x : 0, axes.y ? minimum.y : 0)
-  const multipliers = toMultipliers(largest)
+  const multipliers = { x: axes.x ? largest : 1, y: axes.y ? largest : 1 }
   if (largest < smallest || !isWithinConstraints({ constraints, multipliers })) return null
 
   return multipliers
+}
+
+/**
+ * Returns the largest common multiplier of the selected axes that keeps every constraint, while the other axis
+ * keeps its multiplier from `multipliers`.
+ */
+function getLineReach({
+  constraints,
+  axes,
+  multipliers
+}: {
+  constraints: CropFitConstraint[]
+  axes: CropResizeAxes
+  multipliers: CropAxisShrink
+}): number {
+  return constraints.reduce((current, { x, y, limit }) => {
+    const coefficient = (axes.x ? x : 0) + (axes.y ? y : 0)
+    const available = limit - (axes.x ? 0 : x * multipliers.x) - (axes.y ? 0 : y * multipliers.y)
+    if (coefficient <= COEFFICIENT_EPSILON) return current
+
+    return Math.min(current, available / coefficient)
+  }, Infinity)
 }
 
 /**

@@ -49,7 +49,7 @@ export const createMinimalSession = ({
     },
     previousActiveObject: null,
     interactivity: [],
-    sourceBoundFrameState: null,
+    lastFittedResize: null,
     effectivePreserveAspectRatio: preserveAspectRatio
   }
 }

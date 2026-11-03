@@ -78,8 +78,9 @@ export function createCropTransform({ frame, action }: { frame: CropFrame; actio
       top: frame.top,
       flipX: false,
       flipY: false,
-      originX: frame.originX,
-      originY: frame.originY
+      // Like Fabric, the start state keeps the frame's own position but the origin of the gesture.
+      originX: isScale ? 'left' : 'center',
+      originY: isScale ? 'bottom' : 'center'
     },
     actionPerformed: false
   }

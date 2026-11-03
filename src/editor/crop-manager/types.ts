@@ -1,4 +1,4 @@
-import type { FabricImage, FabricObject, Rect } from 'fabric'
+import type { FabricImage, FabricObject, Rect, Transform } from 'fabric'
 import type { CropFrame } from './domain/crop-frame'
 
 /**
@@ -106,6 +106,14 @@ export type CropFrameTransformState = {
 }
 
 /**
+ * Last frame geometry of the current legacy resize gesture that fit the source.
+ */
+export type CropFittedResizeState = {
+  transform: Transform
+  state: CropFrameTransformState
+}
+
+/**
  * Shared runtime fields of a crop session. Not serialized or included in history.
  */
 type BaseCropSession = {
@@ -114,7 +122,7 @@ type BaseCropSession = {
   options: CropSessionOptions
   previousActiveObject: FabricObject | null
   interactivity: CropObjectInteractivity[]
-  sourceBoundFrameState: CropFrameTransformState | null
+  lastFittedResize: CropFittedResizeState | null
   effectivePreserveAspectRatio: boolean
 }
 

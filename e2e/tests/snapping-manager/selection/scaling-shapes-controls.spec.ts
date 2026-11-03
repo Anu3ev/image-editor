@@ -4,7 +4,7 @@ import {
 } from '../../../fixtures/rotated-shape-selection-scaling.fixture'
 import {
   ACTIVE_SELECTION_SCALE_CONTROL_CASES,
-  MIXED_SELECTION_SCALE_CONTROL_CASES,
+  CORNER_SELECTION_SCALE_CONTROL_CASES,
   ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE,
   type ActiveSelectionScaleEdge
 } from '../../../fixtures/data/active-selection-scaling.data'
@@ -81,7 +81,23 @@ for (const controlCase of ACTIVE_SELECTION_SCALE_CONTROL_CASES) {
   })
 }
 
-for (const controlCase of MIXED_SELECTION_SCALE_CONTROL_CASES) {
+test('a mixed selection with rotated shapes offers only its corner handles', async({
+  rotatedMixedShapeScaleSetup: setup,
+  selection
+}) => {
+  expect(setup.shapeIds.length).toBeGreaterThan(0)
+  expect((await selection.scaling.getCapability()).availableScaleHandles).toEqual(['tl', 'tr', 'br', 'bl'])
+})
+
+test('a shape selection with rotated shapes offers only its corner handles', async({
+  rotatedShapeScaleSetup: setup,
+  selection
+}) => {
+  expect(setup.shapeIds.length).toBeGreaterThan(0)
+  expect((await selection.scaling.getCapability()).availableScaleHandles).toEqual(['tl', 'tr', 'br', 'bl'])
+})
+
+for (const controlCase of CORNER_SELECTION_SCALE_CONTROL_CASES) {
   test(`в смешанном выделении ${controlCase.title} не вызывает скачка повёрнутых шейпов`, async({
     rotatedMixedShapeScaleSetup: setup,
     selection
@@ -132,7 +148,7 @@ for (const controlCase of MIXED_SELECTION_SCALE_CONTROL_CASES) {
   })
 }
 
-for (const controlCase of ACTIVE_SELECTION_SCALE_CONTROL_CASES) {
+for (const controlCase of CORNER_SELECTION_SCALE_CONTROL_CASES) {
   test(`${controlCase.title} не вызывает скачка и не деформирует повёрнутые шейпы`, async({
     rotatedShapeScaleSetup: setup,
     selection

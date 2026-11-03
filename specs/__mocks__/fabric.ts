@@ -1166,6 +1166,9 @@ export const controlsUtils = {
   wrapWithFireEvent: jest.fn((_eventName: string, handler: unknown) => handler),
   wrapWithFixedAnchor: jest.fn((handler: unknown) => handler),
   scalingEqually: jest.fn(() => true),
+  scalingX: jest.fn(() => true),
+  scalingY: jest.fn(() => true),
+  scaleCursorStyleHandler: jest.fn(() => 'ew-resize'),
   getLocalPoint: jest.fn((_transform, _originX, _originY, x: number, y: number) => new Point(x, y))
 }
 

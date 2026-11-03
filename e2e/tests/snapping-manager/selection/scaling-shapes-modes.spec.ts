@@ -56,7 +56,7 @@ test('без Shift пропорционально меняет размеры з
   await selection.scaling.finish()
 })
 
-test('с Shift свободно меняет ширину и высоту повёрнутых шейпов за угол', async({
+test('keeps the proportions of rotated shapes from a corner even with Shift held', async({
   rotatedMixedShapeScaleSetup: setup,
   selection
 }) => {
@@ -86,8 +86,7 @@ test('с Shift свободно меняет ширину и высоту пов
     const heightMultiplier = current.leftEdgeLength / baseline.leftEdgeLength
 
     expect(widthMultiplier).toBeGreaterThan(1)
-    expect(heightMultiplier).toBeGreaterThan(1)
-    expect(widthMultiplier).not.toBeCloseTo(heightMultiplier, 2)
+    expect(heightMultiplier).toBeCloseTo(widthMultiplier, 3)
     expect(current.orthogonality).toBeCloseTo(0, 5)
   }
 
@@ -105,15 +104,15 @@ test('с Shift свободно меняет ширину и высоту пов
   expectSelectionFrameToMatchLiveState({ committed, live })
 })
 
-test('при горизонтальном скейлинге относительно центра рамка остаётся на месте', async({
+test('keeps the frame centered when rotated shapes are scaled from a corner around the center', async({
   rotatedMixedShapeScaleSetup: setup,
   selection
 }) => {
   const baseline = setup.initial
   const baselineGeometry = await selection.getChildSceneGeometry()
 
-  await selection.scaling.startFromControl({ centered: true, control: 'mr' })
-  await selection.scaling.dragControlBy({ deltaX: 30, deltaY: 0, pointerSteps: 2 })
+  await selection.scaling.startFromControl({ centered: true, control: 'br' })
+  await selection.scaling.dragControlBy({ deltaX: 30, deltaY: 20, pointerSteps: 2 })
 
   const live = await selection.getCompositionSnapshot()
   const liveGeometry = await selection.getChildSceneGeometry()
@@ -127,7 +126,7 @@ test('при горизонтальном скейлинге относител�
     expectRotatedShapeLiveGeometry({
       baselineShape: requireSelectionShapeSnapshot({ composition: baseline, id }),
       baselineScene: requireSelectionChildSceneGeometry({ geometries: baselineGeometry, id }),
-      changesHeight: false,
+      changesHeight: true,
       changesWidth: true,
       currentShape: requireSelectionShapeSnapshot({ composition: live, id }),
       currentScene: requireSelectionChildSceneGeometry({ geometries: liveGeometry, id }),
@@ -149,7 +148,7 @@ test('при горизонтальном скейлинге относител�
   expectSelectionFrameToMatchLiveState({ committed, live })
 })
 
-test('при скейлинге повёрнутой рамки заранее повёрнутые шейпы не прыгают', async({
+test('pre-rotated shapes do not jump when a rotated selection frame is scaled from a corner', async({
   rotatedMixedShapeScaleSetup: setup,
   selection
 }) => {
@@ -157,14 +156,14 @@ test('при скейлинге повёрнутой рамки заранее �
 
   const baseline = await selection.getCompositionSnapshot()
   const baselineGeometry = await selection.getChildSceneGeometry()
-  const fixedPoint = await selection.scaling.getControlScenePoint({ control: 'ml' })
+  const fixedPoint = await selection.scaling.getControlScenePoint({ control: 'tl' })
 
-  await selection.scaling.startFromControl({ control: 'mr' })
+  await selection.scaling.startFromControl({ control: 'br' })
   await selection.scaling.dragControlBy({ deltaX: 32, deltaY: 16, pointerSteps: 2 })
 
   const live = await selection.getCompositionSnapshot()
   const liveGeometry = await selection.getChildSceneGeometry()
-  const liveFixedPoint = await selection.scaling.getControlScenePoint({ control: 'ml' })
+  const liveFixedPoint = await selection.scaling.getControlScenePoint({ control: 'tl' })
 
   expect(Math.abs(liveFixedPoint.x - fixedPoint.x))
     .toBeLessThanOrEqual(ROTATED_SHAPE_SELECTION_GEOMETRY_TOLERANCE)
@@ -175,7 +174,7 @@ test('при скейлинге повёрнутой рамки заранее �
     expectRotatedShapeLiveGeometry({
       baselineShape: requireSelectionShapeSnapshot({ composition: baseline, id }),
       baselineScene: requireSelectionChildSceneGeometry({ geometries: baselineGeometry, id }),
-      changesHeight: false,
+      changesHeight: true,
       changesWidth: true,
       currentShape: requireSelectionShapeSnapshot({ composition: live, id }),
       currentScene: requireSelectionChildSceneGeometry({ geometries: liveGeometry, id }),

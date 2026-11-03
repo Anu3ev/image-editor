@@ -4,7 +4,6 @@ import {
   clampCropFrameToSource,
   clampCropFrameToSourcePreservingAspectRatio,
   getCropRectInSource,
-  isFrameRectangularInSource,
   MAX_CROP_FRAME_HEIGHT,
   MAX_CROP_FRAME_WIDTH,
   MIN_CROP_FRAME_SIZE,
@@ -332,11 +331,5 @@ describe('crop geometry', () => {
     expect(rect.width).toBeCloseTo(1000, 8)
     expect(rect.height).toBeLessThanOrEqual(667)
     expect(frame.scaleX).toBeCloseTo(frame.scaleY, 10)
-  })
-
-  it('treats a frame on a skewed source as not rectangular in source coordinates', () => {
-    expect(isFrameRectangularInSource(createSkewedCropSourceFrame({ skewXDegrees: 0 }))).toBe(true)
-    expect(isFrameRectangularInSource(createSkewedCropSourceFrame({ skewXDegrees: 12 }))).toBe(false)
-    expect(isFrameRectangularInSource(createSkewedCropSourceFrame({ skewYDegrees: -8 }))).toBe(false)
   })
 })

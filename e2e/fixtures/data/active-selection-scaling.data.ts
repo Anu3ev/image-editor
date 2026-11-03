@@ -155,9 +155,10 @@ export const ACTIVE_SELECTION_TEXT_SCALE_SEEDS = Object.freeze([
 ])
 
 /** Visible handles of a mixed selection containing text. */
-export const MIXED_SELECTION_SCALE_CONTROL_CASES = Object.freeze(
+/** Corner cases: a selection with an individually rotated object scales only from its corners. */
+export const CORNER_SELECTION_SCALE_CONTROL_CASES = Object.freeze(
   ACTIVE_SELECTION_SCALE_CONTROL_CASES.filter(({ control }) => {
-    return control !== 'mr' && control !== 'mt' && control !== 'mb'
+    return control === 'tl' || control === 'tr' || control === 'bl' || control === 'br'
   })
 )
 

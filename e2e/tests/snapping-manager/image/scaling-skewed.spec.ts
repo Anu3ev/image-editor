@@ -7,7 +7,12 @@ import {
 import { getImageBoundsEdge } from '../../../helpers/skewed-image.helper'
 
 for (const { imageSkew, control, edge, directionX, directionY } of SKEWED_IMAGE_EDGE_CASES) {
-  test.describe(`Scaling an image skewed by ${imageSkew.skewX}° × ${imageSkew.skewY}°`, () => {
+  const rotation = 'angle' in imageSkew ? imageSkew.angle : 0
+  const strokeTitle = 'strokeWidth' in imageSkew
+    ? ` with a ${imageSkew.strokeWidth}px${'strokeUniform' in imageSkew ? ' uniform' : ''} stroke`
+    : ''
+
+  test.describe(`Scaling an image skewed by ${imageSkew.skewX}° × ${imageSkew.skewY}° and rotated by ${rotation}°${strokeTitle}`, () => {
     test.use({ imageSkew })
 
     test(`puts its ${edge} edge on the artboard guide when scaled from ${control}`, async({

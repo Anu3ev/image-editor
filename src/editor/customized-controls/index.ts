@@ -11,6 +11,11 @@ import {
 } from 'fabric'
 import { DEFAULT_CONTROLS } from './default-controls'
 import { applyShapeCornerFreeScaleControls } from '../shape-manager/scaling/shape-controls'
+import {
+  applySelectionScalingControls,
+  restoreSelectionScalingControls,
+  wouldSideStretchDistort
+} from './selection-scaling-controls'
 
 type BoundingBox = {
   height: number
@@ -234,6 +239,10 @@ export default class ControlsCustomizer {
 
   /**
    * Applies ActiveSelection scaling constraints and controls for objects with their own text/layout contract.
+   * A child that a one-axis stretch would distort, for example one rotated on its own relative to the selection,
+   * leaves the selection only proportional corner handles. Text never switches a side handle to skew.
+   * The same selection instance is reused when its children change, so these two rules are recomputed from the
+   * original controls. The shape corner rule is still only added: corners keep it after the last shape leaves.
    */
   private static applyActiveSelectionScalingRules(
     {
@@ -246,25 +255,32 @@ export default class ControlsCustomizer {
   ): void {
     const hasText = objects.some((object) => object instanceof Textbox)
     const hasShape = objects.some((object) => object.shapeComposite === true)
+    const hasDistortingChild = objects.some((object) => wouldSideStretchDistort({ object }))
     const shouldLockScalingFlip = hasText || hasShape
 
     selection.set({
       lockScalingFlip: shouldLockScalingFlip
     })
 
+    restoreSelectionScalingControls({ target: selection })
     if (hasShape) {
       applyShapeCornerFreeScaleControls({
         target: selection
       })
     }
+    applySelectionScalingControls({
+      target: selection,
+      proportionalCorners: hasDistortingChild,
+      scaleOnlySides: hasText
+    })
 
     // Hide vertical handles for text objects, but retain horizontal scaling:
     // TextManager handles width changes correctly.
     selection.setControlsVisibility({
-      mt: !hasText,
-      mb: !hasText,
-      ml: true,
-      mr: true
+      mt: !hasText && !hasDistortingChild,
+      mb: !hasText && !hasDistortingChild,
+      ml: !hasDistortingChild,
+      mr: !hasDistortingChild
     })
   }
 }

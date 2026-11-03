@@ -86,24 +86,17 @@
 
 Nested or skewed sources, independently transformed frames and locked frame axes keep their existing controls. Their snapping is owned by crop rather than special branches in shared formulas:
 
-- [`snapping/crop-frame-scale-snapping.ts`](./snapping/crop-frame-scale-snapping.ts) applies the compatibility step, including source limits and fixed placement. `SnappingManager` only passes its cached anchors and publishes the returned guides. The unified event marker bypasses this route.
+- [`snapping/crop-frame-scale-snapping.ts`](./snapping/crop-frame-scale-snapping.ts) applies the compatibility snapping step and keeps the fixed placement. It does not apply source limits: `CropManager` fits the result into the source afterwards. `SnappingManager` only passes its cached anchors and publishes the returned guides. The unified event marker bypasses this route.
 - [`snapping/crop-scale-plan.ts`](./snapping/crop-scale-plan.ts) combines the shared geometric scale plan with the existing source-guide hold rules.
 - [`snapping/crop-scale-pixel-grid.ts`](./snapping/crop-scale-pixel-grid.ts) supplies source-pixel dimensions explicitly. Shared pixel-grid code only constructs and applies scale candidates; [`snapping/crop-scale-snap-guards.ts`](./snapping/crop-scale-snap-guards.ts) owns source-boundary and source-size preference rules.
 - Pixel rounding preserves the fixed frame point with or without a guide, including Ctrl. The untouched axis retains its fractional size. The crop session is explicitly typed with `CropFrame`; the public `CropState.frame` remains compatible with `Rect`.
-- On a skewed source in strict mode, the frame is a parallelogram in source coordinates, so the box-based source limits and fixed sides below would slide or freeze it. `crop-controls` therefore gives a skewed source no box-based bounds, and after each legacy resize step [`domain/crop-anchored-fit.ts`](./domain/crop-anchored-fit.ts) shrinks the frame around the fixed point of the gesture until its corners are inside the source. A proportional resize or a side handle shrinks along one scale; a free corner resize keeps the size closest to the one the pointer asks for.
-
-- `crop-controls` calculates source-bound scale limits and annotates the current `Transform` with transient fields:
-  `cropSourceScaleBounds`, `cropSourceScaleAnchorX/Y`, `cropSourceScaleClamped`, `cropSourceBoundScale`,
-  `cropSourceScalePreserveAspectRatio`.
-- These fields exist only for the current resize session.
-  Do not treat them as persisted state or copy them into the domain model.
+- In strict mode, `crop-controls` limits a legacy resize step only by the minimum and maximum crop size. After each step, `CropManager._fitLegacyResizeToSource()` passes the frame to [`domain/crop-anchored-fit.ts`](./domain/crop-anchored-fit.ts), which shrinks it around the fixed point of the gesture until its corners are inside the source. The same fit serves every legacy frame: on a skewed source the frame is a parallelogram in source coordinates, so limits taken from its source-space bounding box would slide or freeze it, and re-centering the frame in the source would move its fixed side. A proportional resize or a side handle shrinks along one scale; a free corner resize keeps the size closest to the one the pointer asks for.
+- A moving side that stops within one source pixel or one screen pixel of a source edge, whichever is larger, is extended onto that edge. The pointer moves in whole screen pixels, so without this hold a zoomed-out frame could only stop short of an edge or pass it. On a skewed source the edge lies at a fractional size, so the held frame keeps that fractional size; the applied crop result is rounded as usual.
+- When the fit changes the frame, guides published by legacy snapping for that step are cleared. When no allowed size fits, for example because the fixed point itself left the source, the frame returns to the last size that fit during this gesture, or to its size at the gesture start. Moves and `allowFrameOverflow` keep the regular clamp.
 - Resize constrained by the source image keeps two coordinate systems separate:
   `getCropRectInSource()` returns a rectangle in source-image coordinates, `getCropSessionResultRect()` returns an unrounded crop result,
   and public `getState().rect` returns the rounded result.
   Do not use the public result rectangle as input when restoring frame placement from source-image coordinates.
-- `CropManager._handleCropFrameChanged()` first collects source-bound state from the current `Transform`, then applies a common source clamp and restores the fixed anchor through `startRect + anchors + final size`.
-  This is necessary because the common clamp may change the size, but must not move the opposite crop-frame corner.
-- [`interaction/crop-source-bound-resize.ts`](./interaction/crop-source-bound-resize.ts) owns that legacy restoration and source-bound scale-plan application. Crop-mode activation, public state, apply/cancel, and event publication remain in `CropManager`.
 - During Fabric resize, `originX/originY` may temporarily change on the frame.
   When mapping a source rectangle back to frame state, translate the rectangle center to the current Fabric origin with `translateToOriginPoint()` instead of assigning it directly as raw `left/top`.
 
@@ -123,7 +116,7 @@ Nested or skewed sources, independently transformed frames and locked frame axes
   [`domain/crop-frame.ts`](./domain/crop-frame.ts),
   [`interaction/crop-frame-interaction.ts`](./interaction/crop-frame-interaction.ts),
   [`interaction/crop-scale-session.ts`](./interaction/crop-scale-session.ts),
-  [`interaction/crop-source-bound-resize.ts`](./interaction/crop-source-bound-resize.ts),
+  [`domain/crop-anchored-fit.ts`](./domain/crop-anchored-fit.ts),
   [`snapping/crop-frame-scale-snapping.ts`](./snapping/crop-frame-scale-snapping.ts),
   [`interaction/crop-controls.ts`](./interaction/crop-controls.ts),
   [`index.ts`](./index.ts).
