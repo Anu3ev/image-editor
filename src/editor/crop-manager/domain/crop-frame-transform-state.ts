@@ -1,53 +1,6 @@
-import {
-  Point,
-  type FabricObject,
-  type Rect
-} from 'fabric'
+import type { Rect } from 'fabric'
 
-import type {
-  CropFrameTransformState,
-  CropRect
-} from '../types'
-
-/**
- * Crop frame scale to restore along with its position.
- */
-type CropFrameScaleState = {
-  scaleX: number
-  scaleY: number
-}
-
-/**
- * Returns frame geometry materialized from the source rect.
- */
-export function getCropFrameTransformStateFromSourceRect({
-  source,
-  frame,
-  rect,
-  scale
-}: {
-  source: FabricObject
-  frame: Rect
-  rect: CropRect
-  scale: CropFrameScaleState
-}): CropFrameTransformState {
-  const center = new Point(
-    rect.left + (rect.width / 2),
-    rect.top + (rect.height / 2)
-  ).transform(source.calcTransformMatrix())
-  const position = frame.translateToOriginPoint(
-    center,
-    frame.originX,
-    frame.originY
-  )
-
-  return {
-    left: position.x,
-    top: position.y,
-    scaleX: scale.scaleX,
-    scaleY: scale.scaleY
-  }
-}
+import type { CropFrameTransformState } from '../types'
 
 /**
  * Returns enough crop frame geometry to restore a live resize.

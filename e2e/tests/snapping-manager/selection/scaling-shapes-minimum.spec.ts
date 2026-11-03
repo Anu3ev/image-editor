@@ -107,18 +107,18 @@ test('после минимального пропорционального р�
   expect(committed.boundsBottom).toBeCloseTo(reacquired.boundsBottom, 5)
 })
 
-test('при уменьшении справа повёрнутые шейпы останавливаются на минимальной ширине без скачка', async({
+test('rotated shapes stop at their minimum size without a jump when shrunk from a corner', async({
   rotatedShapeScaleSetup: setup,
   selection
 }) => {
-  await selection.scaling.startFromControl({ control: 'mr' })
-  const pointerY = setup.initial.selection.centerY
+  const { boundsLeft, boundsTop } = setup.initial.selection
+  await selection.scaling.startFromControl({ control: 'br' })
   const minimum = await selection.scaling.dragControlToScenePoint({
-    point: { x: setup.initial.selection.boundsLeft + 2, y: pointerY }
+    point: { x: boundsLeft + 2, y: boundsTop + 2 }
   })
   const minimumGeometry = await selection.getChildSceneGeometry()
   const continued = await selection.scaling.dragControlToScenePoint({
-    point: { x: setup.initial.selection.boundsLeft - 30, y: pointerY }
+    point: { x: boundsLeft - 30, y: boundsTop - 30 }
   })
   const continuedComposition = await selection.getCompositionSnapshot()
   const continuedGeometry = await selection.getChildSceneGeometry()

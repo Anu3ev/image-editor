@@ -162,30 +162,6 @@ export function getCropRectInSource({
 }
 
 /**
- * Returns true if the frame stays a rectangle aligned with the source axes in source coordinates.
- * Skew on the source or on its parent group turns the frame into a parallelogram there, so limits and fixed sides
- * taken from the frame bounding box in source coordinates no longer describe the frame itself.
- */
-export function isFrameRectangularInSource({
-  source,
-  frame
-}: {
-  source: FabricObject
-  frame: Rect
-}): boolean {
-  const [origin, alongX, alongY] = mapFramePointsToSource({
-    source,
-    frame,
-    points: [new Point(0, 0), new Point(1, 0), new Point(0, 1)]
-  })
-  const xAxisDrift = Math.abs(alongX.y - origin.y)
-  const yAxisDrift = Math.abs(alongY.x - origin.x)
-
-  return xAxisDrift <= SOURCE_FIT_EPSILON * Math.abs(alongX.x - origin.x)
-    && yAxisDrift <= SOURCE_FIT_EPSILON * Math.abs(alongY.y - origin.y)
-}
-
-/**
  * Maps points from frame-local coordinates to local source coordinates.
  */
 export function mapFramePointsToSource({

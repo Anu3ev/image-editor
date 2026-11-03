@@ -148,7 +148,7 @@ Nested shapes, shapes inside `ActiveSelection`, movement without an active brows
 - When changing text layout, check empty text, multiline text, long words, padding, stroke, alignment, automatic expansion, and editing placement.
 - When changing materialization, check direct creation, history, template, clipboard, grouping, transform fitting, and serialized round trips.
 - When changing scaling, verify live intermediate states, final `object:modified` state, fixed placement, minimum size, text wrapping, ActiveSelection, snapping hold, and interrupted gestures.
-- Before changing unified snapping integration, reread [`../snapping-manager/README.md`](../snapping-manager/README.md) and the current checkpoint in [`technical-specifications/unified-scale-snapping-current-state.md`](../../../technical-specifications/unified-scale-snapping-current-state.md).
+- Before changing unified snapping integration, reread [`../snapping-manager/README.md`](../snapping-manager/README.md).
 
 ## Validation
 

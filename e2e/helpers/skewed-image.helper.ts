@@ -11,6 +11,9 @@ export type ImageTemplateGeometry = {
   skewX: number
   skewY: number
   angle?: number
+  stroke?: string
+  strokeWidth?: number
+  strokeUniform?: boolean
 }
 
 /**

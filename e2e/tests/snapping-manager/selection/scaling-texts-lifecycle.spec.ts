@@ -168,7 +168,7 @@ test('после отмены указателя очищает направля
   await selection.scaling.finish()
 })
 
-test('при нажатии Shift после изменения размера фиксирует его и начинает новую сессию', async({
+test('keeps resizing without skew when Shift is pressed after the size changed', async({
   activeSelectionTextScaleSetup: setup,
   selection,
   snapping
@@ -181,14 +181,14 @@ test('при нажатии Shift после изменения размера �
   const snapped = await selection.getTextCompositionSnapshot()
   expect((await snapping.getGuideState()).guides).toHaveLength(1)
 
-  const afterSwitch = await selection.scaling.dragControlToScenePoint({
+  const afterShift = await selection.scaling.dragControlToScenePoint({
     point: { x: setup.guides.right + 40, y: setup.initial.selection.centerY + 30 },
     shiftKey: true
   })
   const skew = await selection.getSkew()
-  await selection.scaling.releasePointerAfterExternalEnd()
+  await selection.scaling.finish()
 
-  expect(afterSwitch.boundsRight).toBeCloseTo(snapped.selection.boundsRight, 5)
+  expect(afterShift.boundsRight).toBeGreaterThan(snapped.selection.boundsRight)
   expect(skew.skewX).toBeCloseTo(0, 10)
   expect(skew.skewY).toBeCloseTo(0, 10)
   expect((await snapping.getGuideState()).guides).toHaveLength(0)

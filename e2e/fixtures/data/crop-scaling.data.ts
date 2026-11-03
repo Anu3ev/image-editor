@@ -13,6 +13,15 @@ export const STRICT_CROP_SOURCE_SKEWS = [
   { skewX: 12, skewY: -8 }
 ] as const
 
+/** Side controls whose moving side is checked against the matching source edge. */
+export const CROP_SOURCE_EDGE_HOLD_CASES = [
+  { control: 'mr', edge: 'right' },
+  { control: 'mb', edge: 'bottom' }
+] as const
+
+/** Screen pixels short of the source edge from which the pointer approaches it one pixel at a time. */
+export const EDGE_APPROACH_SCREEN_PIXELS = 3
+
 /** Free-ratio sizes on a skewed source where only one axis overflows and the other must keep its size. */
 export const STRICT_CROP_SINGLE_AXIS_OVERFLOW_CASES = [
   { sourceSkew: { skewX: 12, skewY: 0 }, size: { width: 1000, height: 300 }, keptAxis: 'height' },

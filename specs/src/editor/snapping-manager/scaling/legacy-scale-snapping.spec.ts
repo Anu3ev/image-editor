@@ -8,8 +8,8 @@ import {
   createAxisSnapResult,
   createEmptyAxisSnapResult,
   createScalingBounds,
-  findReferenceScaleX,
-  getReferenceBoundsWidth
+  findReferenceScaleXForRightEdge,
+  getReferenceCornerOffsetsX
 } from '../../../../test-utils/snapping/snapping-scaling'
 
 describe('Прежний расчёт прилипания при скейлинге', () => {
@@ -315,28 +315,30 @@ describe('Прежний расчёт прилипания при скейлин
       expect(plan?.nextScaleY).toBeCloseTo(250 / boundsHeight, 10)
     })
 
-    it('matches an independently composed transform for a rotated, skewed and flipped object', () => {
-      const geometry = {
-        width: 200, height: 120, angle: 30, skewX: 15, skewY: 10, flipX: true, flipY: false, scaleY: 1
-      }
-      const boundsWidth = getReferenceBoundsWidth({ geometry, scaleX: 1 })
-      const plan = resolveScaleUpdatePlan({
-        target: new Rect({ ...geometry, strokeWidth: 0 }),
-        bounds: createScalingBounds({ left: 0, top: 0, width: boundsWidth, height: 200 }),
-        originX: 'left',
-        originY: 'top',
-        scaleX: 1,
-        scaleY: 1,
-        shouldUseUniformScaleSnap: false,
-        verticalSnap: createAxisSnapResult({ edge: 'right', position: boundsWidth, guidePosition: 300 }),
-        horizontalSnap: createEmptyAxisSnapResult()
-      })
+    for (const flipY of [false, true]) {
+      it(`puts the right edge of a rotated and skewed object on the guide${flipY ? ' when flipped' : ''}`, () => {
+        const geometry = {
+          width: 200, height: 120, angle: 30, skewX: 15, skewY: 10, flipX: false, flipY, scaleY: 1
+        }
+        const { min, max } = getReferenceCornerOffsetsX({ geometry, scaleX: 1 })
+        const plan = resolveScaleUpdatePlan({
+          target: new Rect({ ...geometry, strokeWidth: 0 }),
+          bounds: createScalingBounds({ left: 0, top: 0, width: max - min, height: 200 }),
+          originX: 'left',
+          originY: 'top',
+          scaleX: 1,
+          scaleY: 1,
+          shouldUseUniformScaleSnap: false,
+          verticalSnap: createAxisSnapResult({ edge: 'right', position: max - min, guidePosition: 300 }),
+          horizontalSnap: createEmptyAxisSnapResult()
+        })
 
-      expect(plan?.nextScaleX).toBeCloseTo(
-        findReferenceScaleX({ geometry, targetWidth: 300, minScale: 0.5, maxScale: 3 }),
-        8
-      )
-    })
+        expect(plan?.nextScaleX).toBeCloseTo(
+          findReferenceScaleXForRightEdge({ geometry, boundsLeft: 0, guide: 300, minScale: 0.5, maxScale: 3 }),
+          8
+        )
+      })
+    }
 
     it('keeps the rotated bounds formula for an object without skew', () => {
       const radians = (30 * Math.PI) / 180

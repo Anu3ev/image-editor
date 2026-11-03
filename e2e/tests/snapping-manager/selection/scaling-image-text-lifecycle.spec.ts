@@ -51,7 +51,7 @@ test('при отмене указателя очищает удержание �
   await selection.scaling.finish()
 })
 
-test('при переключении боковой ручки на наклон фиксирует последний размер без деформации', async({
+test('keeps resizing without skew when Shift is pressed on the side handle', async({
   activeSelectionImageTextScaleSetup: setup,
   selection,
   snapping
@@ -69,22 +69,17 @@ test('при переключении боковой ручки на накло�
     point: { x: setup.montage.right + 40, y: rightControl.y + 30 },
     shiftKey: true
   })
-  await selection.scaling.releasePointerAfterExternalEnd()
+  await selection.scaling.finish()
 
   const committed = await selection.getImageTextCompositionSnapshot(snapshotParams)
   const skew = await selection.getSkew()
-  const committedImage = committed.images[0]
-  const snappedImage = snapped.images[0]
-  if (!committedImage || !snappedImage) throw new Error('Состояние должно содержать изображение')
 
-  expect(committed.selection.boundsRight).toBeCloseTo(snapped.selection.boundsRight, 5)
-  expect(committedImage.geometry.centerX).toBeCloseTo(snappedImage.geometry.centerX, 5)
-  expect(committedImage.geometry.topEdgeLength).toBeCloseTo(snappedImage.geometry.topEdgeLength, 5)
+  expect(committed.selection.boundsRight).toBeGreaterThan(snapped.selection.boundsRight)
   for (const [index, committedText] of committed.texts.entries()) {
     const snappedText = snapped.texts[index]
-    if (!snappedText) throw new Error('Состояние до смены режима должно содержать оба текста')
+    if (!snappedText) throw new Error('The state before Shift must contain both texts')
 
-    expect(committedText.snapshot.width).toBeCloseTo(snappedText.snapshot.width, 5)
+    expect(committedText.snapshot.width).toBeGreaterThan(snappedText.snapshot.width)
     expect(committedText.snapshot.fontSize).toBeCloseTo(snappedText.snapshot.fontSize, 5)
   }
   expect(skew.skewX).toBeCloseTo(0, 10)

@@ -1,11 +1,18 @@
-import { Control, Point, Rect } from 'fabric'
+import { Control, Point, Rect, type TOriginX, type TOriginY } from 'fabric'
 import { CropFrame } from '../../../src/editor/crop-manager/domain/crop-frame'
+import { resolveOriginOffset } from '../../../src/editor/utils/geometry'
 
-/** Gives a centered test frame a scale-and-translate matrix and center placement instead of the Fabric mock. */
+/**
+ * Gives a centered test frame a scale-and-translate matrix and Fabric's origin-aware placement instead of the
+ * Fabric mock: the point is where the given origin of the scaled frame lands.
+ */
 function installCenteredFrameTransform({ frame }: { frame: Rect }): void {
   frame.calcTransformMatrix = () => [frame.scaleX, 0, 0, frame.scaleY, frame.left, frame.top]
-  frame.setPositionByOrigin = (center: Point) => {
-    frame.set({ left: center.x, top: center.y })
+  frame.setPositionByOrigin = (point: Point, originX: TOriginX, originY: TOriginY) => {
+    frame.set({
+      left: point.x - (resolveOriginOffset({ origin: originX }) * frame.width * frame.scaleX),
+      top: point.y - (resolveOriginOffset({ origin: originY }) * frame.height * frame.scaleY)
+    })
   }
 }
 

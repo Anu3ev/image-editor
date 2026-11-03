@@ -1,7 +1,9 @@
 import { test, expect } from '../../fixtures/crop-source-geometry.fixture'
 import {
   CROP_GEOMETRY_RESIZE_CASES,
+  CROP_SOURCE_EDGE_HOLD_CASES,
   CROP_SOURCE_SKEW_CASES,
+  EDGE_APPROACH_SCREEN_PIXELS,
   ROTATED_CROP_SOURCE_SKEW,
   STEEP_CROP_SOURCE_SKEW,
   STRICT_CROP_SINGLE_AXIS_OVERFLOW_CASES,
@@ -264,6 +266,43 @@ for (const sourceSkew of STRICT_CROP_SOURCE_SKEWS) {
         expect(await crop.finishFrameMove()).toEqual(moved)
       })
     })
+
+    for (const { control, edge } of CROP_SOURCE_EDGE_HOLD_CASES) {
+      test(`holds the ${edge} side at the source edge when ${control} stops within a screen pixel of it`, async({
+        crop, page, skewedCropImage: { id }
+      }) => {
+        await crop.startImageCrop({
+          id, size: { width: 400, height: 250 }, preserveAspectRatio: false, allowFrameOverflow: false
+        })
+        const toPointerDelta = (distance: number) => ({
+          deltaX: edge === 'right' ? distance : 0,
+          deltaY: edge === 'bottom' ? distance : 0
+        })
+        const screenPixel = await crop.sourceFit.getScreenPixelInSourcePixels()
+        const initialGap = await crop.sourceFit.getFrameEdgeGap({ edge })
+        // Ctrl turns snapping off, so only the source edge can hold the frame.
+        await page.keyboard.down('Control')
+
+        await test.step('the pointer moves to a few screen pixels short of the edge', async() => {
+          const pointerDistance = Math.floor(initialGap / screenPixel) - EDGE_APPROACH_SCREEN_PIXELS
+
+          await crop.dragFrameControlBy({ control, ...toPointerDelta(pointerDistance) })
+        })
+
+        await test.step('the pointer then moves one screen pixel at a time while it can still get closer', async() => {
+          for (let step = 0; step < EDGE_APPROACH_SCREEN_PIXELS * 2; step += 1) {
+            if (await crop.sourceFit.getFrameEdgeGap({ edge }) <= screenPixel) break
+
+            await crop.continueFrameResizeBy(toPointerDelta(1))
+          }
+        })
+
+        expect(await crop.sourceFit.getFrameEdgeGap({ edge })).toBeCloseTo(0, 6)
+        const last = await crop.requireState()
+        expect(await crop.finishFrameResize()).toEqual(last)
+        await page.keyboard.up('Control')
+      })
+    }
   })
 }
 

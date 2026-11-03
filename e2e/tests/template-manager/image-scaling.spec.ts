@@ -119,7 +119,7 @@ test('шаблон сохраняет размеры изображений из
   }
 })
 
-test('шаблон сохраняет геометрию повёрнутого изображения из растянутого общего выделения', async({
+test('шаблон сохраняет геометрию повёрнутого изображения из масштабированного общего выделения', async({
   canvas,
   editorModel,
   images,
@@ -142,9 +142,10 @@ test('шаблон сохраняет геометрию повёрнутого 
 
   const initial = await selection.getCompositionSnapshot()
 
-  await selection.scaling.startFromControl({ control: 'mr' })
+  // С отдельно повёрнутым изображением у выделения остаются только пропорциональные угловые ручки.
+  await selection.scaling.startFromControl({ control: 'br' })
   await selection.scaling.dragControlToScenePoint({
-    point: { x: initial.selection.boundsRight + 80, y: initial.selection.centerY }
+    point: { x: initial.selection.boundsRight + 80, y: initial.selection.boundsBottom + 80 }
   })
   await selection.scaling.finish()
 

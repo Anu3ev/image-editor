@@ -1,4 +1,10 @@
-import { Point, Textbox, type FabricObject } from 'fabric'
+import {
+  Point,
+  Textbox,
+  type FabricObject,
+  type TOriginX,
+  type TOriginY
+} from 'fabric'
 
 /** Object dimensions in the coordinates defined by its current geometry contract. */
 export type Dimensions = {
@@ -344,4 +350,16 @@ export const getObjectBounds = ({
     centerX: bounds.left + (roundedWidth / 2),
     centerY: bounds.top + (roundedHeight / 2)
   }
+}
+
+/**
+ * Returns the origin position relative to the object center as a share of its size, from -0.5 to 0.5.
+ * Fabric accepts origin names as well as numbers from 0 to 1.
+ */
+export const resolveOriginOffset = ({ origin }: { origin: TOriginX | TOriginY }): number => {
+  if (typeof origin === 'number') return origin - 0.5
+  if (origin === 'left' || origin === 'top') return -0.5
+  if (origin === 'right' || origin === 'bottom') return 0.5
+
+  return 0
 }

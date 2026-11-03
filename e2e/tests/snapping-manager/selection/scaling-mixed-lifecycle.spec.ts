@@ -64,7 +64,7 @@ test('после отмены указателя очищает удержани
   await selection.scaling.finish()
 })
 
-test('при переключении боковой ручки на наклон фиксирует последний размер без деформации', async({
+test('keeps resizing without skew when Shift is pressed on the side handle', async({
   activeSelectionMixedScaleSetup: setup,
   selection,
   snapping
@@ -77,26 +77,26 @@ test('при переключении боковой ручки на накло�
   const rightControl = await selection.scaling.getControlScenePoint({ control: 'mr' })
 
   await selection.scaling.startFromControl({ control: 'mr' })
-  await selection.scaling.dragControlToScenePoint({
+  const snapped = await selection.scaling.dragControlToScenePoint({
     point: { x: setup.montage.right, y: rightControl.y }
   })
-  const snapped = await selection.getMixedCompositionSnapshot(snapshotParams)
 
   expect((await snapping.getGuideState()).guides).toHaveLength(1)
 
-  await selection.scaling.dragControlToScenePoint({
+  const continued = await selection.scaling.dragControlToScenePoint({
     point: { x: setup.montage.right + 40, y: rightControl.y + 30 },
     shiftKey: true
   })
-  await selection.scaling.releasePointerAfterExternalEnd()
+  const live = await selection.getMixedCompositionSnapshot(snapshotParams)
+  await selection.scaling.finish()
 
   const committed = await selection.getMixedCompositionSnapshot(snapshotParams)
   const skew = await selection.getSkew()
 
-  expectMixedSelectionScaleCommit({ final: committed, live: snapped })
+  expect(continued.boundsRight).toBeGreaterThan(snapped.boundsRight)
+  expectMixedSelectionScaleCommit({ final: committed, live })
   expect(skew.skewX).toBeCloseTo(0, 10)
   expect(skew.skewY).toBeCloseTo(0, 10)
-  expect((await snapping.getGuideState()).guides).toHaveLength(0)
 })
 
 test('при ошибке фиксации восстанавливает все объекты и позволяет начать новый скейлинг', async({

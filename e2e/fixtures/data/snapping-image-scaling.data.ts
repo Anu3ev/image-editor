@@ -106,7 +106,23 @@ export const SKEWED_IMAGE_EDGE_CASES = [
   { imageSkew: { skewX: 20, skewY: 0 }, control: 'mr', edge: 'right', directionX: 1, directionY: 0 },
   { imageSkew: { skewX: 20, skewY: 0 }, control: 'ml', edge: 'left', directionX: -1, directionY: 0 },
   { imageSkew: { skewX: 0, skewY: 20 }, control: 'mt', edge: 'top', directionX: 0, directionY: -1 },
-  { imageSkew: { skewX: 0, skewY: 20 }, control: 'mb', edge: 'bottom', directionX: 0, directionY: 1 }
+  { imageSkew: { skewX: 0, skewY: 20 }, control: 'mb', edge: 'bottom', directionX: 0, directionY: 1 },
+  { imageSkew: { skewX: 20, skewY: 0, angle: 10 }, control: 'mr', edge: 'right', directionX: 1, directionY: 0 },
+  { imageSkew: { skewX: 0, skewY: 20, angle: -10 }, control: 'mt', edge: 'top', directionX: 0, directionY: -1 },
+  {
+    imageSkew: { skewX: 20, skewY: 0, stroke: '#000000', strokeWidth: 24 },
+    control: 'mr',
+    edge: 'right',
+    directionX: 1,
+    directionY: 0
+  },
+  {
+    imageSkew: { skewX: 0, skewY: 20, angle: -10, stroke: '#000000', strokeWidth: 24, strokeUniform: true },
+    control: 'mt',
+    edge: 'top',
+    directionX: 0,
+    directionY: -1
+  }
 ] as const
 
 /** Pointer distance of one scaling step from the previous pointer position, small enough to stop inside the snap zone. */

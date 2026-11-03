@@ -611,6 +611,28 @@ export class SelectionModel {
     return snapshot
   }
 
+  /**
+   * Removes one child from the active selection, the same Fabric call a Shift-click on that child makes.
+   * Fabric keeps the same selection instance, so its control rules are recomputed for the remaining children.
+   */
+  async removeChild({ id }: { id: string }): Promise<void> {
+    const remainingCount = await this.page.evaluate((childId) => {
+      const { editor } = window as any
+      const target = editor.canvas.getActiveObject()
+      const child = target?.getObjects?.().find((object: { id?: unknown }) => object.id === childId)
+      if (target?.type !== 'activeselection' || !child) return null
+
+      target.remove(child)
+      target.setCoords()
+      editor.canvas.requestRenderAll()
+
+      return target.getObjects().length
+    }, id)
+
+    expect(remainingCount, `the active selection must contain ${id}`).not.toBeNull()
+    await waitForCanvasRender({ page: this.page })
+  }
+
   /** Returns the selection-area offset relative to the active object without forcing setCoords(). */
   async getActiveObjectSelectionFrameAlignment(): Promise<SelectionFrameAlignmentInfo> {
     const alignment = await this.page.evaluate(() => {

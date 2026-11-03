@@ -1,5 +1,5 @@
 /* eslint-disable no-use-before-define -- Step application precedes internal calculations. */
-import { Point, type TPointerEvent } from 'fabric'
+import { Point, type TPointerEvent, type Transform } from 'fabric'
 
 import { getObjectBounds } from '../../utils/geometry'
 import { applyCropScalingStep } from './crop-scale-pixel-grid'
@@ -12,8 +12,6 @@ import {
 import type { ScalingStepPlacementPreserver } from '../../snapping-manager/scaling/scaling-step-snap-guards'
 import type { AnchorBuckets, GuideLine } from '../../snapping-manager/types'
 import { resolveCropFrameResizePreserveAspectRatio } from '../domain/crop-resize-mode'
-import { applyCropSourceBoundScalePlan, restoreCropScaleAnchor } from '../interaction/crop-source-bound-resize'
-import type { CropSourceBoundTransform } from '../interaction/crop-resize.types'
 import type { CropSession } from '../types'
 import type { CropFrame } from '../domain/crop-frame'
 import { resolveCropScaleUpdatePlan } from './crop-scale-plan'
@@ -21,13 +19,16 @@ import { resolveCropScaleUpdatePlan } from './crop-scale-plan'
 /** Legacy step for a frame whose geometry is not yet supported by the shared scale session. */
 interface CropFrameScaleSnapStep {
   session: CropSession
-  transform: CropSourceBoundTransform
+  transform: Transform
   event?: TPointerEvent | null
   anchors: AnchorBuckets
   threshold: number
 }
 
-/** Applies legacy crop snapping, preserving the fixed side even when no guide is found. */
+/**
+ * Applies legacy crop snapping, preserving the fixed side even when no guide is found.
+ * The source bounds are applied afterwards by CropManager, which hides a guide the frame no longer reaches.
+ */
 export function applyCropFrameScaleSnapping(params: CropFrameScaleSnapStep): GuideLine[] {
   const { session, transform } = params
   const { frame } = session
@@ -36,20 +37,15 @@ export function applyCropFrameScaleSnapping(params: CropFrameScaleSnapStep): Gui
 
   const plan = resolveCropFrameScalePlan(params)
   const preservePlacement = captureFrameScalePlacement({ frame, transform })
-  const isUniform = resolveCropFrameResizePreserveAspectRatio({ target: frame, shiftKey: params.event?.shiftKey })
-  const sourceBound = plan && isUniform && applyCropSourceBoundScalePlan({ session, transform, ...plan })
 
-  if (!sourceBound) {
-    if (plan) {
-      frame.set({ scaleX: plan.nextScaleX ?? frame.scaleX, scaleY: plan.nextScaleY ?? frame.scaleY })
-      preservePlacement.applyPlacement(preservePlacement.placement)
-      transform.scaleX = frame.scaleX
-      transform.scaleY = frame.scaleY
-    }
-    applyCropScalingStep({ target: frame, transform, preservePlacement, snapGuards: plan?.snapGuards })
+  if (plan) {
+    frame.set({ scaleX: plan.nextScaleX ?? frame.scaleX, scaleY: plan.nextScaleY ?? frame.scaleY })
+    preservePlacement.applyPlacement(preservePlacement.placement)
+    transform.scaleX = frame.scaleX
+    transform.scaleY = frame.scaleY
   }
+  applyCropScalingStep({ target: frame, transform, preservePlacement, snapGuards: plan?.snapGuards })
 
-  if (plan) restoreCropScaleAnchor({ session, transform })
   return plan?.guides ?? []
 }
 
@@ -81,7 +77,7 @@ function resolveCropFrameScalePlan({
 /** Saves the frame anchor point in canvas coordinates for applying and validating scale candidates. */
 function captureFrameScalePlacement({
   frame, transform
-}: { frame: CropFrame; transform: CropSourceBoundTransform }): ScalingStepPlacementPreserver {
+}: { frame: CropFrame; transform: Transform }): ScalingStepPlacementPreserver {
   const { originX, originY } = resolveScalingTransformState({ target: frame, transform })
   const point = frame.getPointByOrigin(originX, originY)
 

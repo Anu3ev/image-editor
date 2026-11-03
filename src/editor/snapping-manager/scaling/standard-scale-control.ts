@@ -11,6 +11,14 @@ const STANDARD_RECTANGULAR_SCALE_CONTROLS: Readonly<Record<string, Control>> = O
   controlsUtils.createObjectDefaultControls()
 )
 
+/** Scale-only action of each side handle: the standard side action without its Shift-to-skew switch. */
+const SCALE_ONLY_SIDE_ACTIONS: Readonly<Record<string, Control['actionHandler']>> = Object.freeze({
+  ml: controlsUtils.scalingX,
+  mr: controlsUtils.scalingX,
+  mt: controlsUtils.scalingY,
+  mb: controlsUtils.scalingY
+})
+
 /** Tolerance for comparing standard Fabric control geometry. */
 const STANDARD_SCALE_CONTROL_EPSILON = 0.000000001
 
@@ -29,7 +37,10 @@ function areControlNumbersEqual({
     && Math.abs(first - second) <= STANDARD_SCALE_CONTROL_EPSILON
 }
 
-/** Checks the active control's handlers and position against the standard Fabric contract. */
+/**
+ * Checks the active control's handlers and position against the standard Fabric contract.
+ * A side handle that only scales its axis, without switching to skew, scales the same way and also counts.
+ */
 export function isStandardRectangularScaleControl({
   target,
   transform
@@ -42,7 +53,8 @@ export function isStandardRectangularScaleControl({
   if (!control || !standardControl) return false
 
   const behaviorMatches = [
-    control.actionHandler === standardControl.actionHandler,
+    control.actionHandler === standardControl.actionHandler
+      || control.actionHandler === SCALE_ONLY_SIDE_ACTIONS[transform.corner],
     control.getActionHandler === standardControl.getActionHandler,
     control.positionHandler === standardControl.positionHandler,
     control.getTransformAnchorPoint === standardControl.getTransformAnchorPoint,
@@ -60,7 +72,10 @@ export function isStandardRectangularScaleControl({
   })
 }
 
-/** Checks whether a modifier switched the side control from scaling to skewing. */
+/**
+ * Checks whether a modifier switched the side control from scaling to skewing.
+ * A scale-only side handle never switches, whatever modifier is held.
+ */
 export function didSideScaleSwitchToSkew({
   controlKey,
   pointerEvent,
@@ -75,6 +90,7 @@ export function didSideScaleSwitchToSkew({
     || controlKey === 'mt'
     || controlKey === 'mb'
   if (!isSideControl) return false
+  if (target.controls[controlKey]?.actionHandler === SCALE_ONLY_SIDE_ACTIONS[controlKey]) return false
 
   const altActionKey = target.canvas?.altActionKey
   if (!altActionKey) return false

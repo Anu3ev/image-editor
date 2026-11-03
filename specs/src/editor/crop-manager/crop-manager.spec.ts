@@ -319,19 +319,6 @@ describe('CropManager', () => {
       expect(session.options.preserveAspectRatio).toBe(false)
     })
 
-    it('возвращает true при source-clamped transform без явного флага', () => {
-      const { cropManager, session } = createActiveCropManager({
-        preserveAspectRatio: false
-      })
-
-      const result = cropManager['_getEffectivePreserveAspectRatio']({
-        transform: { cropSourceScaleClamped: true }
-      })
-
-      expect(result).toBe(true)
-      expect(session.options.preserveAspectRatio).toBe(false)
-    })
-
     it('возвращает true, когда crop mode не активен', () => {
       const editor = createEditorStub() as ImageEditor
       const cropManager = new CropManager({ editor })

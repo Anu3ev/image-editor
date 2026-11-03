@@ -182,10 +182,9 @@ test('после свободного скейлинга autoExpand остаёт
   }
 })
 
-test('если Shift зажат до захвата боковой ручки, рамка наклоняется без направляющих', async({
+test('resizes the width without skew when Shift is held before the side handle is grabbed', async({
   activeSelectionTextScaleSetup: setup,
-  selection,
-  snapping
+  selection
 }) => {
   const initial = await selection.getTextCompositionSnapshot()
   const controlPoint = await selection.scaling.getControlScenePoint({ control: 'mr' })
@@ -193,34 +192,29 @@ test('если Shift зажат до захвата боковой ручки, �
   await selection.scaling.startFromControl({ control: 'mr', shiftKey: true })
   await selection.scaling.dragControlToScenePoint({
     point: {
-      x: controlPoint.x,
+      x: controlPoint.x + (40 * setup.scenePixel),
       y: controlPoint.y + (30 * setup.scenePixel)
     }
   })
 
   const live = await selection.getTextCompositionSnapshot()
   const liveSkew = await selection.getSkew()
-  const liveGuides = await snapping.getGuideState()
 
-  expect(Math.abs(liveSkew.skewX) + Math.abs(liveSkew.skewY)).toBeGreaterThan(0.00001)
-  expect(liveGuides.guides).toHaveLength(0)
-  expect(liveGuides.spacingGuides).toHaveLength(0)
+  expect(liveSkew.skewX).toBeCloseTo(0, 10)
+  expect(liveSkew.skewY).toBeCloseTo(0, 10)
   for (const liveText of live.children) {
     const initialText = initial.children.find(({ id }) => id === liveText.id)
-    if (!initialText) throw new Error('Исходное состояние должно содержать оба текста')
+    if (!initialText) throw new Error('The initial state must contain both texts')
 
-    expect(liveText.width).toBeCloseTo(initialText.width, 10)
+    expect(liveText.width).toBeGreaterThan(initialText.width)
     expect(liveText.fontSize).toBeCloseTo(initialText.fontSize, 10)
-    expect(liveText.scaleX).toBeCloseTo(initialText.scaleX, 10)
-    expect(liveText.scaleY).toBeCloseTo(initialText.scaleY, 10)
   }
 
   await selection.scaling.finish()
 
   const committedSkew = await selection.getSkew()
-
-  expect(Math.abs(committedSkew.skewX) + Math.abs(committedSkew.skewY)).toBeGreaterThan(0.00001)
-  expect((await snapping.getGuideState()).guides).toHaveLength(0)
+  expect(committedSkew.skewX).toBeCloseTo(0, 10)
+  expect(committedSkew.skewY).toBeCloseTo(0, 10)
 })
 
 test('при скейлинге за боковую ручку относительно центра сохраняет центр выделения', async({

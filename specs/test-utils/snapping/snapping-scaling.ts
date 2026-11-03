@@ -93,52 +93,66 @@ function multiplyMatrices({ first, second }: { first: Matrix2, second: Matrix2 }
 }
 
 /**
- * Returns the bounds width of an object with the given X scale, composing Fabric's rotation, flipped scale, skewX
- * and skewY as plain matrix products, independently of the closed form used by the editor.
+ * Returns the smallest and largest scene X offsets of the object bounds box corners from the top-left corner of
+ * that box for the given X scale. Like Fabric, the box surrounds the scaled and skewed shape before rotation and is
+ * then rotated. The shape is composed from plain matrix products, independently of the closed form in the editor.
  */
-export function getReferenceBoundsWidth({
+export function getReferenceCornerOffsetsX({
   geometry,
   scaleX
 }: {
   geometry: ReferenceObjectGeometry
   scaleX: number
-}): number {
+}): { min: number, max: number } {
   const toRadians = (degrees: number): number => (degrees * Math.PI) / 180
   const cos = Math.cos(toRadians(geometry.angle))
   const sin = Math.sin(toRadians(geometry.angle))
-  const rotation: Matrix2 = [[cos, -sin], [sin, cos]]
   const scale: Matrix2 = [
     [geometry.flipX ? -scaleX : scaleX, 0],
     [0, geometry.flipY ? -geometry.scaleY : geometry.scaleY]
   ]
   const skewX: Matrix2 = [[1, Math.tan(toRadians(geometry.skewX))], [0, 1]]
   const skewY: Matrix2 = [[1, 0], [Math.tan(toRadians(geometry.skewY)), 1]]
-  const transform = [scale, skewX, skewY].reduce((result, matrix) => {
-    return multiplyMatrices({ first: result, second: matrix })
-  }, rotation)
+  const shape = multiplyMatrices({ first: multiplyMatrices({ first: scale, second: skewX }), second: skewY })
+  const shapeCorners = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([signX, signY]) => {
+    const x = signX * (geometry.width / 2)
+    const y = signY * (geometry.height / 2)
 
-  return (Math.abs(transform[0][0]) * geometry.width) + (Math.abs(transform[0][1]) * geometry.height)
+    return { x: (shape[0][0] * x) + (shape[0][1] * y), y: (shape[1][0] * x) + (shape[1][1] * y) }
+  })
+  const boxWidth = Math.max(...shapeCorners.map(({ x }) => x)) - Math.min(...shapeCorners.map(({ x }) => x))
+  const boxHeight = Math.max(...shapeCorners.map(({ y }) => y)) - Math.min(...shapeCorners.map(({ y }) => y))
+  const offsets = [[0, 0], [boxWidth, 0], [boxWidth, boxHeight], [0, boxHeight]]
+    .map(([x, y]) => (cos * x) - (sin * y))
+
+  return { min: Math.min(...offsets), max: Math.max(...offsets) }
 }
 
-/** Finds the X scale between the bounds at which the reference bounds width equals the target, by bisection. */
-export function findReferenceScaleX({
+/**
+ * Finds by bisection the X scale at which the right bounds edge reaches the guide while the top-left corner of the
+ * bounds box stays fixed. The fixed corner is placed so that the bounds start at `boundsLeft` at scale 1.
+ */
+export function findReferenceScaleXForRightEdge({
   geometry,
-  targetWidth,
+  boundsLeft,
+  guide,
   minScale,
   maxScale
 }: {
   geometry: ReferenceObjectGeometry
-  targetWidth: number
+  boundsLeft: number
+  guide: number
   minScale: number
   maxScale: number
 }): number {
   const BISECTION_STEPS = 200
+  const fixedX = boundsLeft - getReferenceCornerOffsetsX({ geometry, scaleX: 1 }).min
   let low = minScale
   let high = maxScale
 
   for (let step = 0; step < BISECTION_STEPS; step += 1) {
     const middle = (low + high) / 2
-    if (getReferenceBoundsWidth({ geometry, scaleX: middle }) < targetWidth) {
+    if (fixedX + getReferenceCornerOffsetsX({ geometry, scaleX: middle }).max < guide) {
       low = middle
     } else {
       high = middle
