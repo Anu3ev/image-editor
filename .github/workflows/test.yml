@@ -101,140 +101,80 @@ jobs:
           script: |
             const fs = require('fs');
 
-            console.log('� Debug context info:');
-            console.log('- Event name:', '${{ github.event_name }}');
-            console.log('- PR number:', '${{ github.event.pull_request.number }}');
-            console.log('- Issue number:', context.issue.number);
-
-            console.log('�📝 Preparing PR comment with test results...');
-
             const nodeVersion = '${{ matrix.node-version }}';
             const testResult = '${{ steps.run-tests.outputs.test_result }}';
+            const runUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const reportMarker = '<!-- unit-test-report -->';
+            const lowestCoverageFileCount = 10;
+            const maxErrorLines = 10;
+            const hasPassed = testResult === 'success' || testResult === 'success_low_coverage';
+            const testOutput = fs.existsSync('test-output.log') ? fs.readFileSync('test-output.log', 'utf8') : '';
 
-            console.log(`🔍 Debug info: testResult = "${testResult}"`);
-            console.log(`🔍 Debug info: steps.run-tests.conclusion = "${{ steps.run-tests.conclusion }}"`);
+            /** Reads the counts from a Jest summary line, for example "2038 passed, 2038 total". */
+            const readJestCounts = (label) => testOutput.match(new RegExp(`^${label}:\\s+(.+)$`, 'm'))?.[1];
 
-            const emoji = testResult === 'success' || testResult === 'success_low_coverage' ? '✅' : '❌';
+            /** Builds the coverage totals and the files with the lowest line coverage. */
+            const buildCoverageSection = () => {
+              if (!fs.existsSync('coverage/coverage-summary.json')) return 'Coverage summary is not available.\n\n';
 
-            let comment = `${emoji} **Результаты тестирования на Node.js ${nodeVersion}**\n\n`;
+              const { total, ...files } = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
+              const lowestCoverageRows = Object.entries(files)
+                .sort(([, first], [, second]) => first.lines.pct - second.lines.pct)
+                .slice(0, lowestCoverageFileCount)
+                .map(([filePath, stats]) => `| \`${filePath.replace(`${process.cwd()}/`, '')}\` | ${stats.lines.pct}% | ${stats.functions.pct}% |`);
+              const isLowCoverage = testResult === 'success_low_coverage' || total.lines.pct < 80;
 
-            if (testResult === 'success' || testResult === 'success_low_coverage') {
-              comment += '🎉 Все тесты прошли успешно!\n\n';
+              return [
+                '| Lines | Functions | Branches | Statements |',
+                '|---|---|---|---|',
+                `| ${total.lines.pct}% | ${total.functions.pct}% | ${total.branches.pct}% | ${total.statements.pct}% |`,
+                '',
+                ...(isLowCoverage ? ['⚠️ Coverage is below the target.', ''] : []),
+                '<details>',
+                '<summary>Files with the lowest line coverage</summary>',
+                '',
+                '| File | Lines | Functions |',
+                '|---|---|---|',
+                ...lowestCoverageRows,
+                '',
+                '</details>',
+                '',
+                ''
+              ].join('\n');
+            };
 
-              if (testResult === 'success_low_coverage') {
-                comment += '⚠️ **Обратите внимание**: Покрытие кода тестами довольно низкое. Рекомендуется добавить больше тестов.\n\n';
-              }
+            /** Builds the list of failed spec files and the first assertion lines from the Jest log. */
+            const buildFailureSection = () => {
+              const failedFiles = [...new Set(
+                [...testOutput.matchAll(/FAIL\s+(.+\.spec\.ts)/g)].map(([, filePath]) => filePath)
+              )];
+              const errorLines = testOutput.split('\n').filter(line =>
+                line.includes('Expected:') ||
+                line.includes('Received:') ||
+                line.includes('at Object.<anonymous>')
+              );
+              const failedFilesList = failedFiles.map(filePath => `- \`${filePath}\``).join('\n');
+              const errorDetails = errorLines.slice(0, maxErrorLines).join('\n');
 
-              // Add coverage information
-              try {
-                const coverageExists = fs.existsSync('coverage/coverage-summary.json');
-                if (coverageExists) {
-                  console.log('📊 Reading coverage summary...');
-                  const coverage = JSON.parse(fs.readFileSync('coverage/coverage-summary.json', 'utf8'));
-                  const total = coverage.total;
+              return [
+                failedFiles.length > 0 ? `**Failed files**\n\n${failedFilesList}\n\n` : '',
+                errorLines.length > 0 ? `**First errors**\n\n\`\`\`\n${errorDetails}\n\`\`\`\n\n` : ''
+              ].join('');
+            };
 
-                  comment += '## 📊 Покрытие кода тестами\n\n';
-                  comment += '> 💡 **Что это означает?** Покрытие показывает, какая часть вашего кода проверена тестами.\n\n';
+            const counts = [
+              readJestCounts('Tests') && `Tests: ${readJestCounts('Tests')}`,
+              readJestCounts('Test Suites') && `Suites: ${readJestCounts('Test Suites')}`,
+              `Commit: ${context.payload.pull_request.head.sha.slice(0, 7)}`
+            ].filter(Boolean).join(' · ');
 
-                  comment += `| Метрика | Значение | Что проверяется |\n`;
-                  comment += `|---------|----------|------------------|\n`;
-                  comment += `| 📝 **Строки кода** | **${total.lines.pct}%** | Сколько строк кода было выполнено во время тестов |\n`;
-                  comment += `| ⚡ **Функции** | **${total.functions.pct}%** | Сколько функций было вызвано и протестировано |\n`;
-                  comment += `| 🌿 **Ветвления** | **${total.branches.pct}%** | Сколько условий if/else/switch было проверено |\n`;
-                  comment += `| ✨ **Утверждения** | **${total.statements.pct}%** | Сколько отдельных команд было выполнено |\n\n`;
-
-                  // Per-file details in a collapsible section
-                  comment += '<details>\n';
-                  comment += '<summary>📁 <b>Покрытие по файлам</b> (нажмите чтобы развернуть)</summary>\n\n';
-
-                  let filesList = '';
-                  Object.keys(coverage).forEach(filePath => {
-                    if (filePath !== 'total') {
-                      const fileStats = coverage[filePath];
-
-                      // Create a readable path label
-                      let displayPath;
-                      const pathParts = filePath.split('/');
-                      const fileName = pathParts.pop();
-
-                      if (fileName === 'index.ts' && pathParts.length > 0) {
-                        // For index.ts, show the folder and file name
-                        const parentFolder = pathParts[pathParts.length - 1];
-                        displayPath = `${parentFolder}/index.ts`;
-                      } else if (pathParts.length > 2) {
-                        // For deep paths, show the last two folders
-                        const lastTwoParts = pathParts.slice(-2);
-                        displayPath = `${lastTwoParts.join('/')}/${fileName}`;
-                      } else if (pathParts.length > 0) {
-                        // For short paths, show the entire path
-                        displayPath = `${pathParts.join('/')}/${fileName}`;
-                      } else {
-                        // File at the root
-                        displayPath = fileName;
-                      }
-
-                      filesList += `- **${displayPath}**: ${fileStats.lines.pct}% строк, ${fileStats.functions.pct}% функций\n`;
-                    }
-                  });
-
-                  comment += filesList;
-                  comment += '\n</details>\n\n';
-
-                  comment += `\n🔗 [Скачать полный отчёт о покрытии](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
-
-                  // Recommendations
-                  if (total.lines.pct < 80) {
-                    comment += '⚠️ **Рекомендация**: Покрытие ниже 80%. Добавьте больше тестов для критичных участков кода.\n\n';
-                  } else if (total.lines.pct >= 90) {
-                    comment += '🏆 **Отлично!** Высокое покрытие кода тестами. Ваш код хорошо защищён от регрессий.\n\n';
-                  }
-                }
-              } catch (e) {
-                console.log('⚠️ Coverage info not available:', e.message);
-              }
-            } else {
-              comment += '💥 **Некоторые тесты упали!**\n\n';
-
-              // Try to extract error details from the log
-              try {
-                if (fs.existsSync('test-output.log')) {
-                  const testOutput = fs.readFileSync('test-output.log', 'utf8');
-
-                  // Find failed tests
-                  const failedTests = testOutput.match(/FAIL\s+(.+\.spec\.ts)/g);
-                  if (failedTests) {
-                    comment += '## 🔍 Упавшие тесты:\n\n';
-                    failedTests.forEach(failLine => {
-                      const filePath = failLine.replace('FAIL ', '').trim();
-                      const fileName = filePath.split('/').pop();
-                      comment += `- ❌ **${fileName}**\n`;
-                    });
-                    comment += '\n';
-                  }
-
-                  // Find specific errors
-                  const errorLines = testOutput.split('\n').filter(line =>
-                    line.includes('Expected:') ||
-                    line.includes('Received:') ||
-                    line.includes('at Object.<anonymous>')
-                  );
-
-                  if (errorLines.length > 0) {
-                    comment += '## 📋 Детали ошибок:\n\n';
-                    comment += '```\n';
-                    comment += errorLines.slice(0, 10).join('\n'); // First 10 lines
-                    comment += '\n```\n\n';
-                  }
-                }
-              } catch (e) {
-                console.log('⚠️ Could not parse test output:', e.message);
-              }
-
-              comment += `🔗 [Посмотреть полные логи ошибок](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n`;
-            }
-
-            comment += '---\n';
-            comment += `🤖 Протестировано на Node.js ${nodeVersion} | ⏱️ ${new Date().toLocaleString('ru-RU')}`;
+            const comment = [
+              `${reportMarker}\n`,
+              `### ${hasPassed ? '✅ Unit tests passed' : '❌ Unit tests failed'} · Node.js ${nodeVersion}\n\n`,
+              `${counts}\n\n`,
+              hasPassed ? buildCoverageSection() : buildFailureSection(),
+              `[Logs and coverage report](${runUrl})\n`
+            ].join('');
 
             console.log('💬 Looking for existing comment to update...');
 
@@ -247,7 +187,7 @@ jobs:
 
             const botComment = comments.find(comment =>
               comment.user.type === 'Bot' &&
-              comment.body.includes('Результаты тестирования на Node.js')
+              comment.body.includes(reportMarker)
             );
 
             if (botComment) {
